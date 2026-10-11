@@ -3,7 +3,7 @@
 Ticket 1 of 6 (PRD §19 M1). Index: [specs/README.md](README.md).
 
 ## Summary
-Create the pnpm monorepo, tooling and CI gate (lint, typecheck, Vitest), then build the pure `shared` simulation engine: fixed BR values, tunable config, seeded RNG, netting/spread/equity/bankruptcy, price process, news, and nickname rules. Everything later depends on this package, so it is built first and tested hard. Implementation runs on its own git worktree branch (`feature/m1-skeleton-engine`). Local work not visible to the worktree: none (repo is clean, one commit `93a73c6`). The spec itself stays in the main checkout.
+Create the pnpm monorepo, tooling and CI gate (lint, typecheck, Vitest), then build the pure `shared` simulation engine: fixed BR values, tunable config, seeded RNG, netting/spread/equity/bankruptcy, price process, news, and nickname rules. Everything later depends on this package, so it is built first and tested hard. Implementation runs on the current branch of the current checkout (no worktree).
 
 ## Success Criteria
 - `pnpm -r typecheck`, `pnpm lint`, `pnpm test` all green on a fresh clone after `pnpm install`.
@@ -262,6 +262,7 @@ No I/O. Callers own timers and clocks.
 - [ ] None blocking. The `#n` suffix length rule is deferred to M3 (see Risks).
 
 ## Implementation Log
+
 - Worktree: /home/patryk/projects/frist-milion/.claude/worktrees/m1-skeleton-engine — branch worktree-m1-skeleton-engine
 - Step 1 — started
 - Step 1 — done — files: package.json, pnpm-workspace.yaml, .nvmrc, tsconfig.base.json — added noEmit/skipLibCheck/isolatedModules/allowImportingTsExtensions to base tsconfig (typecheck-only, no build); packageManager pnpm@9.15.9
@@ -300,4 +301,3 @@ No I/O. Callers own timers and clocks.
 - Step 15 — check: pnpm test PASS (7 files, 66 tests); pnpm lint PASS; pnpm typecheck PASS (background subagents)
 - Step 15 — done — files: none (verification only); Success Checklist left for review
 - CP6 — ticked: lint, typecheck, test green
-- Spec note: working copy of this spec lives in the worktree (`specs/01-skeleton-engine.md`, untracked); the harness blocked edits at the main-checkout path. Main copy is stale until copied back.
