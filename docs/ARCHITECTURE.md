@@ -1,6 +1,6 @@
 # First Million — Architecture
 
-**Based on:** [PRD v1.2](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** Draft (no code yet; layout below the package level is a proposal)
+**Based on:** [PRD v1.2](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** M1 done (`shared` engine); `web` and `worker` not started, their layout below the package level is a proposal
 
 ## Drivers
 
@@ -51,21 +51,21 @@ Server replies with a code, never text or a thrown exception; `web/i18n` maps co
 | Light | ESLint, `tsc`, Vitest (engine with seeded RNG, `RoomLogic` with fake clock, locale completeness) | implementation |
 | Heavy | Playwright 4 contexts, axe, production build + bundle size, Lighthouse | review + CI |
 
-## Decisions (proposed, continue PRD log)
+## Decisions (proposed; numbered A1–A7 so they do not clash with the PRD §20 log)
 
 | # | Decision |
 |---|---|
-| 33 | `RoomLogic` plain class; DO only owns sockets and timers |
-| 34 | No WebSocket hibernation, storage or alarms in `Room` |
-| 35 | `Lobby` singleton DO; rooms push updates + heartbeat |
-| 36 | Engine takes RNG and elapsed ms as arguments |
-| 37 | Strict zod schemas in `shared/protocol` are the only message definition |
-| 38 | Error codes closed union; server sends no text |
-| 39 | Heavy checks only in review and CI |
+| A1 | `RoomLogic` plain class; DO only owns sockets and timers |
+| A2 | No WebSocket hibernation, storage or alarms in `Room` |
+| A3 | `Lobby` singleton DO; rooms push updates + heartbeat |
+| A4 | Engine takes RNG and elapsed ms as arguments |
+| A5 | Strict zod schemas in `shared/protocol` are the only message definition |
+| A6 | Error codes closed union; server sends no text |
+| A7 | Heavy checks only in review and CI |
 
 ## Open items
 
 1. Free-plan cost of per-tick broadcasts (12.5 msg/s per socket).
-2. Tick drift: catch up steps by wall time or fixed `speed` steps.
-3. Money rounding rule (price, P&L, half spread).
-4. Firebase in dev/e2e: emulator or test accounts.
+2. ~~Tick drift~~ Resolved: fixed `speed` steps per interval (PRD §20 #33).
+3. ~~Money rounding rule~~ Resolved: raw float in the engine, `Intl` in the UI (PRD §20 #34).
+4. ~~Firebase in dev/e2e~~ Resolved: Auth emulator (PRD §20 #35).
