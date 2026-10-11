@@ -1,0 +1,49 @@
+/* Design tokens, single source (PRD §16). Dark theme only (PRD §20 #31). */
+:root {
+  --bg: #07090d;
+  --surface: #0f141b;
+  --border: #1c2530;
+  --grid: #18212b;
+  --text: #e6edf3;
+  --muted: #7d8a99;
+  --up: #2ee59d;
+  --down: #ff5d6c;
+  --gold: #f5c451;
+  --on-up: #04150d;
+  --on-down: #1a0508;
+  --on-gold: #1a1405;
+  --font-ui: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  --font-data: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 15px;
+}
+
+/* Reduced motion: no transitions, animations or press transform (FR-020, WCAG 2.1 AA). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  :active {
+    transform: none !important;
+  }
+}

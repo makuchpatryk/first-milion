@@ -1,0 +1,147 @@
+{
+  "common": {
+    "save": "Zapisz",
+    "cancel": "Anuluj",
+    "loading": "Ładowanie…",
+    "language": "Język"
+  },
+  "app": {
+    "brandFirst": "First",
+    "brandSecond": "Million",
+    "skipToContent": "Przejdź do treści",
+    "goal": "10 000 $ → ?",
+    "tagline": "Zacznij od 10 000 $. Losowy rynek, newsy i rywale w jednym pokoju."
+  },
+  "auth": {
+    "modeLabel": "Tryb",
+    "login": "Zaloguj się",
+    "register": "Utwórz konto",
+    "submitLogin": "Zaloguj się",
+    "submitRegister": "Zarejestruj się",
+    "email": "E-mail",
+    "emailPlaceholder": "ty{'@'}example.com",
+    "password": "Hasło",
+    "passwordPlaceholder": "Minimum 8 znaków",
+    "forgot": "Nie pamiętam hasła",
+    "resetTitle": "Reset hasła",
+    "resetSubmit": "Wyślij link",
+    "resetSent": "Jeśli konto istnieje, wysłaliśmy na ten adres link do zmiany hasła.",
+    "resetBack": "Wróć do logowania",
+    "note": "Po rejestracji wyślemy e-mail weryfikacyjny. Do czasu potwierdzenia adresu gra jest niedostępna.",
+    "privacy": "Polityka prywatności",
+    "verifyTitle": "Zweryfikuj e-mail",
+    "verifyBody": "Wysłaliśmy link weryfikacyjny na adres {email}. Kliknij go, aby odblokować grę.",
+    "resend": "Wyślij ponownie",
+    "resent": "Link wysłany ponownie.",
+    "verified": "Zweryfikowałem",
+    "verifyPending": "Adres nie jest jeszcze potwierdzony.",
+    "logout": "Wyloguj",
+    "error": {
+      "invalidEmail": "Nieprawidłowy adres e-mail.",
+      "emailInUse": "Ten adres e-mail jest już zajęty.",
+      "weakPassword": "Hasło jest zbyt słabe.",
+      "passwordTooShort": "Hasło musi mieć co najmniej 8 znaków.",
+      "invalidCredential": "Nieprawidłowy e-mail lub hasło.",
+      "wrongPassword": "Nieprawidłowe hasło.",
+      "tooManyRequests": "Zbyt wiele prób. Spróbuj ponownie za chwilę.",
+      "network": "Brak połączenia z siecią.",
+      "requiresRecentLogin": "Zaloguj się ponownie i spróbuj jeszcze raz.",
+      "unknown": "Coś poszło nie tak. Spróbuj ponownie."
+    }
+  },
+  "menu": {
+    "loggedInAs": "Zalogowano jako {nick}",
+    "singleTitle": "Single play",
+    "singleDesc": "Sam przeciw rynkowi. Bez limitu czasu, z pauzą. Wyniki nie są zapisywane.",
+    "roomsTitle": "Pokoje",
+    "roomsDesc": "Do 4 graczy, wspólna cena i ranking rundy na żywo."
+  },
+  "account": {
+    "title": "Konto",
+    "nick": "Nick",
+    "change": "Zmień",
+    "nickLabel": "Nowy nick",
+    "nickHint": "3–16 znaków: litery, cyfry, _ i -.",
+    "language": "Język",
+    "privacy": "Polityka prywatności",
+    "logout": "Wyloguj",
+    "delete": "Usuń konto",
+    "deletePassword": "Hasło, aby potwierdzić",
+    "deleteWarning": "Konto zostanie usunięte bezpowrotnie.",
+    "deleteConfirm": "Usuń konto na stałe",
+    "error": {
+      "nickInvalid": "Nick musi mieć 3–16 znaków: litery, cyfry, _ lub -."
+    }
+  },
+  "single": {
+    "mode": "Single play",
+    "sub": "SYNTH/USD, symulowany rynek. Losowe ceny i newsy. Wyniki nie są zapisywane.",
+    "chartLabel": "SYNTH/USD",
+    "menu": "Menu",
+    "capital": "Kapitał",
+    "open": "Wynik otwarty",
+    "pos": "Pozycja",
+    "total": "Wynik łączny",
+    "none": "brak",
+    "size": "Wielkość",
+    "speed": "Tempo",
+    "pause": "Pauza",
+    "resume": "Wznów",
+    "buy": "Kup",
+    "sell": "Sprzedaj",
+    "close": "Zamknij",
+    "key": "klawisz",
+    "hint": "Kup i sprzedaj działają na jednej pozycji: sprzedaż przy długiej pozycji ją zmniejsza, a nadwyżka otwiera krótką. Spread 0,06 $ na każdej transakcji. Podczas zawieszenia notowań zlecenia są zablokowane.",
+    "hist": "Ostatnie transakcje",
+    "histEmpty": "Jeszcze nic nie zamknąłeś.",
+    "trades": "Transakcje",
+    "win": "Trafność",
+    "peak": "Rekord kapitału",
+    "marginCall": "Margin call",
+    "marginCallMsg": "Kapitał spadł do zera po {n} transakcjach. Rekord: {p} $.",
+    "again": "Zagraj od nowa",
+    "haltBar": "ZAWIESZENIE NOTOWAŃ",
+    "units": "szt.",
+    "long": "LONG",
+    "short": "SHORT",
+    "entry": "wejście"
+  },
+  "news": {
+    "none": "Rynek rusza. Brak wiadomości.",
+    "shock": {
+      "up": {
+        "0": "Rząd ogłasza pakiet stymulacyjny. Kupujący wchodzą na rynek. ({p})",
+        "1": "Spółka bije prognozy kwartalne o 18%. ({p})",
+        "2": "Duży fundusz zwiększa udział do 9%. ({p})",
+        "3": "Bank centralny sygnalizuje obniżkę stóp. ({p})"
+      },
+      "down": {
+        "0": "Wyciek raportu: audytor wstrzymuje podpis. ({p})",
+        "1": "Nieoczekiwane cła uderzają w eksport. ({p})",
+        "2": "Prezes sprzedaje pakiet akcji. Rynek reaguje nerwowo. ({p})",
+        "3": "Bank centralny podnosi stopy mocniej niż zakładano. ({p})"
+      }
+    },
+    "flash": "Flash crash: gwałtowna wyprzedaż ({x}). Rynek zaczyna odrabiać straty.",
+    "vol": "Skok zmienności: ceny szaleją w obie strony.",
+    "halt": "Zawieszenie notowań. Handel wstrzymany na 5 s.",
+    "trend": {
+      "up": "Trend wzrostowy: kupujący przejmują rynek.",
+      "down": "Trend spadkowy: sprzedający przejmują rynek."
+    }
+  },
+  "privacy": {
+    "title": "Polityka prywatności",
+    "back": "Wróć",
+    "dataTitle": "Dane konta",
+    "dataBody": "Przechowujemy wyłącznie dane konta w Firebase Authentication: adres e-mail, nick i identyfikator konta. E-mail służy tylko do logowania, weryfikacji i resetu hasła. Inni gracze go nie widzą.",
+    "infraTitle": "Infrastruktura",
+    "infraBody": "Aplikacja działa na infrastrukturze Cloudflare (hosting strony i serwer gry). Cloudflare przetwarza ruch sieciowy potrzebny do działania usługi.",
+    "gameTitle": "Wyniki gry",
+    "gameBody": "Nie zapisujemy wyników, rankingów ani historii transakcji. Dane gry istnieją tylko w pamięci pokoju i w Twojej przeglądarce.",
+    "browserTitle": "Przeglądarka",
+    "browserBody": "W przeglądarce zapisujemy tylko wybrany język. Firebase trzyma tam sesję logowania, aby utrzymać Cię zalogowanym.",
+    "deleteTitle": "Usunięcie konta",
+    "deleteBody": "Konto usuniesz w menu głównym, w sekcji Konto. Wymaga to ponownego podania hasła i kasuje konto w Firebase."
+  }
+}

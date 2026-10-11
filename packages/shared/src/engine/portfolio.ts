@@ -27,9 +27,32 @@ export function fillPrice(price: number, side: TradeSide): number {
   return price + (sideSign(side) * SPREAD) / 2
 }
 
+/** One reduced or closed part of a position, as shown in trade history (BR-004, UF-002). */
+export interface BookedTrade {
+  /** Direction of the position that was reduced: 1 long, -1 short. */
+  readonly dir: 1 | -1
+  readonly units: number
+  readonly entry: number
+  readonly exit: number
+  readonly pnl: number
+}
+
+/** The only place a trade's P&L is computed; netting, close and history all go through it. */
+function reduction(p: Portfolio, units: number, fill: number): BookedTrade {
+  const dir = p.units > 0 ? 1 : -1
+  return { dir, units, entry: p.avg, exit: fill, pnl: (fill - p.avg) * dir * units }
+}
+
+/** Does an order of sign `sign` reduce the current position (BR-004)? */
+const opposes = (p: Portfolio, sign: 1 | -1): boolean =>
+  p.units !== 0 && Math.sign(p.units) !== sign
+
+/** Close fill: half the spread against the trader (prototype L383-389). */
+const closeFill = (p: Portfolio, price: number): number => price - (Math.sign(p.units) * SPREAD) / 2
+
 /** Books a reduction of `units` at `fill`; shared by netting and close (BR-004). */
 function realize(p: Portfolio, units: number, fill: number): Portfolio {
-  const pnl = (fill - p.avg) * Math.sign(p.units) * units
+  const { pnl } = reduction(p, units, fill)
   return {
     ...p,
     realized: p.realized + pnl,
@@ -48,7 +71,7 @@ export function executeOrder(
   const sign = sideSign(side)
   const fill = fillPrice(price, side)
 
-  if (p.units === 0 || Math.sign(p.units) === sign) {
+  if (!opposes(p, sign)) {
     const held = Math.abs(p.units)
     return {
       ...p,
@@ -69,8 +92,27 @@ export function executeOrder(
 /** Closes the whole position incl. spread (prototype L383-389). No-op when flat. */
 export function closePosition(p: Portfolio, price: number): Portfolio {
   if (p.units === 0) return p
-  const fill = price - (Math.sign(p.units) * SPREAD) / 2
-  return { ...realize(p, Math.abs(p.units), fill), units: 0, avg: 0 }
+  return { ...realize(p, Math.abs(p.units), closeFill(p, price)), units: 0, avg: 0 }
+}
+
+/**
+ * The part of the position that `executeOrder(p, side, qty, price)` would book, or `null` when
+ * the order only opens or adds (nothing is realized). Call it with the portfolio *before* the order.
+ */
+export function bookedTrade(
+  p: Portfolio,
+  side: TradeSide,
+  qty: OrderQty,
+  price: number,
+): BookedTrade | null {
+  if (!opposes(p, sideSign(side))) return null
+  return reduction(p, Math.min(Math.abs(p.units), qty), fillPrice(price, side))
+}
+
+/** The trade that `closePosition(p, price)` would book, or `null` when flat. */
+export function closedTradeOf(p: Portfolio, price: number): BookedTrade | null {
+  if (p.units === 0) return null
+  return reduction(p, Math.abs(p.units), closeFill(p, price))
 }
 
 export function unrealized(p: Portfolio, price: number): number {

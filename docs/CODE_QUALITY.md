@@ -4,7 +4,7 @@ Rules First Million is written and reviewed against. **KISS and YAGNI first** (s
 
 ## Principles
 
-- **KISS**: platform first (WebCrypto, `Intl`, `<canvas>`, native elements, `setInterval`). Deps limited to Vue, vue-i18n, Firebase Auth, zod. No chart/UI/state libraries.
+- **KISS**: platform first (WebCrypto, `Intl`, `<canvas>`, native elements, `setInterval`). Deps limited to Vue, vue-router, vue-i18n, Firebase Auth, zod. No chart/UI/state libraries.
 - **YAGNI**: only PRD scope; nothing from PRD §10.3. No retries or timeouts beyond the PRD. Interfaces only as test seams (clock, RNG, socket, token verifier). Delete code with no caller.
 - **DRY**: one source of truth (table below). Types via `z.infer`. Extract on the third copy.
 - **Separation**: rules live in `shared` or `RoomLogic`, never in components, stores or `index.ts`. Client sends intent only.
@@ -22,8 +22,8 @@ Rules First Million is written and reviewed against. **KISS and YAGNI first** (s
 | Nickname and room-form rules | `shared/validation.ts` |
 | Ranking, end conditions | `worker/room/` |
 | Admin UIDs, origins | Worker vars |
-| UI text, error and news messages | `web/i18n/pl.json`, `en.json` |
-| Design tokens | `web/styles/tokens.css` |
+| UI text, error and news messages | `web/src/i18n/pl.json`, `en.json` |
+| Design tokens | `web/src/styles/tokens.css` |
 
 ## Working agreements
 

@@ -1,190 +1,281 @@
 # M2 — Web app: single play and auth — Implementation Plan
 
-Ticket 2 of 6 (PRD §19 M2). Index: [specs/README.md](README.md). Depends on ticket 1 (M1).
+Ticket 2 of 6 (PRD §19 M2). Index: [specs/README.md](README.md). Depends on ticket 1 (M1, done). Implementation runs on the current branch (`main`) of the current checkout: no worktree, no new branch.
 
 ## Summary
-Build the Vue 3 web app shell: routing with guards, PL/EN i18n, dark design tokens with self-hosted fonts, Firebase Auth login/register/verify/reset (emulator in dev), nickname settings, account deletion, the privacy page, and the single-play screen driven by the `shared` engine (chart, news bar, halt, margin call). Works fully offline from the server (no WebSocket yet). Implementation runs on the current branch of the current checkout (no worktree), after M1 is in place. Deploy to Pages is **not** in this ticket (decision: all deploy in M6); the PRD M2 DoD line "deployed to Pages" is amended accordingly.
+Build the Vue 3 web app (`packages/web`): vue-router with guards, PL/EN i18n, dark design tokens with self-hosted fonts, Firebase Auth login/register/verify/reset, nickname and account deletion from the menu account section, the public privacy page, and the single-play screen driven by the `shared` engine (chart, news bar, halt, margin call). Works offline from the server (no WebSocket yet). Deploy to Pages is **not** in this ticket (all deploy in M6; PRD §19 M2 DoD amended, §20 row 36). Firebase Auth emulator setup is the **last** implementation step (step 25).
 
 ## Success Criteria
-- A logged-out user sees only login/register; an unverified user sees only the verify screen; a verified user reaches the menu (FR-001, FR-006, BR-001, BR-002) — verified with Vitest route-guard tests and the Auth emulator in dev.
-- Single play reproduces the prototype: speed 8× executes exactly 8 `stepMarket` calls per 80 ms interval; margin call and restart work (FR-004).
-- Every user-visible string exists in `pl.json` and `en.json` with identical key sets (test); `en-GB` browser → EN (FR-019).
-- Layout has no horizontal scroll at 360 px width (checked by Vitest CSS-free logic only; visual check is manual, heavy axe is M6).
-- Web bundle stays free of server code; `web` imports only `shared` (ARCH dependency rules).
+- Route guard: logged-out user reaches only `/login` and public `/privacy`; unverified user only `/verify`; verified user reaches `/menu`, which shows "Single play" enabled and "Rooms" with `aria-disabled="true"` and no route (FR-001, FR-006, BR-001, BR-002). Verified by Vitest guard and component tests.
+- Single play timing: at 8× one 80 ms interval appends exactly 8 price steps; pause appends 0; "Play again" returns the initial state (FR-004). Verified by Vitest with seeded RNG.
+- Halt and margin call: during `isTradingHalted`, `buy`/`sell`/`close` are no-ops and the buttons are disabled; halt countdown freezes with pause; equity ≤ 0 sets `over` and liquidates (FR-005, BR-015, BR-005). Verified by Vitest.
+- Locale: `pl.json` and `en.json` have identical flattened key sets with no empty values; `en-GB` → EN, `pl-PL` → PL (FR-019). Verified by Vitest.
+- Boundaries: `web` imports only `@fm/shared/*`; Firebase imported only in `src/auth/`; no `v-html` (architecture test).
 
 ## Scope & Constraints
-- **In scope:** FR-001 (auth screens, verification, reset), FR-002 (nickname UI + random default on first verified login), FR-004 (single play), FR-005 (news bar UI), FR-006 (menu), FR-018 (privacy page PL/EN, account deletion with re-auth), FR-019 (i18n), FR-020 (dark theme, 360 px), BP-001, BR-021, BR-016 (settings change), UF-001, UF-002, UF-006, WCAG basics at build time (labels, focus, reduced motion; full audit is M6).
-- **Out of scope:** WebSocket and room screens (M5), Worker auth (M3), Firebase production project (M6), Pages deploy (M6), axe/Lighthouse (M6), e2e (M6).
+- **In scope:** FR-001 (auth screens, verify, reset, password ≥ 8 on register), FR-002 (UI: random `Trader-NNNN` on first verified entry, nickname change validated with `isValidNick`), FR-004 (single play), FR-005 (news bar UI, halt), FR-006 (menu with account section), FR-018 (privacy page PL/EN, account deletion with password re-auth), FR-019 (i18n), FR-020 (dark theme, 360 px), BP-001, BR-001, BR-002, BR-006, BR-016 (UI), BR-021, UF-001, UF-002, UF-006. WCAG basics at build time (labels, focus, reduced motion, aria); full axe audit is M6.
+- **Out of scope:** WebSocket, `web/src/net/`, room and lobby screens, `/rooms` route (M5); server `HALTED` rejection (M4); Worker code (M3, M4); production Firebase project and production env values (M6); Pages deploy, Lighthouse, axe, Playwright e2e (M6, review only).
 - **Hard constraints:**
-  - NFR-005 bundle ≤ 300 KB gzip: checked in M6, but this ticket must not add anything large. Firebase imports only the modular `firebase/auth` subset; no UI library.
-  - Firebase SDK **only** in `web/src/auth/` (ARCH dependency rule).
-  - No `v-html` (CODE_QUALITY).
-  - No persistence beyond language choice in `localStorage` (CODE_QUALITY, BR-020).
-  - Single play results not stored anywhere (BR-006).
+  - NFR-005 bundle ≤ 300 KB gzip: measured in review, not here. Import only `firebase/app` and `firebase/auth` (no `firebase` root). No UI or chart library.
+  - NFR-002: 0 PLN. Self-hosted fonts, no third-party requests.
+  - ARCHITECTURE: `web` imports `shared` only, never `worker`. Firebase SDK only under `packages/web/src/auth/`.
+  - CODE_QUALITY: `<script setup lang="ts">`; no `v-html`; no literal UI text; no `any`, `@ts-ignore`, or unexplained `!`; `localStorage` only for language, wrapped in try/catch.
+  - BR-020/BR-006: no app-owned persistence beyond `localStorage['fm-lang']`; single-play results never stored.
+  - Workflow: during implementation only lint, typecheck and Vitest. Playwright, production build, Lighthouse, axe never close a step or checkpoint.
 - **Trade-offs:**
-  - Routing with `vue-router` (user decision; ~10 KB gzip) accepted for real URLs and the back button. CODE_QUALITY dependency list is updated in this ticket.
-  - Self-hosted fonts (user decision): costs a few hundred KB of woff2 in `public/`, but none of it counts toward the JS bundle budget; no third-party request, which keeps the privacy policy simpler.
-  - Rooms button is shown on the menu (FR-006) but disabled until M5 (`aria-disabled`, no route). Avoids a placeholder screen.
+  - `vue-router` (user decision, ~10 KB gzip): real URLs, back button, one guard.
+  - Self-hosted fonts (user decision): ~10 woff2 files in `public/`, none counted in the JS budget; no third-party request.
+  - Rooms card shown but disabled until M5 (FR-006 says both modes visible).
+  - Account actions live on the menu, as in the mockup (`docs/design/Menu.dc.html`). No `/settings` route. Keeps screens to the mockup set; costs a longer menu screen (scroll is fine at 360 px, no horizontal scroll).
+  - Single-play timer in the main thread (prototype parity); background-tab throttling accepted.
 
 ## Architecture & Design
 
 ### High-Level Flow
 ```
-main.ts → router (guards) → App.vue
-  guard: session state from auth/session.ts
-    logged out           → /login
-    unverified           → /verify
-    verified             → /menu, /single, /settings, /privacy (public), /rooms (M5)
-  single play: views/SinglePlayView.vue → single/useSinglePlay.ts → shared engine
-                         → components/PriceChart.vue (canvas)
+main.ts: resolveLocale → createI18n → session.init() → router → mount App.vue
+router beforeEach: await session.ready → routeFor(status, path)
+  out         → /login        (/privacy always allowed)
+  unverified  → /verify
+  verified    → /menu, /single  (/login, /verify → /menu)
+Auth views → auth/actions.ts → auth/firebase.ts (only file importing firebase/app) → firebase/auth
+           → auth/session.ts (onAuthStateChanged, user.reload after verify)
+SinglePlayView → single/useSinglePlay.ts (80 ms setInterval, injected now/rng)
+  → single/loop.ts advanceSingle (pure) → @fm/shared/engine/market, @fm/shared/engine/portfolio
+  → components/PriceChart.vue (priceChart.ts), NewsBar.vue, ChipGroup.vue
 ```
+
+### Verified `shared` API (M1, checked against `packages/shared/src`)
+- **Import paths:** `src/index.ts` is `export {}`. Use deep imports supported by the `./*` export map: `@fm/shared/engine/market`, `@fm/shared/engine/portfolio`, `@fm/shared/engine/news`, `@fm/shared/rules`, `@fm/shared/config`, `@fm/shared/rng`, `@fm/shared/validation`.
+- **`market.ts`:** `createMarket(rng)`, `stepMarket(m, rng)` (calls `drawNews` internally), `tickHalt(m, elapsedMs)` (wall ms, clears `frozenPrice` at 0), `isTradingHalted(m)`, `shownPrice(m)` (= `frozenPrice ?? price`). UI fields: `price`, `haltMsLeft`, `frozenPrice`, `news`, `newsAge`.
+- **`news.ts`:** `NewsEvent` = `{type:'SHOCK', dir, mag, idx}` | `{type:'FLASH_CRASH', drop}` | `{type:'VOL_SPIKE'}` | `{type:'TRADING_HALT'}` | `{type:'TREND', dir}`. `mag` and `drop` are fractions (UI × 100). `idx` 0–3.
+- **`portfolio.ts`:** `Portfolio {units, avg, realized, closedTrades, wins}`, `emptyPortfolio`, `TradeSide`, `fillPrice`, `executeOrder(p, side, qty, price)`, `closePosition(p, price)`, `unrealized`, `equity`, `isBankrupt`, `liquidate`, `totalResult`. **Spread is applied inside** these: pass raw `m.price`, never a pre-spread price. `executeOrder` does not check halt; the caller must. No trade record is returned (see step 16).
+- **`rules.ts` / `config.ts`:** `START_CASH`, `START_PRICE`, `MIN_PRICE`, `SPREAD`, `ORDER_QTYS`, `OrderQty`, `SPEEDS`, `Speed`, `NICK_PATTERN`; `TICK_MS` 80, `HALT_MS` 5000, `NEWS_FADE_TICKS` 90, `HISTORY_MAX` 2400, `SHOCK_TEXT_COUNT` 4.
+- **`rng.ts` / `validation.ts`:** `type Rng`, `createRng(seed)`, `isValidNick`, `randomNick(rng)`, `suffixNick`. `Math.random` satisfies `Rng` in `web` (determinism rule applies to `shared` and `RoomLogic` only).
+- **Not in shared, so kept in web:** price history (`prices: number[]`, capped at `HISTORY_MAX`) and the frozen-length logic for the chart during halt (prototype `shownLen`).
 
 ### Key Changes
 
-**Package `packages/web`** (Vue 3 + Vite + TS):
-- `package.json` — `@fm/web`; deps: `vue`, `vue-router`, `vue-i18n`, `firebase` (auth only), `@fm/shared` (workspace). Dev: `vite`, `@vitejs/plugin-vue`, `vitest`, `happy-dom` (only for component-level tests), `@vue/test-utils`, `eslint-plugin-vue`.
-- `tsconfig.json` extends base; `"types": ["vite/client"]`.
-- `vite.config.ts` — plugin vue, `test` block (`environment: "happy-dom"` for component tests, `node` default for pure modules), `server.port` default.
-- `index.html` — `<html lang="pl">` placeholder, replaced at runtime by `document.documentElement.lang`; `<meta name="viewport" content="width=device-width, initial-scale=1">`.
-- `public/fonts/` — `space-grotesk-latin-{500,700}.woff2`, `space-grotesk-latin-ext-{500,700}.woff2`, `jetbrains-mono-latin-500.woff2`, `jetbrains-mono-latin-ext-500.woff2`. Downloaded from Google Fonts (OFL), committed.
-- `src/main.ts` — createApp, router, i18n, mount.
-- `src/router/index.ts` — routes: `/login`, `/verify`, `/menu`, `/single`, `/settings`, `/privacy`; `beforeEach` guard using `session` (see below). `/rooms` route added in M5. Unknown path → `/menu` or `/login` by session.
-- `src/auth/firebase.ts` — **only file** that imports `firebase/*`. Initialises app from `import.meta.env.VITE_FIREBASE_*` config; if `VITE_AUTH_EMULATOR_URL` is set, `connectAuthEmulator(auth, url, { disableWarnings: true })`.
-- `src/auth/session.ts` — reactive `session: { status: 'loading'|'out'|'unverified'|'verified', user: { uid, email (private to Settings only), nick } }`. Uses `onAuthStateChanged` + `user.reload()` after verify. Firebase SDK types are trusted here (no zod: the SDK is the boundary, not the socket).
-- `src/auth/actions.ts` — `register(email, pw)`, `login(email, pw)`, `logout()`, `resendVerification()`, `checkVerified()`, `sendReset(email)`, `changeNick(nick)` (validated by `shared/validation.ts`, then `updateProfile({displayName})`), `deleteAccount(password)` (reauthenticate with `EmailAuthProvider.credential`, then `deleteUser`), `ensureNick()` (if `displayName` empty and verified → `randomNick(Math.random)` → `updateProfile`) (BP-001 step 4).
-- `src/auth/errors.ts` — maps Firebase error `code` (e.g. `auth/email-already-in-use`, `auth/wrong-password`, `auth/invalid-credential`, `auth/network-request-failed`, `auth/too-many-requests`) to i18n keys `auth.error.*`. Code comparison only, never message text (CODE_QUALITY). Unknown code → `auth.error.unknown`.
-- `src/views/LoginView.vue` — register/login toggle (`role="tablist"`-style toggle buttons with `aria-pressed`), email, password (min 8 for register, FR-001), "Forgot password" link → inline reset form (sends email, shows `auth.resetSent`), error region `role="alert"`.
-- `src/views/VerifyView.vue` — "Resend" and "I've verified" buttons (UF-001).
-- `src/views/MenuView.vue` — "Single play" (enabled), "Rooms" (`aria-disabled="true"` until M5), nickname display, settings link, logout (FR-006).
-- `src/views/SinglePlayView.vue` — layout per prototype and mockup (`docs/design/Round.dc.html` chart/stats/buttons, `docs/game/first-million.html` features): header with mode and PL/EN chips; price + change; news bar; chart with halt overlay and margin call overlay; stats (capital, open P&L, position, total); controls: size chips (`aria-pressed`), speed chips, pause; Buy / Close / Sell; hint; last 8 trades; footer (trades, win rate, peak).
-- `src/views/SettingsView.vue` — nickname form (validated), language switch, link to privacy, logout, "Delete account" (requires password re-entry, FR-018).
-- `src/views/PrivacyView.vue` — policy text from i18n keys (`privacy.*`), PL and EN (FR-018, BR-021): scope = email + nickname in Firebase, Cloudflare as infrastructure, no game-result storage.
-- `src/single/useSinglePlay.ts` — composable. Holds `Market`, `Portfolio`, trade history (last 8), counters (`closedTrades`, `wins`, `peakEquity`), `speed`, `qty`, `paused`, `over`. Owns the 80 ms `setInterval` (ARCH: timers in shell only; for web the composable is the shell): each interval computes `elapsed = min(now − last, 250)` (prototype L542), calls `tickHalt(market, elapsed)` (unless paused), runs `speed` × `stepMarket`, checks `isBankrupt` → `liquidate` → `over = true`. Trade actions: `buy()`, `sell()`, `close()` call `executeOrder`/`closePosition` at `market.price` with spread (the same functions as the server; client mirrors them for single play only, BR-006). Keyboard B/S/C handled in view with the same guard as prototype (ignore when focus in input). `restart()` resets state. `dispose()` clears interval and key listeners.
-- `src/single/history.ts` — pure: `pushTrade(history, trade, max = 8)`.
-- `src/components/PriceChart.vue` + `src/components/priceChart.ts` (pure draw helper taking `ctx`, `prices`, `avg`, `viewLen = 220`): right-hand price axis, grid, entry dashed line when position open, last-price marker, `ResizeObserver` for DPR. Canvas `role="img"` with `aria-label` from i18n. Reduced-motion: no animated transition (chart has none; keep it that way).
-- `src/components/NewsBar.vue` — text from `news.*` i18n keys; class `hot up|down|warn` for 90 ticks (FR-005); `aria-live="polite"`.
-- `src/components/ChipGroup.vue` — generic `role="group"` with `aria-pressed` buttons (qty/speed/lang). Props typed; no boolean flags beyond `disabled`.
-- `src/styles/tokens.css` — CSS custom properties on `:root` (PRD §16 tokens): `--bg #07090d`, `--surface #0f141b`, `--border #1c2530`, `--text #e6edf3`, `--muted #7d8a99`, `--up #2ee59d`, `--down #ff5d6c`, `--gold #f5c451`, `--on-gold #1a1405`, `--grid`, `--font-ui`, `--font-data`. Dark only (PRD §10.3 light theme out of scope). Also `body { background: var(--bg) }` explicitly. `@media (prefers-reduced-motion: reduce)` disables transitions.
-- `src/styles/fonts.css` — `@font-face` for Space Grotesk and JetBrains Mono with `font-display: swap`, `unicode-range` split latin / latin-ext.
-- `src/i18n/index.ts` — vue-i18n (legacy: false, composition), locale from `localStorage['fm-lang']` (try/catch) else `navigator.language` (`pl*` → PL, else EN) (FR-019). Number/currency via `Intl` per locale (`pl-PL` / `en-US`). Helper `formatMoney(n)` (2 decimals, `$` suffix in EN? Prototype shows no currency symbol in numbers; keep prototype format).
-- `src/i18n/pl.json`, `src/i18n/en.json` — all keys. Key groups: `auth.*`, `auth.error.*`, `menu.*`, `single.*`, `news.*` (shock/flash/vol/halt/trend texts with params), `settings.*`, `privacy.*`, `common.*`.
-- `src/i18n/locale-keys.test.ts` — asserts identical key sets PL/EN (ARCH "locale completeness").
+**Package `packages/shared`** (additive, step 16):
+- `src/engine/portfolio.ts`: add `BookedTrade = { dir: 1 | -1; units: number; entry: number; exit: number; pnl: number }`, `bookedTrade(p, side, qty, price): BookedTrade | null` (returns the reduced/closed part; `null` when no reduction), and `closedTradeOf(p, price): BookedTrade | null` (whole position, used by close and liquidation). Refactor `realize` to share the arithmetic so netting stays in one place (CODE_QUALITY single source). Existing 66 tests unchanged.
+- `src/rules.ts`: add `PASSWORD_MIN_LENGTH = 8` (BR-002) as single source for UI validation.
 
-**Package `packages/shared`** (small additions):
-- `src/validation.ts` already has nick rules from M1. No change needed.
-
-**Dependencies (new, with reasons):**
-- `vue-router` — user decision (real URLs, back button).
-- `vue-i18n` — FR-019, CODE_QUALITY deps list.
-- `firebase` (use `firebase/app` and `firebase/auth` only; tree-shaken).
-- `eslint-plugin-vue` — `<script setup>` lint rules; added to the root ESLint config.
-- Dev only: `happy-dom`, `@vue/test-utils`, `@vitejs/plugin-vue`.
-
-**Docs in this ticket:**
-- `docs/CODE_QUALITY.md` Principles → KISS: "Deps limited to Vue, vue-i18n, vue-router, Firebase Auth, zod." (add `vue-router`).
-- `docs/PRD.md` §19 M2 DoD: replace "deployed to Pages" with "deployed to Pages in M6 (see §20 row 36)". Row 36 added to §20: "All deployment (Pages, Worker, Firebase project setup) in M6; M1–M5 run locally".
+**Package `packages/web`** (Vue 3 + Vite + TS, `@fm/web`, private, ESM):
+- `package.json`: deps `vue`, `vue-router`, `vue-i18n`, `firebase`, `@fm/shared` (`workspace:*`). Dev: `vite`, `@vitejs/plugin-vue`, `vue-tsc`, `eslint-plugin-vue`, `happy-dom`, `@vue/test-utils`. Scripts: `dev`, `build`, `preview`, `typecheck` (`vue-tsc --noEmit -p tsconfig.json`), `test` (`vitest run`). The `dev:auth` script lives in the root `package.json` (step 25).
+- `tsconfig.json`: extends `../../tsconfig.base.json`; `lib: ["ES2022", "DOM", "DOM.Iterable"]` (base is ES2022 only); `types: ["vite/client"]`; includes `src/**/*.ts`, `src/**/*.vue`, `vite.config.ts`, test files (so root `projectService` lint finds every `.ts`).
+- `vite.config.ts`: `@vitejs/plugin-vue`; `test.include: ['src/**/*.test.ts']`; default `node` environment; component tests opt in with `// @vitest-environment happy-dom`.
+- `index.html`: `<html lang="pl">` placeholder (replaced at runtime), viewport meta. No Google Fonts `<link>` (fonts are self-hosted).
+- `src/env.d.ts`: `ImportMetaEnv` typing for `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_PROJECT_ID`, `VITE_AUTH_EMULATOR_URL` (no `any`).
+- `public/fonts/`: 10 woff2 files, latin and latin-ext subsets. Space Grotesk 500, 700. JetBrains Mono 400, 500, 700 (the prototype's Google Fonts request uses exactly these weights).
+- `src/main.ts`: `document.documentElement.lang` set from `resolveLocale` before mount; i18n, router created; `session.init()` awaited before mount so the first frame is correct.
+- `src/App.vue`: header with PL/EN `ChipGroup`, `<RouterView>`, skip link to `<main>`, global `:focus-visible`.
+- `src/router/guards.ts`: pure `routeFor(status, path): string | null`. Unit-tested without the router.
+- `src/router/index.ts`: routes `/login`, `/verify`, `/menu`, `/single`, `/privacy`. Lazy `import()` for views. `beforeEach` awaits `session.ready`, applies `routeFor`. Unknown path → `/menu` or `/login` by status. No `/settings` route (account section lives on the menu).
+- `src/auth/firebase.ts`: **only** file importing `firebase/app` and `firebase/auth`. `initializeApp` from `import.meta.env.VITE_FIREBASE_*`. `connectAuthEmulator(auth, url, { disableWarnings: true })` only when `import.meta.env.DEV && VITE_AUTH_EMULATOR_URL` is set (double guard).
+- `src/auth/session.ts`: reactive `session = { status: 'loading'|'out'|'unverified'|'verified', user: { uid, nick, email } | null }`. `init()` wraps `onAuthStateChanged`; `ready` promise resolves on first event. On `verified` calls `ensureNick()` once. `displayName` and `emailVerified` narrowed with `typeof` (CODE_QUALITY: SDK data is `unknown` at the boundary; zod comes in M3, not here).
+- `src/auth/actions.ts`: `register(email, pw)`, `login`, `logout`, `resendVerification`, `checkVerified` (`user.reload()`, then updates session), `sendReset`, `changeNick(nick)` (`isValidNick` before any network call, then `updateProfile({displayName})`), `deleteAccount(password)` (`reauthenticateWithCredential(user, EmailAuthProvider.credential(email, password))`, then `deleteUser`), `ensureNick()` (if `displayName` empty and verified → `randomNick(Math.random)` → `updateProfile`) (BP-001 step 4). Register checks `PASSWORD_MIN_LENGTH` before the SDK call.
+- `src/auth/errors.ts`: pure `authErrorKey(code: unknown): string`. Maps `auth/invalid-email`, `auth/email-already-in-use`, `auth/weak-password`, `auth/invalid-credential`, `auth/wrong-password`, `auth/user-not-found`, `auth/too-many-requests`, `auth/network-request-failed`, `auth/requires-recent-login` to `auth.error.*`. Unknown or non-string → `auth.error.unknown`. Matches on `code` only, never message text.
+- `src/views/LoginView.vue`: register/login mode toggle (two buttons with `aria-pressed`, per UF-001), labelled email and password with `autocomplete`, min-8 check on register, `role="alert"` error region, inline "Forgot password" form (`auth.resetSent`), privacy link in footer.
+- `src/views/VerifyView.vue`: "Resend", "I've verified" (`checkVerified`; shows `auth.verifyPending` if still unverified), and "Log out" text button (added by user decision; avoids a dead end after a wrong registration; one extra i18n key).
+- `src/views/MenuView.vue`: nickname line; "Single play" card (enabled, links `/single`); "Rooms" card (`aria-disabled="true"`, muted, no route, no caption); account section (mockup `Menu.dc.html` rows, min 52 px each): **Nick** with "Zmień" → inline form (`isValidNick`, error key on invalid, no SDK call); **Język** PL/EN `ChipGroup`; **Polityka prywatności** → `/privacy`; **Wyloguj**; **Usuń konto** → inline password form (`deleteAccount`; wrong password → `auth.error.*`; success → `/login`). Delete button styled `--down`.
+- `src/views/PrivacyView.vue`: `privacy.*` text PL + EN: email and nickname in Firebase; Cloudflare as infrastructure; no game results stored; deletion path (menu). Public route (decision: reachable logged out, linked from login).
+- `src/i18n/locale.ts`: pure `resolveLocale(saved: unknown, navigatorLanguage: string): 'pl' | 'en'`. Allowlist for `saved` (`'pl'`/`'en'`); else `navigator.language` `pl*` → `pl`, otherwise `en` (FR-019).
+- `src/i18n/index.ts`: vue-i18n composition mode (`legacy: false`). `setLocale(l)` writes `fm-lang` in try/catch and updates `document.documentElement.lang`.
+- `src/i18n/format.ts`: `formatMoney(n)`, `formatDecimal(n, digits)` via `Intl.NumberFormat` (`pl-PL` / `en-US`), 2 decimals; 1 decimal for news percentages. Used for chart labels too (PL comma; prototype used `toFixed` dot, FR-019 requires per-locale formatting).
+- `src/i18n/pl.json`, `en.json`: groups `common.*`, `app.*`, `auth.*`, `auth.error.*`, `menu.*`, `account.*`, `single.*` (incl. `single.chartLabel` = "SYNTH/USD" instead of a literal), `news.*` (`shock.up.0-3`, `shock.down.0-3`, `flash`, `vol`, `halt`, `trend.up`, `trend.down`, `none`), `privacy.*`. Interpolation `{n}`, `{p}`, `{x}` as in prototype.
+- `src/styles/tokens.css`: `:root` custom properties from PRD §16: `--bg #07090d`, `--surface #0f141b`, `--border #1c2530`, `--grid #18212b`, `--text #e6edf3`, `--muted #7d8a99`, `--up #2ee59d`, `--down #ff5d6c`, `--gold #f5c451`, `--on-up #04150d`, `--on-down #1a0508`, `--on-gold #1a1405`, `--font-ui`, `--font-data`. Explicit `body { background: var(--bg) }`. `@media (prefers-reduced-motion: reduce)` disables transitions and press transform. (Prototype `--muted #8a97a6` is superseded by PRD values.)
+- `src/styles/fonts.css`: `@font-face` for each family and weight, `font-display: swap`, `unicode-range` split latin / latin-ext (covers Polish diacritics).
+- `src/single/loop.ts`: pure `advanceSingle(sim, elapsedMs, speed, rng): SingleSim`. Order: `tickHalt(m, elapsedMs)`; then `speed` × `stepMarket` with price push and trim to `HISTORY_MAX`; then if `isBankrupt(p, m.price)` → `liquidate` → `over = true` → stop stepping (deliberate deviation from prototype, which keeps stepping after game over; harmless). Bankruptcy uses true `m.price` (prototype `trueEquity`); display equity uses `shownPrice(m)`.
+- `src/single/history.ts`: pure `pushTrade(history, trade, max = 8)`.
+- `src/single/useSinglePlay.ts`: composable. `shallowRef` for `market`, `portfolio`, `prices`, `history`, `peak`; immutable updates. Injected `now()` and `rng` seams. `setInterval(TICK_MS)`: `elapsed = min(now − last, 250)`; skipped when paused or over; calls `advanceSingle`. Actions `buy`, `sell`, `close` (no-op when `over` or `isTradingHalted`) call `executeOrder` / `closePosition` at raw `market.price`. `setQty(OrderQty)` (default 50), `setSpeed(Speed)` (default 3), `togglePause`, `restart()` (fresh `createMarket` and `emptyPortfolio`), `dispose()` clears interval. Each visit starts a fresh game (no storage, BR-006).
+- `src/components/priceChart.ts`: pure `chartGeometry(prices, avg | null, width, height)` (VIEW 220, pad 12% or 0.5, margins L 8 / R 62 / T 10 / B 12, entry included in range) and `drawChart(ctx, geometry, colors)` (5 grid lines, right-hand labels, fill `rgba(46,229,157,0.12)`, line width 1.7, dashed entry line with label, gold last-price dot and label box).
+- `src/components/PriceChart.vue`: `<canvas role="img" :aria-label="t('single.chartLabel')">`, DPR-aware, `ResizeObserver` guarded by `typeof ResizeObserver`, disconnected on unmount.
+- `src/components/NewsBar.vue`: text from `news.*` with params from `NewsEvent`; tone via pure `newsTone(news, newsAge)`: `up`/`down` by `dir` (SHOCK, TREND), `down` for FLASH_CRASH, `warn` for VOL_SPIKE and TRADING_HALT; none after `NEWS_FADE_TICKS`. `aria-live="polite"`.
+- `src/components/ChipGroup.vue`: generic `role="group"` with `aria-label` and `aria-pressed` buttons (size, speed, language). Typed props; no boolean-flag props other than `disabled`.
+- `src/views/SinglePlayView.vue`: prototype layout at 360 px, mockup spacing (16 px gutters, 44 px min touch targets, 52 px primary buttons): mode label, price and change, news bar, chart with halt bar (countdown, `aria-live`) and margin-call overlay with "Play again" (UF-002); stats 2×2 below 560 px, 4 columns above; size chips (`ORDER_QTYS`), speed chips (`SPEEDS`), pause; Buy / Close / Sell grid (disabled while halted or over); hint with keys; last 8 trades (empty state `single.histEmpty`); footer (trades, win rate, equity record). B/S/C on `document` keydown, ignored when target is INPUT, TEXTAREA, SELECT (pure `isTypingTarget`). Listeners removed on unmount.
 
 ### Fit with Project Docs
-- **PRD:** FR-001, FR-002 (UI side), FR-004, FR-005 (UI), FR-006, FR-018, FR-019, FR-020, BP-001, BR-001, BR-002, BR-006, BR-016 (UI), BR-021, UF-001, UF-002, UF-006. Single play results not stored (BR-006): no `localStorage` for results, only language.
-- **ARCHITECTURE:** `web` imports `shared`, never `worker`. Firebase only in `web/src/auth/`. No WebSocket code here (web/net is M5). Timers in the composable are the web equivalent of the DO shell; cleaned on unmount.
-- **CODE_QUALITY:** `<script setup lang="ts">`; logic in composables; PL+EN keys; `prefers-reduced-motion`; 360 px; no `v-html`; no literal UI text; Firebase error codes matched by code, not text; `localStorage` only for language and wrapped in try/catch.
-- **Docs to update:** CODE_QUALITY deps list; PRD §19 M2 DoD; PRD §20 row 36 (deploy in M6).
+- **PRD:** FR-001, FR-002 (UI), FR-004, FR-005 (UI), FR-006, FR-018 (privacy, deletion), FR-019, FR-020, BP-001, BR-001, BR-002, BR-006, BR-016 (UI), BR-021, UF-001, UF-002, UF-006. No result storage (BR-006, BR-020).
+- **ARCHITECTURE:** `web` imports `shared` only. Firebase only in `web/src/auth/`. No WebSocket (`web/net` is M5). Timers live in the composable (web equivalent of the DO shell), cleaned on unmount.
+- **CODE_QUALITY:** `<script setup lang="ts">`; logic in composables and pure modules; PL + EN keys; no `v-html`; no literal UI text; Firebase errors matched by code; `localStorage` only for language, try/catch; tests cite FR/BR.
+- **Docs to update (same change):**
+  - `docs/CODE_QUALITY.md`: deps list gains `vue-router`; path rows say `web/i18n/` and `web/styles/tokens.css`, change to `web/src/i18n/` and `web/src/styles/tokens.css` (real layout).
+  - `docs/PRD.md` §19 M2 DoD: "deployed to Pages" → "deployed to Pages in M6 (see §20 row 36)".
+  - `docs/PRD.md` §20 row 36: "All deployment (Pages, Worker, Firebase project setup) in M6; M1–M5 run locally".
+  - `docs/PRD.md` §20: note `bookedTrade` helper in shared is a shared-engine addition (row 36 is reserved for deploy, so record it under the M2 ticket in this spec only, not as a new row).
+  - `docs/ARCHITECTURE.md`: status line "M2 in progress" at start; final layout update at M2 close; Testing note on the emulator (step 25).
 
 ### Alternative Approaches Considered
-- **State-driven screens without router (Option A):** Pro: zero dep. Con: no back button, no shareable URLs; user chose router. Not chosen.
-- **`vue-router` with lazy routes (chosen):** Pro: URLs, guards in one place, lazy-loaded views keep the initial bundle small. Con: ~10 KB gzip extra. Accepted.
-- **Firebase Auth via REST instead of SDK (Option B):** Pro: no SDK bundle. Con: reimplements token refresh, verification polling, reauth. Not chosen (KISS: platform first is fine, SDK is the platform for Firebase).
-- **Canvas drawing via a chart library (Option C):** Pro: less code. Con: violates CODE_QUALITY (no chart libraries). Not chosen.
-- **Single play via a Web Worker timer:** Pro: not throttled in background tabs. Con: more code; prototype uses `setInterval` and the tab-throttle behaviour is acceptable for single play. Not chosen (KISS).
+- **State-driven screens, no router (A):** zero dep, no back button, no URLs. Rejected by user decision.
+- **`vue-router` + lazy views (chosen):** URLs, one guard, small initial bundle. ~10 KB gzip accepted.
+- **Firebase Auth via REST (B):** no SDK, but reimplements refresh, reauth, verification. Rejected (KISS: the SDK is the platform).
+- **Chart library (C):** violates CODE_QUALITY. Canvas helper instead.
+- **Trade record derived in web:** duplicates netting arithmetic. Rejected (user decision: shared helper).
+- **Account section on `/settings` route:** matches FR-006 wording; mockup puts it on the menu. Rejected (user decision: menu, as mockup).
+- **Single-play timer in a Web Worker:** avoids background throttling; more code. Rejected (KISS, prototype parity).
+- **zod in web now:** formal boundary, first needed in M3. Rejected for M2 (YAGNI); explicit `typeof` narrowing instead.
+- **`@fontsource` packages:** rejected by user decision (committed woff2 + hand-written `@font-face`).
 
 ## Implementation Steps
 
-1. [ ] Scaffold `packages/web`: `package.json` (`@fm/web`, deps and devDeps from Key Changes), `tsconfig.json`, `vite.config.ts` (vue plugin, Vitest block), `index.html` (viewport meta, `lang` placeholder), `src/main.ts`.
-2. [ ] Extend root `eslint.config.js` with `eslint-plugin-vue` flat `vue3-recommended` for `packages/web/**/*.vue`; `parserOptions.parser` for `.vue` set to `vue-eslint-parser` with `@typescript-eslint/parser`.
-3. [ ] `src/styles/tokens.css` (PRD §16 values on `:root`, `body` background explicit, reduced-motion rule) and `src/styles/fonts.css` (`@font-face` ×4, `font-display: swap`, `unicode-range` for latin/latin-ext). Add the 6 woff2 files to `public/fonts/`.
-4. [ ] `src/i18n/index.ts` with locale detection (try/catch on `localStorage`; `navigator.language` `pl*` → `pl`, else `en`), `setLocale(l)` that writes `fm-lang` in try/catch, sets `document.documentElement.lang`.
-5. [ ] `src/i18n/pl.json` and `src/i18n/en.json` with the key groups listed in Key Changes (all PL/EN texts from prototype L197–249 and PRD §11 UF-001/UF-002/UF-006 and FR-018 privacy scope).
-6. [ ] `src/i18n/locale-keys.test.ts`: identical flattened key sets; no empty string values. Plus `en-GB` → `en`, `pl-PL` → `pl` (FR-019 AC).
-7. [ ] `src/auth/firebase.ts` (SDK init + optional emulator), `src/auth/session.ts` (reactive session status, `onAuthStateChanged`), `src/auth/errors.ts` (code → i18n key map, unit test for every mapped code and the unknown fallback).
-8. [ ] `src/auth/actions.ts`: register, login, logout, resend, checkVerified (`user.reload()`), sendReset, changeNick (uses `isValidNick` from `@fm/shared`), deleteAccount (reauth + `deleteUser`), ensureNick (random `Trader-NNNN` via `randomNick(Math.random)` when `displayName` empty and verified). Unit test with mocked `firebase/auth` module: ensureNick only when empty; changeNick rejects `ab` before calling Firebase.
-9. [ ] `src/router/index.ts`: routes and `beforeEach` guard per Key Changes (loading → wait; out → /login; unverified → /verify; verified blocks /login and /verify → /menu). Lazy-load views with dynamic `import()`. Unit test with `session` stub: the 3 status cases (FR-001 AC: logged-out sees login only; unverified sees verify only).
-10. [ ] `src/views/LoginView.vue`: register/login toggle with `aria-pressed`, email and password fields with `autocomplete`, min-8 check on register (FR-001 AC: 7-char password → validation error shown), error region `role="alert"`, "Forgot password" inline form.
-11. [ ] `src/views/VerifyView.vue`: resend (with cooldown label? no: plain button) and "I've verified" → `checkVerified()` → route to `/menu` when verified.
-12. [ ] `src/views/MenuView.vue`: Single play, Rooms (`aria-disabled`, no route until M5), nickname, settings link, logout (FR-006 AC: verified user sees both modes).
-13. [ ] `src/single/useSinglePlay.ts` + `src/single/history.ts`: state, 80 ms interval with `elapsed = min(now − last, 250)`, `tickHalt`, `speed` × `stepMarket`, bankruptcy → `liquidate` → `over`, buy/sell/close via shared portfolio functions, `restart()`, `dispose()`.
-14. [ ] Unit tests `useSinglePlay` (fake timers, seeded RNG injected through an `options.rng` seam and `options.clock` seam):
-    - FR-004 AC: speed 8× → 8 `stepMarket` calls per 80 ms interval (spy count).
-    - BR-015/FR-005: TRADING_HALT → `buy()` is a no-op while halted; `close()` also no-op.
-    - BR-005/FR-003: equity ≤ 0 → `over` true, position closed (margin call state).
-    - FR-004 AC: "Play again" → initial state (`restart()`).
-    - BR-006: no `localStorage`/`sessionStorage` writes from the composable (spy).
-    - pause stops the interval's price steps; halt countdown paused with it (prototype edge case).
-15. [ ] `src/components/priceChart.ts` (pure draw function) + `PriceChart.vue` (ResizeObserver, DPR, `role="img"`, `aria-label`). Unit test: `priceChart` computes the same window and scaling as prototype (`VIEW = 220`, `pad = 12%`, `lo/hi` including entry), using a stub `ctx` recording calls.
-16. [ ] `src/components/NewsBar.vue`, `ChipGroup.vue`. Test: ChipGroup sets `aria-pressed` on the active value only; NewsBar class `hot` only within 90 ticks.
-17. [ ] `src/views/SinglePlayView.vue`: layout per Key Changes at 360 px first (single column, stats in 2×2 grid), keyboard B/S/C (ignored in inputs), halt overlay with countdown (`aria-live`), margin call overlay with "Play again" button (UF-002), history empty state key (`single.histEmpty`).
-18. [ ] `src/views/SettingsView.vue`: nickname form (`isValidNick`, error key on invalid), language switch (`setLocale`), privacy link, logout, delete account with password prompt (FR-018 AC: correct password → account deleted and logged out; wrong → error key).
-19. [ ] `src/views/PrivacyView.vue` with `privacy.*` keys (PL + EN; email + nickname in Firebase, Cloudflare infrastructure, no result storage).
-20. [ ] Wire `App.vue` (header with PL/EN chips via `ChipGroup`, `<RouterView>`), global focus-visible style, skip link to main content (WCAG 2.4.1).
-21. [ ] Light component smoke test (happy-dom): mount `MenuView` as verified user → both mode buttons present, Rooms has `aria-disabled="true"` (FR-006 AC).
-22. [ ] Docs: `docs/CODE_QUALITY.md` deps list gains `vue-router`; `docs/PRD.md` §19 M2 DoD amended ("deployed to Pages in M6"); `docs/PRD.md` §20 row 36 ("all deploy in M6").
-23. [ ] Final light verification: `pnpm lint`, `pnpm typecheck`, `pnpm test` green; all steps ticked; Implementation Log filled.
+Each step ends with a tick here and a line in the Implementation Log. Light checks only: lint, typecheck, Vitest.
+
+1. [x] Scaffold `packages/web`: `package.json` (`@fm/web`, scripts per Key Changes, deps per Key Changes), `tsconfig.json` (lib DOM, `types: ["vite/client"]`, includes per Key Changes), `vite.config.ts` (vue plugin, Vitest `include`), `index.html` (viewport meta, `lang="pl"` placeholder), `src/env.d.ts`, minimal `src/main.ts` and `src/App.vue`. Run `pnpm install`; commit the lockfile change with the work (CI uses `--frozen-lockfile`).
+2. [x] Root `eslint.config.js`: add a block for `packages/web/**/*.vue` with `eslint-plugin-vue` `flat/recommended` and `vue-eslint-parser` with `tseslint.parser` for `<script lang="ts">`. No type-aware rules on `.vue`. `.ts` block unchanged. `pnpm lint` green.
+3. [x] `.env.example` (demo values: `VITE_FIREBASE_API_KEY=demo-key`, `VITE_FIREBASE_PROJECT_ID=demo-first-million`, `VITE_AUTH_EMULATOR_URL=http://127.0.0.1:9099`), `src/auth/firebase.ts` (`initializeApp`; `connectAuthEmulator(..., { disableWarnings: true })` only under `import.meta.env.DEV && VITE_AUTH_EMULATOR_URL`). Typecheck green. (Early hook is one `if`; the emulator itself is step 25.)
+4. [x] `src/styles/tokens.css` (PRD §16 values + `--grid`, `--on-up`, `--on-down`, `--on-gold`; explicit `body` background; reduced-motion rule) and `src/styles/fonts.css` (`@font-face` ×10, `font-display: swap`, `unicode-range` latin / latin-ext). Download the 10 woff2 files into `public/fonts/` from the Google Fonts CSS for `Space Grotesk:500,700` and `JetBrains Mono:400,500,700`, commit them. If the download is blocked, log it and continue with the system font stack (Risks).
+5. [x] i18n core: `src/i18n/locale.ts` (`resolveLocale`), `src/i18n/index.ts` (composition mode, `setLocale` with `fm-lang` in try/catch, sets `document.documentElement.lang`), `src/i18n/format.ts` (`formatMoney`, `formatDecimal`).
+6. [x] `src/i18n/pl.json` and `en.json` with all key groups in Key Changes; texts from prototype L196–249 (PL/EN objects), PRD §11 UF-001/UF-002/UF-006, FR-018 privacy scope. Tests: `src/i18n/locale-keys.test.ts` (identical flattened key sets; no empty values); `src/i18n/locale.test.ts` (`en-GB` → en; `pl-PL` → pl; saved `en` overrides `pl-PL`; invalid saved → fallback; throwing storage → fallback). **Checkpoint CP1.**
+7. [x] `src/auth/session.ts` (reactive session, `init`, `ready`, `typeof` narrowing) and `src/auth/errors.ts` (`authErrorKey`). Test `src/auth/errors.test.ts`: every mapped code → key; unknown and non-string → `auth.error.unknown`.
+8. [x] `src/auth/actions.ts`: register, login, logout, resend, `checkVerified`, `sendReset`, `changeNick`, `deleteAccount`, `ensureNick`. Test `src/auth/actions.test.ts` with `vi.mock('firebase/auth')` and `vi.mock('./firebase')`: `ensureNick` only when `displayName` empty (BP-001); `changeNick('ab')` makes no SDK call (FR-002 AC); register with 7-character password rejected before SDK call (FR-001 AC); `deleteAccount` reauthenticates before `deleteUser` (FR-018 AC).
+9. [x] `src/router/guards.ts` (pure `routeFor`); `src/router/index.ts` (routes, lazy views, `beforeEach` awaiting `session.ready`) moved to step 21, because its lazy view imports cannot typecheck before the views exist. Test `src/router/guards.test.ts`: logged out → only `/login` and `/privacy` (FR-001 AC); unverified → only `/verify` (FR-001 AC); verified redirected from `/login` and `/verify` to `/menu` (FR-006); `/privacy` allowed for every status.
+10. [x] `src/views/LoginView.vue`: mode toggle with `aria-pressed`, labelled email/password (`autocomplete`), min-8 check on register, `role="alert"`, inline reset form, privacy link. Component test `src/views/login.test.ts` (happy-dom, `@vue/test-utils`, test i18n instance): 7-character password shows validation key (FR-001 AC).
+11. [x] `src/views/VerifyView.vue` (resend, "I've verified", "Log out") and `src/views/MenuView.vue` (Single play enabled; Rooms `aria-disabled="true"`, no route; nickname; account section with nick change, language `ChipGroup`, privacy link, logout, delete-account inline form per Key Changes). Component tests `src/views/menu.test.ts`: verified user sees both modes (FR-006 AC); Rooms disabled; invalid nick shows error key with no SDK call; wrong password shows `auth.error.*` and does not navigate. **Checkpoint CP2** after step 12.
+12. [x] Gate for CP2: run Vitest for `auth`, `router`, `views/login`, `views/menu`; typecheck green.
+13. [x] `src/views/PrivacyView.vue` with `privacy.*` text (PL + EN: email and nickname in Firebase; Cloudflare as infrastructure; no game results stored; deletion path). Public route. Test: route allowed for every status (covered by step 9 test; add one assertion for the view's keys existing).
+14. [x] `packages/shared` additive helper: `bookedTrade` and `closedTradeOf` in `src/engine/portfolio.ts`, `realize` refactored to share arithmetic; `PASSWORD_MIN_LENGTH` in `src/rules.ts`. Tests in `packages/shared/test/portfolio.test.ts`: partial close returns `units` = closed size and `pnl` as BR-004; reversal returns only the closed part; close on flat returns `null`; `closedTradeOf` matches `closePosition`'s P&L for the same price. Existing 66 tests still green. Shared typecheck green (`tsconfig.src.json` platform-free guard still passes).
+15. [x] `src/single/loop.ts` (`advanceSingle` per Key Changes, break on bankruptcy) and `src/single/history.ts` (`pushTrade`, max 8). Tests `src/single/loop.test.ts` with `createRng(42)`: speed 8 appends exactly 8 prices and equals 8 direct `stepMarket` calls (FR-004 AC); `tickHalt` counts down only by elapsed ms (BR-015); halt keeps `frozenPrice` (FR-005); equity ≤ 0 sets `over` and flattens position (FR-003, BR-005). `src/single/history.test.ts`: 9th trade drops the oldest (UF-002).
+16. [x] `src/single/useSinglePlay.ts`: `shallowRef` state, injected `now` and `rng`, 80 ms interval with `elapsed` cap 250, `buy`/`sell`/`close` (no-op when over or halted; use `bookedTrade`/`closedTradeOf` to push history), `setQty`, `setSpeed`, `togglePause`, `restart`, `dispose`. Test `src/single/useSinglePlay.test.ts` (fake clock, seeded RNG): pause stops steps (FR-004); restart returns initial state (FR-004 AC); halt blocks trades and `close` (FR-005 AC); no `localStorage`/`sessionStorage` writes (BR-006 spy).
+17. [x] `src/components/priceChart.ts` (`chartGeometry`, `drawChart`) and `src/components/PriceChart.vue`. Test `src/components/priceChart.test.ts`: window is last 220 points of displayed slice; 12% pad; entry inside range when position open; empty prices do not throw; labels use `formatDecimal` (PL comma in PL).
+18. [x] `src/components/NewsBar.vue` (text, `newsTone`, `aria-live`) and `src/components/ChipGroup.vue`. Tests: `newsTone` gives `warn` for VOL_SPIKE and TRADING_HALT, `up`/`down` by direction, none after 90 ticks (FR-005); `ChipGroup` sets `aria-pressed="true"` on exactly one item.
+19. [x] `src/views/SinglePlayView.vue` per Key Changes at 360 px first; keyboard B/S/C with `isTypingTarget` guard (test `src/views/keys.test.ts`); halt bar and margin-call overlay with i18n keys; listeners removed on unmount. **Checkpoint CP4** after step 19.
+20. [x] Gate for CP4: Vitest green for shell-independent single-play tests (steps 15–19); typecheck green.
+21. [x] `src/router/index.ts` (moved from step 9: routes `/login`, `/verify`, `/menu`, `/single`, `/privacy`, `/` and unknown paths redirect to `/menu`, lazy views, `beforeEach` awaiting `session.ready` then `routeFor`). `App.vue` wiring: header with PL/EN `ChipGroup` on all screens, `<RouterView>`, skip link to `<main>`, global `:focus-visible` from tokens. `main.ts` finalised: `resolveLocale`, i18n, `session.init()` before mount. `src/architecture.test.ts`: no `firebase` import outside `src/auth/`; no `v-html` in `.vue` files; no `@fm/worker` import anywhere in `web`.
+22. [x] Component smoke test for App shell: mounts with a test router and session stub; language chip changes `document.documentElement.lang`.
+23. [x] Docs: `docs/CODE_QUALITY.md` (deps gains `vue-router`; path rows → `web/src/...`); `docs/PRD.md` §19 M2 DoD amended; `docs/PRD.md` §20 row 36 added; `docs/ARCHITECTURE.md` status line "M2 in progress". Docs only. **Checkpoint CP5** after step 25 (see below).
+24. [x] Final light verification (no new code): `pnpm lint`, `pnpm typecheck`, `pnpm test` green for `shared` and `web`; M1 tests still green; implementation log filled.
+25. [x] Firebase Auth emulator via the `firebase-tools` CLI, no Docker (LAST implementation step; changed from Docker + JDK at the user's request: the CLI is already Node/TypeScript and the Auth emulator does not need Java, verified by a manual start: `pnpm dev:auth` ran with no Java on PATH, Auth on `127.0.0.1:9099` and UI on `127.0.0.1:4000` both answered HTTP 200; only Node is required). Files in `tools/auth-emulator/` (not a workspace package, so no pnpm/ESLint/typecheck impact):
+    - `firebase.json`: `emulators.auth` on `127.0.0.1:9099`; `emulators.ui` enabled on `127.0.0.1:4000` so verification and reset links are visible in dev.
+    - Root `package.json` script `dev:auth`: `pnpm dlx firebase-tools@15.33.0 emulators:start --only auth --project demo-first-million --config tools/auth-emulator/firebase.json`. `dlx` keeps the large CLI out of the lockfile and the CI install; the version is pinned in the script.
+    - Docs note in `docs/ARCHITECTURE.md` Testing: prerequisite is Node only (no Docker); copy `packages/web/.env.example` → `packages/web/.env.development.local`; run `pnpm dev:auth`; emulator data is in memory and lost on stop (fits BR-020); emulator ID tokens are unsigned, so the Worker needs a dev-only verification path in M3.
+    - Add `.firebase/` to `.gitignore` if it is created. Config only; no Vitest test uses the emulator (they mock `firebase/auth`). Lint and typecheck still green. The emulator is not started during implementation (not closing evidence); first manual start done at the user's request (Java check, see step 25 header). Full manual login flow in the emulator still pending.
 
 ## Checkpoints (Todo List)
 
-- [ ] CP1 — Shell: steps 1–6 (scaffold, tokens, fonts, i18n, locale test); `pnpm --filter @fm/web test` green for i18n; typecheck clean.
-- [ ] CP2 — Auth and routing: steps 7–12 (firebase/session/actions/errors, guard, Login/Verify/Menu views); Vitest green for errors, actions and router guard.
-- [ ] CP3 — Settings, privacy, delete: steps 18–19; Vitest green for `changeNick` validation and deleteAccount path (mocked).
-- [ ] CP4 — Single play: steps 13–17; Vitest green for `useSinglePlay` (FR-004 AC), chart helper, ChipGroup, NewsBar; typecheck clean.
-- [ ] CP5 — App wiring and docs: steps 20–23; lint, typecheck and all Vitest green.
+- [x] CP1 — Shell: steps 1–6 (scaffold, lint, Firebase init hook, tokens and fonts, i18n, locale tests). Vitest green for `locale-keys` and `locale`; typecheck clean. — 12 tests green, typecheck and lint clean
+- [x] CP2 — Auth and routing: steps 7–12 (session, errors, actions, guard, Login, Verify, Menu). Vitest green for errors, actions (mocked SDK), guard, login (7-character password), menu (FR-006 AC); typecheck clean. — 44 tests in 5 files green, typecheck and lint clean (`router/index.ts` still pending, step 21)
+- [x] CP3 — Privacy and shared helper: steps 13–14. Vitest green for privacy keys and the new `shared` portfolio tests; `pnpm --filter shared test` green. — privacy 3 tests, shared 74 tests (7 new), shared typecheck incl. platform-free `tsconfig.src.json` green
+- [x] CP4 — Single play: steps 15–20 (loop, history, composable, chart, news and chips, view, gate). Vitest green for FR-004 AC (8 steps per interval), FR-005 AC (halt), restart, chart geometry, news tone, chips, keys; typecheck clean.
+- [x] CP5 — Wiring, docs, verification, emulator: steps 21–25. Architecture test green; docs updated; `pnpm lint`, `pnpm typecheck`, `pnpm test` green in `shared` and `web`; emulator config present; no step left unticked. — architecture test (7 cases) green; shared 74 + web 140 tests; heavy checks deferred to review
 
 ## Risks & Mitigations
 
-- **Risk:** Single-play tick drifts when the tab is in background (browsers throttle `setInterval` to ≥1 s). Elapsed is capped at 250 ms (prototype), so price history would be short but prices stay consistent with time.
-  - Mitigation: keep the prototype's 250 ms elapsed cap, so time in the background is not replayed as a burst. Single play is not time-critical; multiplayer time lives on the server.
-  - Mitigation if it matters later: move the loop into a dedicated Web Worker timer. Not done now (KISS).
-- **Risk:** Firebase SDK pushes the bundle over 300 KB gzip (NFR-005).
-  - Mitigation: import only `firebase/app` + `firebase/auth` (modular, tree-shaken). Login is the first screen, so the auth module cannot be lazy-loaded. Measured in M6; if over budget, the first fallback is to move the reauth + `deleteUser` code (Settings only) into a lazy chunk. Record the measured gzip size in the M6 review.
-- **Risk:** Emulator config leaks into production build.
-  - Mitigation: `VITE_AUTH_EMULATOR_URL` is read only in `auth/firebase.ts`; `.env.example` lists it commented; `.env.*` is gitignored (already). Production build (M6) asserts the var is unset via a grep check.
-- **Risk:** Route guard races with `onAuthStateChanged` on first load (flash of wrong screen).
-  - Mitigation: `session.status === 'loading'` renders a neutral splash; guard waits for the first auth event (`await ready` promise).
-- **Risk:** Font files bloat the repo (≈ 300 KB of woff2).
-  - Mitigation: latin + latin-ext subsets only, weights 500/700 only. Accepted.
-- **Risk:** Downloading the woff2 files (step 3) needs network access, which the implementer may not have.
-  - Mitigation: if the download fails, stop at step 3, record the failure in the Implementation Log, and continue with steps 4–23 using the system font stack (`font-family` fallback). Step 3 is then re-run later. Tests do not depend on the font files.
+- **Risk:** Engine returns no trade record and applies spread internally. A wrong derivation gives wrong "last 8 trades" P&L or a double spread.
+  - Mitigation: step 14 adds `bookedTrade`/`closedTradeOf` with tests against `executeOrder`/`closePosition` values. Composable passes raw `m.price` only.
+  - Mitigation if the helper proves awkward: derive in `web/src/single/loop.ts` from before/after portfolios, with a test pinning the same numbers.
+- **Risk:** Font download (step 4) blocked by the environment, or wrong weight set.
+  - Mitigation: weight set listed explicitly; if blocked, log, keep system fallback in `font-family`, re-run step 4 later. No test depends on font files.
+- **Risk:** Vue tooling friction: `vue-tsc` vs TypeScript 6, root `projectService` for `.ts` outside a tsconfig, `.vue` parser block.
+  - Mitigation: `web/tsconfig.json` includes every `.ts` and `.vue`; no type-aware rules on `.vue`. If `vue-tsc` and TS 6 conflict, pick the newest compatible `vue-tsc` and record it; do not downgrade root TypeScript.
+- **Risk:** Emulator config reaches production bundle.
+  - Mitigation: `.env.example` is not loaded by Vite; developers use `.env.development.local` (dev only); code guards on `import.meta.env.DEV`. Production grep for the emulator URL is a review-time check, not closing evidence.
+- **Risk:** Bundle over 300 KB gzip (NFR-005) from Vue, router, i18n and `firebase/auth`.
+  - Mitigation: modular Firebase imports only; lazy views. Measured in review. First fallback: move reauth + `deleteUser` into a lazy chunk.
+- **Risk:** Timing tests flaky, or background-tab throttling changes halt length.
+  - Mitigation: injected `now()` and `rng`; no `Date.now`/`Math.random` in tested code; `elapsed` capped at 250 ms (prototype). Background-tab drift accepted and noted.
+- **Risk:** Firebase's own session persistence (IndexedDB) looks like a conflict with BR-020.
+  - Mitigation: app adds no persistence beyond `fm-lang`. Firebase session is the account login state required by FR-001 (token refresh); BR-020 names the Firebase account as the only persistent data. Reflect this in privacy text.
+- **Risk:** Account section on the menu makes the menu long at 360 px.
+  - Mitigation: rows at 52 px, single column, no horizontal scroll; check at 360 px in dev (manual, not closing evidence).
 
 ## Test Strategy
 
-**Light (during implementation):**
-- Vitest, `packages/web` (`node` env for pure modules, `happy-dom` for components):
-  - `locale-keys.test.ts`: PL/EN key parity, no empty values, locale detection cases.
-  - `auth/errors.test.ts`: every mapped Firebase code → key; unknown → fallback.
-  - `auth/actions.test.ts` (mocked `firebase/auth`): ensureNick, changeNick validation before any network call, deleteAccount reauth.
-  - `router/guard.test.ts`: FR-001 AC (logged-out sees login only; unverified sees verify only), verified → menu.
-  - `single/useSinglePlay.test.ts`: FR-004 AC (8× → 8 steps per 80 ms), halt blocks trades, bankruptcy → over, restart, no storage writes (BR-006), pause.
-  - `components/priceChart.test.ts`, `components/chip-group.test.ts`, `components/news-bar.test.ts`.
-  - `views/menu.test.ts`: FR-006 AC, Rooms disabled until M5.
-- `pnpm lint`, `pnpm typecheck`.
+**Light (during implementation; closing evidence for checkpoints):**
+- Vitest, `packages/web` (`node` by default, `happy-dom` for components):
+  - `src/i18n/locale-keys.test.ts`, `src/i18n/locale.test.ts` (FR-019).
+  - `src/auth/errors.test.ts`, `src/auth/actions.test.ts` (FR-001 AC, FR-002 AC, FR-018 AC, BP-001).
+  - `src/router/guards.test.ts` (FR-001 AC ×2, FR-006).
+  - `src/views/login.test.ts` (FR-001 AC), `src/views/menu.test.ts` (FR-006 AC, FR-002 AC, FR-018 AC).
+  - `src/single/loop.test.ts` (FR-004 AC, FR-003/BR-005 bankruptcy, BR-015 wall-time halt), `src/single/history.test.ts` (UF-002), `src/single/useSinglePlay.test.ts` (FR-004, FR-005 AC, BR-006).
+  - `src/components/priceChart.test.ts`, `src/components/newsTone.test.ts` (FR-005), `src/components/chip-group.test.ts`.
+  - `src/views/keys.test.ts` (UF-002 keyboard guard).
+  - `src/architecture.test.ts` (ARCH dependency rules, no `v-html`).
+- Vitest, `packages/shared`: new `bookedTrade`/`closedTradeOf` tests (step 14) and the existing 66 tests.
+- `pnpm lint`, `pnpm typecheck`, `pnpm test`.
+- Seeded RNG, injected clock, no sleeps. Test names state the rule and cite FR/BR.
 
-**Heavy (review only, not here):** production build and bundle size (NFR-005), Lighthouse, axe audit at 360 px (NFR-003), Playwright single-play e2e (written in M6). Manual check at 360 px is recommended during review.
+**Heavy (review only, never a step or checkpoint closer):**
+- Playwright single-play and auth e2e (written in M6).
+- Production build and gzip bundle size against NFR-005.
+- Lighthouse and axe at 360 px (full NFR-003 audit in M6).
+- Manual 360 px check against `docs/design/Menu.dc.html` and `Main.dc.html`.
+- Production grep for emulator URL.
 
 ## Success Checklist
-- [ ] All success criteria met, with evidence
-- [ ] Lint, typecheck, Vitest green in `packages/web`
-- [ ] Firebase imported only in `src/auth/`; no `v-html`; no literal UI text (grep check in review)
-- [ ] Docs updated (CODE_QUALITY deps, PRD §19 M2 DoD, PRD §20 row 36)
-- [ ] Code review approved (`first-million-review`, heavy checks included there)
-- [ ] No regressions (M1 engine tests still green)
+- [ ] All success criteria met, with light-check evidence
+- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test` green in `shared` and `web`
+- [ ] Firebase imported only under `packages/web/src/auth/` (architecture test)
+- [ ] No `v-html`; no literal UI text in `.vue` (text checked in review)
+- [ ] `web` imports only `@fm/shared/*`
+- [ ] PL and EN key parity (test)
+- [ ] Docs updated: CODE_QUALITY deps and paths, PRD §19 M2 DoD, PRD §20 row 36, ARCHITECTURE status and Testing note
+- [ ] Emulator setup is step 25 and ticked
+- [ ] Lockfile committed with the change
+- [ ] Code review run separately with `first-million-review` (heavy checks there)
 
 ## Timeline & Estimates
 - Phase 1 (scaffold, i18n, tokens, fonts): ~4 h
 - Phase 2 (auth, router, login/verify/menu): ~6 h
-- Phase 3 (single play engine, chart, view, tests): ~8 h
-- Phase 4 (settings, privacy, delete, docs, review): ~4 h
-- **Total**: ~22 h (rough, plus buffer)
+- Phase 3 (privacy, shared helper, single-play engine, chart, view): ~9 h
+- Phase 4 (wiring, docs, emulator, verification): ~3 h
+- **Total**: ~22–25 h (rough, plus buffer for font download and Vue tooling friction)
 
 ## Open Questions
-- [ ] Firebase emulator URL convention for the dev script (`http://127.0.0.1:9099`) — assumed default; confirm when setting up the emulator locally.
+- [ ] Emulator JDK: does `--only auth` run without Java? Image ships JDK 21 until a first manual start proves it is unnecessary; then drop it from the Dockerfile (user task after M2, not a blocker).
+- [ ] Currency format: prototype stats show numbers without `$`; mockup shows "+500,00 $". Plan follows the prototype (`$` only in margin-call text). Confirm before step 19.
+- [ ] Rooms card: disabled and muted, no caption (no new copy). Confirm before step 11.
+- [ ] Single-play defaults: qty 50, speed 3× (prototype). Confirm before step 16.
 
 ## Implementation Log
 (Empty. first-million-implement appends one line per step event here.)
+- Session start — branch `main`; baseline uncommitted: only this spec. Open questions resolved by plan defaults (no `$` in stats, Rooms card no caption, qty 50 / speed 3×)
+- Step 1 — started
+- Step 1 — done — files: packages/web/package.json, tsconfig.json, vite.config.ts, index.html, src/env.d.ts, src/main.ts, src/App.vue, pnpm-lock.yaml — scaffold installed, `vue-tsc` typecheck green; no `.vue` shim needed (vue-tsc resolves them); `vitest run` has no tests until step 6
+- Step 2 — started
+- Step 2 — done — files: eslint.config.js, package.json, pnpm-lock.yaml, packages/web/package.json, packages/web/src/shims-vue.d.ts, packages/web/src/App.vue — vue block added (`flat/recommended`, vue-eslint-parser + tseslint.parser, `vue/no-v-html` error); deviation: `eslint-plugin-vue` and `vue-eslint-parser` moved to ROOT devDependencies (root config cannot resolve them from `packages/web`); `shims-vue.d.ts` added because type-aware lint cannot resolve `.vue` imports (`main.ts` failed `no-unsafe-argument`); lint and typecheck green
+- Step 3 — started
+- Step 3 — done — files: packages/web/.env.example, packages/web/src/auth/firebase.ts — exports `auth`; emulator connected only under `import.meta.env.DEV && VITE_AUTH_EMULATOR_URL`; `.env.example` not git-ignored; typecheck and lint green
+- Step 4 — started
+- Step 4 — done — files: packages/web/src/styles/tokens.css, packages/web/src/styles/fonts.css, packages/web/src/main.ts, packages/web/public/fonts/{space-grotesk,jetbrains-mono}-{latin,latin-ext}.woff2 — deviation: both Google families are variable fonts, so 4 woff2 files (one per subset, weight ranges `500 700` / `400 700`) instead of 10; downloaded from fonts.gstatic.com, no request at runtime; styles imported in `main.ts`
+- Step 5 — started
+- Step 5 — done — files: packages/web/src/i18n/locale.ts, format.ts, index.ts — `resolveLocale`, `readSavedLocale`/`saveLocale` (try/catch), `createAppI18n(locale)`, `useLocale()` composable (sets i18n locale, `<html lang>`, `fm-lang`); `formatMoney/formatDecimal/formatSigned` take the locale as a parameter (pure, cached `Intl.NumberFormat`); typecheck verified together with step 6 (index.ts imports the JSON)
+- Step 6 — started
+- Step 6 — done — files: packages/web/src/i18n/pl.json, en.json, locale-keys.test.ts, locale.test.ts — all key groups; shock `{p}` carries the formatted signed percent, flash `{x}`; `@` in the email placeholder escaped as `{'@'}` (vue-i18n linked-message char); 12 tests green. CP1 ticked
+- Step 7 — started
+- Step 7 — done — files: packages/web/src/auth/session.ts, errors.ts, errors.test.ts — `session`, `ready`, `setSessionFromUser`, `init(onVerified)` (deviation: takes the `ensureNick` hook as a parameter so `session.ts` does not import `actions.ts`, avoiding a cycle; `main.ts` passes it in step 21); `authErrorKey` + `authErrorKeyOf`; `user-not-found` shares the invalid-credential message (no account enumeration); 24 tests green in package
+- Step 8 — started
+- Step 8 — done — files: packages/web/src/auth/actions.ts, actions.test.ts, packages/shared/src/rules.ts — actions return `ActionResult` (`{ok:true}` | `{ok:false, errorKey}`) instead of throwing; `login`/`register`/`checkVerified` run `ensureNick` then publish the session (avoids a race with `onAuthStateChanged` before navigation); deviation: `PASSWORD_MIN_LENGTH = 8` added to `shared/src/rules.ts` now (needed here; step 14 no longer adds it); 13 new tests, 37 total in web, shared 67 green
+- Step 9 — started
+- Step 9 — done — files: packages/web/src/router/guards.ts, guards.test.ts — pure `routeFor(status, path)`; deviation: `router/index.ts` moved to step 21 (lazy view imports do not typecheck until views exist; no stubs); `/rooms` falls to `/menu` (no route in M2); 6 tests, 43 total green
+- Step 10 — started
+- Step 10 — done — files: packages/web/src/views/LoginView.vue, login.test.ts, packages/web/src/test-support.ts, packages/web/src/styles/base.css, packages/web/src/main.ts, packages/web/src/i18n/pl.json, en.json, eslint.config.js — additions beyond the plan: shared `base.css` (focus ring, `.input`, `.btn`, `.chip`, `.link`, `.error`; imported in `main.ts`) so views do not copy control styles; `test-support.ts` (`mountWithApp`, `buttonByText`) shared by component tests; `app.title` replaced by `app.brandFirst`/`app.brandSecond` (gold span without literal text); eslint vue block turns off `max-attributes-per-line`, `singleline-html-element-content-newline` and relaxes void self-closing (Prettier owns template layout); 5 component tests, 48 total green
+- Step 11 — started
+- Step 11 — done — files: packages/web/src/views/VerifyView.vue, MenuView.vue, menu.test.ts, packages/web/src/components/ChipGroup.vue — deviation: `ChipGroup.vue` created here (the menu language switch needs it); step 18 now only adds `NewsBar` and its tests (`ChipGroup` test still due there); Rooms card is `<a role="link" aria-disabled="true">` without `href`; menu tests: both modes, Rooms disabled, invalid nick (no SDK call), valid nick, wrong password (no navigation), delete OK, logout, language switch; 56 tests total
+- Step 12 — started
+- Step 12 — done — gate: `vitest run src/auth src/router src/views/login.test.ts src/views/menu.test.ts` 44 tests green, typecheck green. CP2 ticked
+- Step 13 — started
+- Step 13 — done — files: packages/web/src/views/PrivacyView.vue, privacy.test.ts — five sections from `privacy.*` (data, infra, game, browser, delete); back link reuses `routeFor(status, '/menu')` so it goes to /login, /verify or /menu by status; 3 tests (PL, EN, back link), 59 total in web
+- Step 14 — started
+- Step 14 — done — files: packages/shared/src/engine/portfolio.ts, packages/shared/test/portfolio.test.ts — `BookedTrade`, `bookedTrade`, `closedTradeOf`; P&L arithmetic now lives in one private `reduction()` used by `realize`, `bookedTrade`, `closedTradeOf`; `opposes` and `closeFill` helpers extracted; `PASSWORD_MIN_LENGTH` was already added in step 8; 7 new tests (shared 74 green, existing tests unchanged). CP3 ticked
+- Step 15 — started
+- Step 15 — done — files: packages/web/src/single/loop.ts, history.ts, loop.test.ts, history.test.ts — `SingleSim` (market, portfolio, prices, `frozenLen`, history, peak, over), `createSingle`, `advanceSingle`, `shownPrices`, `shownEquity`; deviation: the pure order handlers `placeOrder`/`closeOrder` (halt/over guards, `bookedTrade`/`closedTradeOf` history, peak) live in `loop.ts` rather than the composable, so step 16 is a thin timer shell; halt freeze point detected by `frozenPrice` going null -> set (display frozen at the price before that step moves it); 23 tests green
+- Step 16 — started
+- Step 16 — done — files: packages/web/src/single/useSinglePlay.ts, useSinglePlay.test.ts — one `shallowRef<SingleSim>` plus computed views (`prices`, `price`, `change`, `equity`, `open`, `total`, `winRate`, `halted`); `now`/`rng` injected; `elapsed` capped at 250 ms and `last` keeps advancing while paused (resume does not count the pause as halt time); `dispose` also via `onScopeDispose`; tests: 8x = 8 steps, pause, pause freezes halt, 250 ms cap, restart, halt no-ops, no storage writes (BR-006 spy); 12 tests, 35 in `single/`
+- Step 17 — started
+- Step 17 — done — files: packages/web/src/components/priceChart.ts, PriceChart.vue, priceChart.test.ts — `chartGeometry` returns `null` for no data; `drawChart` takes colors and a `{format, entry}` text object (locale-aware via `formatMoney`, so PL gets a comma, FR-019) and expects the caller to clear/scale the context (PriceChart.vue does, DPR-aware, `ResizeObserver` guarded and disconnected on unmount); 11 tests (window of 220, right alignment, 12% pad, flat pad, entry in range, labels PL/EN, null geometry)
+- Step 18 — started
+- Step 18 — done — files: packages/web/src/components/newsTone.ts, NewsBar.vue, newsTone.test.ts, chip-group.test.ts — `newsTone` (up/down/warn/none; age <= 90 still lit, 91 gone, prototype parity) and `newsMessage` (i18n key + params: signed percent via `formatDecimal`, U+2212 minus); `ChipGroup.vue` already existed from step 11, only its test is new here; test asserts every news key exists in PL and EN; 118 tests in web, typecheck and lint clean
+- Step 19 — started
+- Step 19 — done — files: packages/web/src/views/SinglePlayView.vue, keys.ts, keys.test.ts, single-view.test.ts — prototype layout with mockup spacing; halt bar is `role="status"` with the countdown `aria-hidden` (no 12 Hz announcements); margin-call overlay `role="alertdialog"` with focus moved to "Play again"; extra beyond plan: `orderKey` ignores Ctrl/Cmd/Alt combos (Ctrl+S must not sell), view smoke tests (keys B/S/C, typing guard, listener removed on unmount, size chips, pause label); stats show no `$` (plan default)
+- Step 20 — started
+- Step 20 — done — gate: `vitest run src/single src/components src/views/keys.test.ts src/views/single-view.test.ts` 71 tests green, typecheck and lint clean. CP4 ticked
+- Step 21 — started
+- Step 21 — done — files: packages/web/src/router/index.ts, App.vue, main.ts, architecture.test.ts — `createAppRouter(history?)` with lazy views, `/` and unknown paths -> `/menu`, `beforeEach` awaits `ready` then `routeFor`; `main.ts` resolves locale, `init(ensureNick)`, awaits `ready`, then mounts; `App.vue` header with PL/EN `ChipGroup`, skip link, `<main id="main" tabindex="-1">`; global `:focus-visible` lives in `base.css` (step 10); architecture test: Firebase only under `src/auth/` (and `firebase/app` only in `auth/firebase.ts`), no `@fm/worker`, no relative path into `shared`, no `v-html`, browser storage only in `i18n/locale.ts` (BR-020)
+- Step 22 — started
+- Step 22 — done — files: packages/web/src/app.test.ts — skip link, routed view inside `<main>`, language chips switch `<html lang>`, texts and `fm-lang`; 18 files, 140 tests in web
+- Step 23 — started
+- Step 23 — done — files: docs/CODE_QUALITY.md, docs/PRD.md, docs/ARCHITECTURE.md — `vue-router` in deps; paths `web/src/i18n/`, `web/src/styles/tokens.css`; PRD §19 M2 DoD amended; PRD §20 row 36 added (deploy in M6); ARCHITECTURE status "M2 in progress" and web layout line (`router/`, `styles/`, `net/` marked M5); the emulator Testing note comes with step 25
+- Step 24 — started
+- Step 24 — done — `pnpm lint` clean, `pnpm typecheck` clean (shared incl. platform-free `tsconfig.src.json`, web via vue-tsc), `pnpm test`: shared 74 passed (M1 tests unchanged), web 140 passed in 18 files
+- Step 25 — started — user asked for a TS alternative to the Docker/JDK emulator; step 25 rewritten to run the official TS CLI via `pnpm dlx firebase-tools@15.33.0` (no Docker, no JDK)
+- Step 25 — done — files: tools/auth-emulator/firebase.json, package.json (`dev:auth`), docs/ARCHITECTURE.md (Testing note), .gitignore (`.firebase/`) — auth on 127.0.0.1:9099, UI on 127.0.0.1:4000; emulator not started (first manual start by the user, also confirms no Java is needed); lint, typecheck, tests green. CP5 ticked

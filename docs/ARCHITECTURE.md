@@ -1,6 +1,6 @@
 # First Million — Architecture
 
-**Based on:** [PRD v1.2](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** M1 done (`shared` engine); `web` and `worker` not started, their layout below the package level is a proposal
+**Based on:** [PRD v1.2](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** M1 done (`shared` engine); M2 in progress (`web`: auth, router, i18n, single play); `worker` not started, its layout below the package level is a proposal
 
 ## Drivers
 
@@ -16,7 +16,7 @@
 ```
 packages/shared   pure TS: rules.ts (BR-003 values), config.ts (tunables), engine/, protocol/ (zod), validation.ts
 packages/worker   index.ts (Origin, routing, WS upgrade), auth/, lobby.ts (Lobby DO), room/ (room.ts DO shell + room-logic.ts)
-packages/web      Vue 3: auth/ (Firebase), net/ (WebSocket), single/, views/, components/ (Canvas chart), i18n/
+packages/web      Vue 3 (src/): auth/ (Firebase), net/ (WebSocket, M5), router/, single/, views/, components/ (Canvas chart), i18n/, styles/
 e2e/              Playwright
 ```
 
@@ -50,6 +50,8 @@ Server replies with a code, never text or a thrown exception; `web/i18n` maps co
 |---|---|---|
 | Light | ESLint, `tsc`, Vitest (engine with seeded RNG, `RoomLogic` with fake clock, locale completeness) | implementation |
 | Heavy | Playwright 4 contexts, axe, production build + bundle size, Lighthouse | review + CI |
+
+**Firebase Auth in dev and e2e** (PRD §20 #35): the official Auth emulator, run from the `firebase-tools` CLI (Node, no Docker). Copy `packages/web/.env.example` to `packages/web/.env.development.local`, then `pnpm dev:auth` (config in `tools/auth-emulator/`; UI with verification and reset links at `http://127.0.0.1:4000`). Data is in memory and lost on stop (fits BR-020). Emulator ID tokens are unsigned: the Worker needs a dev-only verification path in M3. Vitest never uses the emulator; it mocks `firebase/auth`.
 
 ## Decisions (proposed; numbered A1–A7 so they do not clash with the PRD §20 log)
 

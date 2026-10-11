@@ -1,0 +1,133 @@
+/* Shared control styles used by several screens (extracted once, not copied per view).
+   Values come from tokens.css only. Sizes follow docs/design/*.dc.html. */
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+a {
+  color: inherit;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label,
+.label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.input {
+  height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 0 14px;
+  font: 16px var(--font-ui);
+  color: var(--text);
+  width: 100%;
+}
+
+.input::placeholder {
+  color: var(--muted);
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--gold);
+  color: var(--on-gold);
+  font: 700 17px var(--font-ui);
+  cursor: pointer;
+  padding: 0 16px;
+  width: 100%;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: var(--down);
+  color: var(--on-down);
+}
+
+/* Text-style action: 44 px touch target, underlined like a link. */
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 14px var(--font-ui);
+  color: var(--gold);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-muted {
+  color: var(--muted);
+}
+
+.chip {
+  font: 500 13px var(--font-data);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 12px;
+  min-height: 44px;
+  min-width: 44px;
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--gold);
+  color: var(--on-gold);
+  border-color: var(--gold);
+}
+
+.chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  margin: 0;
+  color: var(--down);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.notice {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.num {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.up {
+  color: var(--up);
+}
+
+.down {
+  color: var(--down);
+}

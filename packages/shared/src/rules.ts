@@ -21,7 +21,12 @@ export const ORDER_RATE_PER_SEC = 10
 export const DISCONNECT_GRACE_MS = 30_000
 export const EMPTY_ROOM_TTL_MS = 300_000
 
-export const NICK_PATTERN = /^[A-Za-z0-9_-]{3,16}$/
+export const NICK_MIN = 3
+export const NICK_MAX = 16
+export const NICK_PATTERN = new RegExp(`^[A-Za-z0-9_-]{${NICK_MIN},${NICK_MAX}}$`)
+
+/** Registration password length (BR-002); single source for the web form check. */
+export const PASSWORD_MIN_LENGTH = 8
 
 export const ROOM_NAME_MIN = 3
 export const ROOM_NAME_MAX = 30

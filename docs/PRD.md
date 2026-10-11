@@ -542,7 +542,7 @@ There is no database (BR-020). The entities below exist only in memory.
 ### M2: Web app single play + auth
 - **Includes:** FR-001, FR-002, FR-004, FR-005 (UI), FR-006, FR-019, FR-020, FR-018 (part: policy, account deletion)
 - **Depends on:** M1
-- **Definition of done:** after login and email verification the user can play single play (PL/EN); deployed to Pages.
+- **Definition of done:** after login and email verification the user can play single play (PL/EN); deployed to Pages in M6 (see §20 row 36).
 
 ### M3: Worker, lobby, and rooms
 - **Includes:** FR-007, FR-008, FR-009, FR-010, FR-016
@@ -562,7 +562,7 @@ There is no database (BR-020). The entities below exist only in memory.
 ### M6: Quality and release
 - **Includes:** NFR-001–NFR-006
 - **Depends on:** M5
-- **Definition of done:** Playwright e2e (4 players, full round), axe audit with no AA violations, Lighthouse within budget, production deployment, free-limit usage checked.
+- **Definition of done:** Playwright e2e (4 players, full round), axe audit with no AA violations, Lighthouse within budget, production deployment, free-limit usage checked. The production Firebase project sets the Auth password policy to a minimum of 8 characters, because the client check alone (BR-002) can be bypassed.
 
 # Appendix
 
@@ -604,6 +604,7 @@ There is no database (BR-020). The entities below exist only in memory.
 | 33 | Tick drift: every interval runs a fixed `speed` number of price steps; no catch-up by wall time | Catch up steps by elapsed wall time | User's choice; same behaviour as the prototype, simplest, deterministic in tests |
 | 34 | Money is a raw float in the engine (no rounding of price, P&L or half spread); the UI formats with `Intl` | Round to cents in the engine | User's choice; no rounding rule to maintain, exact ties only for bit-identical equity |
 | 35 | Firebase Auth emulator in dev and e2e | Real test accounts | User's choice; no real email sent, no quota use, 0 PLN |
+| 36 | All deployment (Pages, Worker, Firebase project setup) in M6; M1–M5 run locally | Deploy Pages at the end of M2 | User's choice; one deployment pass, no half-configured production environment |
 
 ## 21. Open Questions
 None.

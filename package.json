@@ -10,14 +10,17 @@
     "lint": "eslint .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "dev:auth": "pnpm dlx firebase-tools@15.33.0 emulators:start --only auth --project demo-first-million --config tools/auth-emulator/firebase.json",
     "format": "prettier --write ."
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "eslint": "^10.12.0",
+    "eslint-plugin-vue": "^10.11.1",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.1",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "vue-eslint-parser": "^10.4.1"
   }
 }

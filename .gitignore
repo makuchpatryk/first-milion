@@ -7,6 +7,9 @@ dist/
 build/
 *.tsbuildinfo
 
+# Firebase emulator
+.firebase/
+
 # Cloudflare / wrangler
 .wrangler/
 .dev.vars

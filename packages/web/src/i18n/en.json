@@ -1,0 +1,147 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading…",
+    "language": "Language"
+  },
+  "app": {
+    "brandFirst": "First",
+    "brandSecond": "Million",
+    "skipToContent": "Skip to content",
+    "goal": "$10,000 → ?",
+    "tagline": "Start with $10,000. A random market, news and rivals in one room."
+  },
+  "auth": {
+    "modeLabel": "Mode",
+    "login": "Log in",
+    "register": "Create account",
+    "submitLogin": "Log in",
+    "submitRegister": "Sign up",
+    "email": "Email",
+    "emailPlaceholder": "you{'@'}example.com",
+    "password": "Password",
+    "passwordPlaceholder": "At least 8 characters",
+    "forgot": "Forgot password",
+    "resetTitle": "Reset password",
+    "resetSubmit": "Send link",
+    "resetSent": "If an account exists, we sent a password reset link to that address.",
+    "resetBack": "Back to log in",
+    "note": "After signing up we will send a verification email. The game stays locked until you confirm the address.",
+    "privacy": "Privacy policy",
+    "verifyTitle": "Verify your email",
+    "verifyBody": "We sent a verification link to {email}. Open it to unlock the game.",
+    "resend": "Resend",
+    "resent": "Link sent again.",
+    "verified": "I've verified",
+    "verifyPending": "The address is not confirmed yet.",
+    "logout": "Log out",
+    "error": {
+      "invalidEmail": "Invalid email address.",
+      "emailInUse": "This email address is already taken.",
+      "weakPassword": "The password is too weak.",
+      "passwordTooShort": "The password must have at least 8 characters.",
+      "invalidCredential": "Wrong email or password.",
+      "wrongPassword": "Wrong password.",
+      "tooManyRequests": "Too many attempts. Try again in a moment.",
+      "network": "No network connection.",
+      "requiresRecentLogin": "Log in again and retry.",
+      "unknown": "Something went wrong. Try again."
+    }
+  },
+  "menu": {
+    "loggedInAs": "Logged in as {nick}",
+    "singleTitle": "Single play",
+    "singleDesc": "You against the market. No time limit, with pause. Results are not saved.",
+    "roomsTitle": "Rooms",
+    "roomsDesc": "Up to 4 players, one shared price and a live round ranking."
+  },
+  "account": {
+    "title": "Account",
+    "nick": "Nickname",
+    "change": "Change",
+    "nickLabel": "New nickname",
+    "nickHint": "3–16 characters: letters, digits, _ and -.",
+    "language": "Language",
+    "privacy": "Privacy policy",
+    "logout": "Log out",
+    "delete": "Delete account",
+    "deletePassword": "Password to confirm",
+    "deleteWarning": "The account will be deleted permanently.",
+    "deleteConfirm": "Delete account permanently",
+    "error": {
+      "nickInvalid": "Nickname must be 3–16 characters: letters, digits, _ or -."
+    }
+  },
+  "single": {
+    "mode": "Single play",
+    "sub": "SYNTH/USD, simulated market. Random prices and news. Results are not saved.",
+    "chartLabel": "SYNTH/USD",
+    "menu": "Menu",
+    "capital": "Equity",
+    "open": "Open P&L",
+    "pos": "Position",
+    "total": "Total result",
+    "none": "none",
+    "size": "Size",
+    "speed": "Speed",
+    "pause": "Pause",
+    "resume": "Resume",
+    "buy": "Buy",
+    "sell": "Sell",
+    "close": "Close",
+    "key": "key",
+    "hint": "Buy and sell work on one net position: selling while long reduces it, and any excess opens a short. Spread is $0.06 on every trade. Orders are blocked during a trading halt.",
+    "hist": "Recent trades",
+    "histEmpty": "You haven't closed anything yet.",
+    "trades": "Trades",
+    "win": "Win rate",
+    "peak": "Equity record",
+    "marginCall": "Margin call",
+    "marginCallMsg": "Equity fell to zero after {n} trades. Record: ${p}.",
+    "again": "Play again",
+    "haltBar": "TRADING HALT",
+    "units": "units",
+    "long": "LONG",
+    "short": "SHORT",
+    "entry": "entry"
+  },
+  "news": {
+    "none": "Market is opening. No news.",
+    "shock": {
+      "up": {
+        "0": "Government announces a stimulus package. Buyers pile in. ({p})",
+        "1": "Company beats quarterly forecasts by 18%. ({p})",
+        "2": "Large fund raises its stake to 9%. ({p})",
+        "3": "Central bank signals a rate cut. ({p})"
+      },
+      "down": {
+        "0": "Leaked report: auditor withholds sign-off. ({p})",
+        "1": "Surprise tariffs hit exports. ({p})",
+        "2": "CEO sells a block of shares. Market reacts nervously. ({p})",
+        "3": "Central bank hikes rates more than expected. ({p})"
+      }
+    },
+    "flash": "Flash crash: sharp sell-off ({x}). The market starts to recover.",
+    "vol": "Volatility spike: prices swing both ways.",
+    "halt": "Trading halt. Orders are paused for 5 s.",
+    "trend": {
+      "up": "Uptrend: buyers take over the market.",
+      "down": "Downtrend: sellers take over the market."
+    }
+  },
+  "privacy": {
+    "title": "Privacy policy",
+    "back": "Back",
+    "dataTitle": "Account data",
+    "dataBody": "We store only account data in Firebase Authentication: your email address, nickname and account ID. Email is used only to log in, verify the account and reset the password. Other players cannot see it.",
+    "infraTitle": "Infrastructure",
+    "infraBody": "The app runs on Cloudflare infrastructure (site hosting and the game server). Cloudflare processes the network traffic needed to run the service.",
+    "gameTitle": "Game results",
+    "gameBody": "We do not store results, rankings or trade history. Game data exists only in room memory and in your browser.",
+    "browserTitle": "Browser",
+    "browserBody": "In your browser we store only the language you chose. Firebase keeps a login session there so you stay logged in.",
+    "deleteTitle": "Deleting your account",
+    "deleteBody": "You can delete your account in the main menu, in the Account section. It asks for your password again and removes the account from Firebase."
+  }
+}

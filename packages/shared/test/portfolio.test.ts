@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  bookedTrade,
+  closedTradeOf,
   closePosition,
   emptyPortfolio,
   equity,
@@ -101,6 +103,69 @@ describe('closePosition', () => {
     const p = closePosition(a, 95)
     expect(p.realized).toBeCloseTo((99.97 - 95.03) * 50, 9)
     expect(p.units).toBe(0)
+  })
+})
+
+describe('bookedTrade', () => {
+  it('BR-004: a partial reduction books only the reduced units, with the same P&L as the order', () => {
+    const long = executeOrder(emptyPortfolio, 'BUY', 100, 100)
+    const trade = bookedTrade(long, 'SELL', 50, 102)
+    expect(trade).toEqual({
+      dir: 1,
+      units: 50,
+      entry: long.avg,
+      exit: expect.closeTo(101.97, 9) as number,
+      pnl: expect.closeTo((101.97 - 100.03) * 50, 9) as number,
+    })
+    const after = executeOrder(long, 'SELL', 50, 102)
+    expect(after.realized - long.realized).toBeCloseTo(trade?.pnl ?? NaN, 9)
+  })
+
+  it('BR-004: a reversal books only the closed part, not the new opposite position', () => {
+    const long = executeOrder(emptyPortfolio, 'BUY', 50, 100)
+    const trade = bookedTrade(long, 'SELL', 250, 101)
+    expect(trade?.units).toBe(50)
+    expect(trade?.dir).toBe(1)
+    const after = executeOrder(long, 'SELL', 250, 101)
+    expect(after.realized - long.realized).toBeCloseTo(trade?.pnl ?? NaN, 9)
+    expect(after.closedTrades).toBe(long.closedTrades + 1)
+  })
+
+  it('BR-004: a short reduced by a buy reports dir -1 and a positive pnl when the price fell', () => {
+    const short = executeOrder(emptyPortfolio, 'SELL', 50, 100)
+    const trade = bookedTrade(short, 'BUY', 10, 90)
+    expect(trade?.dir).toBe(-1)
+    expect(trade?.units).toBe(10)
+    expect(trade?.pnl).toBeGreaterThan(0)
+  })
+
+  it('BR-004: orders that open or add to a position book nothing', () => {
+    expect(bookedTrade(emptyPortfolio, 'BUY', 50, 100)).toBeNull()
+    const long = executeOrder(emptyPortfolio, 'BUY', 50, 100)
+    expect(bookedTrade(long, 'BUY', 50, 101)).toBeNull()
+  })
+})
+
+describe('closedTradeOf', () => {
+  it('BR-004: close on a flat portfolio books nothing', () => {
+    expect(closedTradeOf(emptyPortfolio, 100)).toBeNull()
+  })
+
+  it('BR-004: matches the P&L closePosition realizes for the same price', () => {
+    for (const side of ['BUY', 'SELL'] as const) {
+      const open = executeOrder(emptyPortfolio, side, 100, 100)
+      const trade = closedTradeOf(open, 97)
+      const closed = closePosition(open, 97)
+      expect(trade?.units).toBe(100)
+      expect(closed.realized - open.realized).toBeCloseTo(trade?.pnl ?? NaN, 9)
+    }
+  })
+
+  it('BR-005: also describes a liquidation at market incl. spread', () => {
+    const long = executeOrder(emptyPortfolio, 'BUY', 250, 100)
+    const trade = closedTradeOf(long, 59)
+    expect(trade?.exit).toBeCloseTo(58.97, 9)
+    expect(trade?.pnl).toBeCloseTo((58.97 - 100.03) * 250, 9)
   })
 })
 
