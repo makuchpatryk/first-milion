@@ -601,6 +601,9 @@ There is no database (BR-020). The entities below exist only in memory.
 | 30 | Derived from answers (tunable constants in `shared/config.ts`): round time = wall clock; target computed on total result (equity − 10,000) including open P&L; same-tick target tie decided by equity; minimum 1 player to start; observer does not become a player in the same visit; player after disconnect timeout ranked like a bankrupt; kicked player may return; news parameters (70% recovery over 20 ticks, drift ±0.0007, ×3 for 60 ticks); default language from the browser; `Lobby`/`Room` heartbeat interval; `zod` for protocol schemas | — | Additions following from earlier choices |
 | 31 | Product name: First Million. New look: dark theme (the only one in the MVP, no light theme), gold accent, Space Grotesk + JetBrains Mono fonts | Keeping the prototype's light/dark themes | User asked for a darker design; the specific palette was proposed by Claude |
 | 32 | Added section 23 with links to the prototypes (playable and clickable) as reference materials | — | User's request |
+| 33 | Tick drift: every interval runs a fixed `speed` number of price steps; no catch-up by wall time | Catch up steps by elapsed wall time | User's choice; same behaviour as the prototype, simplest, deterministic in tests |
+| 34 | Money is a raw float in the engine (no rounding of price, P&L or half spread); the UI formats with `Intl` | Round to cents in the engine | User's choice; no rounding rule to maintain, exact ties only for bit-identical equity |
+| 35 | Firebase Auth emulator in dev and e2e | Real test accounts | User's choice; no real email sent, no quota use, 0 PLN |
 
 ## 21. Open Questions
 None.
