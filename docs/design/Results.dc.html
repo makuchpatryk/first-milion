@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Wyniki rundy</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #07090d; color: #e6edf3; font-family: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif; font-size: 15px; padding: 24px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #7d8a99">Piątkowa liga · koniec rundy</span>
+<h1 style="margin: 0; font-size: 32px; letter-spacing: -0.02em; font-weight: 700">Cel osiągnięty</h1>
+<p style="margin: 0; color: #7d8a99; font-size: 14px">Marta_K pierwsza osiągnęła +500 $ po 3:48.</p>
+</div>
+<div style="background: #f5c451; color: #1a1405; border-radius: 6px; padding: 18px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #3a2f0a">Zwycięzca</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700">Marta_K</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 15px">10 512,40 · +512,40</span>
+</div>
+<div>
+<h3 style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #7d8a99; margin: 0 0 6px; font-weight: 500">Ranking końcowy</h3>
+<div style="display: flex; flex-direction: column; border-top: 1px solid #1c2530">
+<div style="display: grid; grid-template-columns: 1.6em 1fr auto; gap: 10px; align-items: center; min-height: 52px; border-bottom: 1px solid #1c2530"><span style="font-family: 'JetBrains Mono', monospace; color: #f5c451">1</span><span style="font-family: 'JetBrains Mono', monospace">Marta_K</span><span style="font-family: 'JetBrains Mono', monospace; color: #2ee59d">+512,40</span></div>
+<div style="display: grid; grid-template-columns: 1.6em 1fr auto; gap: 10px; align-items: center; min-height: 52px; border-bottom: 1px solid #1c2530; background: #0f141b"><span style="font-family: 'JetBrains Mono', monospace; color: #7d8a99">2</span><span style="font-family: 'JetBrains Mono', monospace; font-weight: 700">Trader-4821 (Ty)</span><span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #2ee59d">+388,10</span></div>
+<div style="display: grid; grid-template-columns: 1.6em 1fr auto; gap: 10px; align-items: center; min-height: 52px; border-bottom: 1px solid #1c2530"><span style="font-family: 'JetBrains Mono', monospace; color: #7d8a99">3</span><span style="font-family: 'JetBrains Mono', monospace">jan.t</span><span style="font-family: 'JetBrains Mono', monospace; color: #ff5d6c">−120,30</span></div>
+<div style="display: grid; grid-template-columns: 1.6em 1fr auto; gap: 10px; align-items: center; min-height: 52px; border-bottom: 1px solid #1c2530"><span style="font-family: 'JetBrains Mono', monospace; color: #7d8a99">4</span><span style="font-family: 'JetBrains Mono', monospace; color: #7d8a99">Kuba_99 · wyeliminowany</span><span style="font-family: 'JetBrains Mono', monospace; color: #7d8a99">0,00</span></div>
+</div>
+</div>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
+<a href="Lobby.dc.html" style="display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 6px; background: #f5c451; color: #1a1405; font-weight: 700; font-size: 17px; text-decoration: none">Wróć do lobby</a>
+<a href="Rooms.dc.html" style="display: flex; align-items: center; justify-content: center; height: 48px; border-radius: 6px; background: #0f141b; border: 1px solid #1c2530; color: #e6edf3; font-weight: 700; text-decoration: none">Opuść pokój</a>
+<p style="margin: 0; font-size: 12px; color: #7d8a99; text-align: center">Wyniki nie są zapisywane. Znikną po zamknięciu pokoju.</p>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

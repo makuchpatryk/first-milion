@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>First Million</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout: jedna kolumna, wykres u góry, przyciski pod kciukiem, ranking i historia niżej. Jeden commitowany, ciemny motyw. */
+:root {
+  --bg: #07090d;
+  --surface: #0f141b;
+  --border: #1c2530;
+  --grid: #18212b;
+  --fg: #e6edf3;
+  --muted: #8a97a6;
+  --up: #2ee59d;
+  --down: #ff5d6c;
+  --gold: #f5c451;
+  --on-up: #04150d;
+  --on-down: #1a0508;
+  --on-gold: #1a1405;
+  --font-display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-display);
+  font-size: 15px;
+  padding-inline: 16px;
+  padding-block: 16px 32px;
+}
+.app { max-width: 720px; margin-inline: auto; display: flex; flex-direction: column; gap: 14px; }
+.num { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.up { color: var(--up); }
+.down { color: var(--down); }
+
+.top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mode { font: 500 0.72rem var(--font-data); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.mode b { color: var(--gold); font-weight: 500; }
+.lang { display: flex; gap: 6px; }
+
+header { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+h1 { font-size: 1.7rem; margin: 0; letter-spacing: -0.03em; font-weight: 700; text-wrap: balance; }
+h1 span { color: var(--gold); }
+.sub { color: var(--muted); font-size: 0.8rem; margin: 4px 0 0; max-width: 34ch; line-height: 1.4; }
+.quote { text-align: right; }
+.quote .price { font-size: 2.1rem; font-weight: 700; line-height: 1; }
+.quote .chg { font-size: 0.85rem; margin-top: 4px; }
+
+.news {
+  min-height: 2.6em; font-size: 0.85rem; color: var(--muted);
+  border-left: 3px solid var(--border); padding-left: 10px;
+  display: flex; align-items: center; line-height: 1.35;
+}
+.news.hot { color: var(--fg); }
+.news.hot.up { border-color: var(--up); }
+.news.hot.down { border-color: var(--down); }
+.news.hot.warn { border-color: var(--gold); }
+
+.chart-wrap { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+canvas { display: block; width: 100%; height: 260px; }
+.halt {
+  position: absolute; inset-inline: 0; top: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  background: var(--gold); color: var(--on-gold); padding: 8px 12px; font: 700 0.75rem var(--font-data); letter-spacing: 0.06em;
+}
+.over {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 12px; text-align: center; padding: 16px;
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+}
+.over h2 { margin: 0; font-size: 1.5rem; color: var(--down); }
+.over .sub { max-width: 32ch; }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+@media (min-width: 560px) { .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.stat { background: var(--surface); padding: 10px 12px; min-width: 0; }
+.stat label { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 4px; }
+.stat .num { font-size: 1.05rem; font-weight: 500; overflow-wrap: anywhere; }
+
+.controls { display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row .lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); min-width: 64px; }
+.chip {
+  font: 500 0.85rem var(--font-data); background: var(--surface); color: var(--fg);
+  border: 1px solid var(--border); border-radius: 4px; padding: 0 12px; min-height: 44px; min-width: 44px; cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); border-color: var(--gold); }
+.chip:focus-visible, .big:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.actions { display: grid; grid-template-columns: 1fr 0.8fr 1fr; gap: 8px; }
+.big {
+  font: 700 1.05rem var(--font-display); border: 0; border-radius: 6px; padding: 18px 8px;
+  cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.big small { font: 400 0.68rem var(--font-data); opacity: 0.8; }
+.big:active { transform: translateY(1px); }
+.big:disabled { opacity: 0.35; cursor: not-allowed; }
+.buy { background: var(--up); color: var(--on-up); }
+.sell { background: var(--down); color: var(--on-down); }
+.flat { background: var(--surface); color: var(--fg); border: 1px solid var(--border); }
+.hint { font-size: 0.72rem; color: var(--muted); margin: 0; line-height: 1.45; }
+
+h3 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 8px 0 6px; font-weight: 500; }
+.hist { display: flex; flex-direction: column; border-top: 1px solid var(--border); }
+.hist .item {
+  display: grid; grid-template-columns: 3.6em 1fr auto; gap: 10px; align-items: baseline;
+  padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.82rem;
+}
+.hist .item .side { font-weight: 700; }
+.hist .item .det { color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+.empty { color: var(--muted); font-size: 0.85rem; padding: 12px 0; }
+.foot { display: flex; gap: 18px; flex-wrap: wrap; color: var(--muted); font-size: 0.78rem; }
+.foot b { color: var(--fg); font-weight: 500; }
+@media (prefers-reduced-motion: reduce) { .big:active { transform: none; } }
+</style>
+
+</head>
+<body>
+<main class="app">
+  <div class="top">
+    <span class="mode"><b>●</b> <span data-i="mode"></span></span>
+    <div class="lang" role="group" aria-label="Language">
+      <button class="chip" id="lpl" aria-pressed="true">PL</button>
+      <button class="chip" id="len" aria-pressed="false">EN</button>
+    </div>
+  </div>
+
+  <header>
+    <div>
+      <h1>First <span>Million</span></h1>
+      <p class="sub" data-i="sub"></p>
+    </div>
+    <div class="quote">
+      <div class="price num" id="price">100,00</div>
+      <div class="chg num" id="chg">0,00%</div>
+    </div>
+  </header>
+
+  <div class="news" id="news"></div>
+
+  <div class="chart-wrap">
+    <canvas id="chart" role="img" aria-label="SYNTH/USD"></canvas>
+    <div class="halt" id="halt" hidden><span data-i="haltBar"></span><span class="num" id="haltTime"></span></div>
+    <div class="over" id="over" hidden>
+      <h2 data-i="mc"></h2>
+      <div class="sub" id="overMsg"></div>
+      <button class="chip" id="restart" data-i="again"></button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><label data-i="capital"></label><div class="num" id="equity">10 000,00</div></div>
+    <div class="stat"><label data-i="open"></label><div class="num" id="open">0,00</div></div>
+    <div class="stat"><label data-i="pos"></label><div class="num" id="pos"></div></div>
+    <div class="stat"><label data-i="total"></label><div class="num" id="total">0,00</div></div>
+  </div>
+
+  <div class="controls">
+    <div class="row"><span class="lbl" data-i="size"></span><span class="row" id="qtys"></span></div>
+    <div class="row"><span class="lbl" data-i="speed"></span><span class="row" id="speeds"></span>
+      <button class="chip" id="pause"></button></div>
+    <div class="actions">
+      <button class="big buy" id="buy"><span data-i="buy"></span><small><span data-i="key"></span> B</small></button>
+      <button class="big flat" id="close"><span data-i="close"></span><small><span data-i="key"></span> C</small></button>
+      <button class="big sell" id="sell"><span data-i="sell"></span><small><span data-i="key"></span> S</small></button>
+    </div>
+    <p class="hint" data-i="hint"></p>
+  </div>
+
+  <div>
+    <h3 data-i="hist"></h3>
+    <div class="hist" id="hist"></div>
+  </div>
+
+  <div class="foot">
+    <span><span data-i="trades"></span>: <b class="num" id="nTrades">0</b></span>
+    <span><span data-i="win"></span>: <b class="num" id="winRate">–</b></span>
+    <span><span data-i="peak"></span>: <b class="num" id="peak">10 000,00</b></span>
+  </div>
+</main>
+
+<script>
+(function () {
+  var START_CASH = 10000, START_PRICE = 100, SPREAD = 0.06, MAXPTS = 2400, VIEW = 220, TICK_MS = 80;
+  var QTYS = [10, 50, 100, 250], SPEEDS = [1, 3, 8];
+  var HALT_MS = 5000, FLASH_RECOVER = 0.7, FLASH_TICKS = 20, VOL_MULT = 3, VOL_TICKS = 60, TREND_DRIFT = 0.0007, TREND_TICKS = 100;
+
+  var T = {
+    pl: {
+      mode: "Single play", sub: "SYNTH/USD, symulowany rynek. Losowe ceny i newsy. Wyniki nie są zapisywane.",
+      capital: "Kapitał", open: "Wynik otwarty", pos: "Pozycja", total: "Wynik łączny", none: "brak",
+      size: "Wielkość", speed: "Tempo", pause: "Pauza", resume: "Wznów", buy: "Kup", sell: "Sprzedaj", close: "Zamknij", key: "klawisz",
+      hint: "Kup i sprzedaj działają na jednej pozycji: sprzedaż przy długiej pozycji ją zmniejsza, a nadwyżka otwiera krótką. Spread 0,06 $ na każdej transakcji. Podczas zawieszenia notowań zlecenia są zablokowane.",
+      hist: "Ostatnie transakcje", histEmpty: "Jeszcze nic nie zamknąłeś.", trades: "Transakcje", win: "Trafność", peak: "Rekord kapitału",
+      mc: "Margin call", mcMsg: "Kapitał spadł do zera po {n} transakcjach. Rekord: {p} $.", again: "Zagraj od nowa",
+      newsNone: "Rynek rusza. Brak wiadomości.", haltBar: "ZAWIESZENIE NOTOWAŃ", units: "szt.", long: "LONG", short: "SHORT", entry: "wejście",
+      shockUp: [
+        "Rząd ogłasza pakiet stymulacyjny. Kupujący wchodzą na rynek.",
+        "Spółka bije prognozy kwartalne o 18%.",
+        "Duży fundusz zwiększa udział do 9%.",
+        "Bank centralny sygnalizuje obniżkę stóp."
+      ],
+      shockDown: [
+        "Wyciek raportu: audytor wstrzymuje podpis.",
+        "Nieoczekiwane cła uderzają w eksport.",
+        "Prezes sprzedaje pakiet akcji. Rynek reaguje nerwowo.",
+        "Bank centralny podnosi stopy mocniej niż zakładano."
+      ],
+      flash: "Flash crash: gwałtowna wyprzedaż ({x}). Rynek zaczyna odrabiać straty.",
+      vol: "Skok zmienności: ceny szaleją w obie strony.",
+      halt: "Zawieszenie notowań. Handel wstrzymany na 5 s.",
+      trendUp: "Trend wzrostowy: kupujący przejmują rynek.",
+      trendDown: "Trend spadkowy: sprzedający przejmują rynek."
+    },
+    en: {
+      mode: "Single play", sub: "SYNTH/USD, simulated market. Random prices and news. Results are not saved.",
+      capital: "Equity", open: "Open P&L", pos: "Position", total: "Total result", none: "none",
+      size: "Size", speed: "Speed", pause: "Pause", resume: "Resume", buy: "Buy", sell: "Sell", close: "Close", key: "key",
+      hint: "Buy and sell work on one net position: selling while long reduces it, and any excess opens a short. Spread is $0.06 on every trade. Orders are blocked during a trading halt.",
+      hist: "Recent trades", histEmpty: "You haven't closed anything yet.", trades: "Trades", win: "Win rate", peak: "Equity record",
+      mc: "Margin call", mcMsg: "Equity fell to zero after {n} trades. Record: ${p}.", again: "Play again",
+      newsNone: "Market is opening. No news.", haltBar: "TRADING HALT", units: "units", long: "LONG", short: "SHORT", entry: "entry",
+      shockUp: [
+        "Government announces a stimulus package. Buyers pile in.",
+        "Company beats quarterly forecasts by 18%.",
+        "Large fund raises its stake to 9%.",
+        "Central bank signals a rate cut."
+      ],
+      shockDown: [
+        "Leaked report: auditor withholds sign-off.",
+        "Surprise tariffs hit exports.",
+        "CEO sells a block of shares. Market reacts nervously.",
+        "Central bank hikes rates more than expected."
+      ],
+      flash: "Flash crash: sharp sell-off ({x}). The market starts to recover.",
+      vol: "Volatility spike: prices swing both ways.",
+      halt: "Trading halt. Orders are paused for 5 s.",
+      trendUp: "Uptrend: buyers take over the market.",
+      trendDown: "Downtrend: sellers take over the market."
+    }
+  };
+
+  var LANG = (navigator.language || "en").toLowerCase().indexOf("pl") === 0 ? "pl" : "en";
+  try { var saved = localStorage.getItem("fm-lang"); if (saved === "pl" || saved === "en") LANG = saved; } catch (e) {}
+  function tr(k) { return T[LANG][k]; }
+
+  var $ = function (id) { return document.getElementById(id); };
+  function locale() { return LANG === "pl" ? "pl-PL" : "en-US"; }
+  function fmt(n) { return n.toLocaleString(locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function fmt1(n) { return n.toLocaleString(locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+  var sgn = function (n) { return (n > 0 ? "+" : "") + fmt(n); };
+  var cls = function (n) { return n > 0 ? "up" : n < 0 ? "down" : ""; };
+  function randn() { var u = 1 - Math.random(), v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+  var s;
+  var qty = 50, speed = 3, paused = false;
+
+  function fresh() {
+    s = {
+      price: START_PRICE, prices: [START_PRICE], shownLen: 1,
+      drift: 0, vol: 0.001, regimeLeft: 0, newsLeft: 200 + Math.random() * 200,
+      volLeft: 0, trendLeft: 0, trendDrift: 0, recovLeft: 0, recovPer: 0, haltMs: 0,
+      pos: 0, avg: 0, realized: 0, trades: [], wins: 0, closedN: 0,
+      peak: START_CASH, over: false, newsAge: 0, news: null
+    };
+    newRegime();
+    $("over").hidden = true;
+    renderHist();
+    renderNews();
+  }
+
+  function newRegime() {
+    s.drift = (Math.random() - 0.5) * 0.0014;
+    s.vol = 0.0006 + Math.random() * 0.0018;
+    s.regimeLeft = 40 + Math.random() * 140;
+  }
+
+  function news() {
+    var type = Math.floor(Math.random() * 5);
+    var dir = Math.random() < 0.5 ? 1 : -1;
+    s.newsLeft = 250 + Math.random() * 400;
+    s.newsAge = 0;
+    if (type === 0) {
+      var mag = 0.012 + Math.random() * 0.02;
+      s.price = Math.max(5, s.price * Math.exp(dir * mag));
+      s.news = { type: "shock", dir: dir, mag: mag, idx: Math.floor(Math.random() * 4), cls: dir > 0 ? "up" : "down" };
+    } else if (type === 1) {
+      var drop = 0.03 + Math.random() * 0.05, before = s.price;
+      s.price = Math.max(5, before * (1 - drop));
+      s.recovPer = FLASH_RECOVER * (before - s.price) / FLASH_TICKS;
+      s.recovLeft = FLASH_TICKS;
+      s.news = { type: "flash", mag: drop, cls: "down" };
+    } else if (type === 2) {
+      s.volLeft = VOL_TICKS;
+      s.news = { type: "vol", cls: "warn" };
+    } else if (type === 3) {
+      s.haltMs = HALT_MS;
+      s.shownLen = s.prices.length;
+      s.news = { type: "halt", cls: "warn" };
+    } else {
+      s.trendLeft = TREND_TICKS;
+      s.trendDrift = dir * TREND_DRIFT;
+      s.news = { type: "trend", dir: dir, cls: dir > 0 ? "up" : "down" };
+    }
+    renderNews();
+  }
+
+  function newsText() {
+    var n = s.news;
+    if (!n) return tr("newsNone");
+    if (n.type === "shock") {
+      var list = n.dir > 0 ? tr("shockUp") : tr("shockDown");
+      return list[n.idx] + " (" + (n.dir > 0 ? "+" : "−") + fmt1(n.mag * 100) + "%)";
+    }
+    if (n.type === "flash") return tr("flash").replace("{x}", "−" + fmt1(n.mag * 100) + "%");
+    if (n.type === "trend") return tr(n.dir > 0 ? "trendUp" : "trendDown");
+    return tr(n.type);
+  }
+
+  function renderNews() {
+    var el = $("news");
+    el.className = "news" + (s.news && s.newsAge <= 90 ? " hot " + s.news.cls : "");
+    el.textContent = newsText();
+  }
+
+  function step() {
+    if (--s.regimeLeft <= 0) newRegime();
+    if (--s.newsLeft <= 0) news();
+    var drift = s.trendLeft > 0 ? s.trendDrift : s.drift;
+    var vol = s.vol * (s.volLeft > 0 ? VOL_MULT : 1);
+    if (s.trendLeft > 0) s.trendLeft--;
+    if (s.volLeft > 0) s.volLeft--;
+    s.price = Math.max(5, s.price * Math.exp(drift + vol * randn()));
+    if (s.recovLeft > 0) { s.price = Math.max(5, s.price + s.recovPer); s.recovLeft--; }
+    s.prices.push(s.price);
+    if (s.prices.length > MAXPTS) { s.prices.shift(); if (s.haltMs > 0) s.shownLen = Math.max(1, s.shownLen - 1); }
+    if (s.haltMs <= 0) s.shownLen = s.prices.length;
+    if (++s.newsAge === 91) renderNews();
+    if (trueEquity() <= 0) gameOver();
+  }
+
+  function shownPrice() { return s.prices[s.shownLen - 1]; }
+  function trueEquity() { return START_CASH + s.realized + (s.pos ? (s.price - s.avg) * s.pos : 0); }
+  function unreal() { return s.pos ? (shownPrice() - s.avg) * s.pos : 0; }
+  function equity() { return START_CASH + s.realized + unreal(); }
+
+  function trade(side) {
+    if (s.over || s.haltMs > 0) return;
+    var fill = s.price + side * SPREAD / 2;
+    var q = qty;
+    if (s.pos === 0 || Math.sign(s.pos) === side) {
+      s.avg = (s.avg * Math.abs(s.pos) + fill * q) / (Math.abs(s.pos) + q);
+      s.pos += side * q;
+    } else {
+      var closing = Math.min(Math.abs(s.pos), q);
+      logClose(closing, fill);
+      var rest = q - closing;
+      s.pos += side * q;
+      if (s.pos === 0) s.avg = 0;
+      else if (rest > 0) s.avg = fill;
+    }
+    render();
+  }
+
+  function logClose(units, fill) {
+    var dir = Math.sign(s.pos);
+    var pnl = (fill - s.avg) * dir * units;
+    s.realized += pnl;
+    s.closedN++;
+    if (pnl > 0) s.wins++;
+    s.trades.unshift({ dir: dir, units: units, entry: s.avg, exit: fill, pnl: pnl });
+    if (s.trades.length > 8) s.trades.pop();
+    renderHist();
+  }
+
+  function closeAll() {
+    if (s.over || s.haltMs > 0 || s.pos === 0) return;
+    var dir = Math.sign(s.pos);
+    logClose(Math.abs(s.pos), s.price - dir * SPREAD / 2);
+    s.pos = 0; s.avg = 0;
+    render();
+  }
+
+  function gameOver() {
+    if (s.pos) {
+      var dir = Math.sign(s.pos);
+      logClose(Math.abs(s.pos), s.price - dir * SPREAD / 2);
+      s.pos = 0; s.avg = 0;
+    }
+    s.over = true;
+    s.haltMs = 0;
+    s.shownLen = s.prices.length;
+    $("over").hidden = false;
+    renderOverMsg();
+    render();
+  }
+
+  function renderOverMsg() {
+    $("overMsg").textContent = tr("mcMsg").replace("{n}", s.closedN).replace("{p}", fmt(s.peak));
+  }
+
+  function renderHist() {
+    var box = $("hist");
+    if (!s.trades.length) { box.innerHTML = '<div class="empty">' + tr("histEmpty") + "</div>"; return; }
+    box.innerHTML = s.trades.map(function (t) {
+      return '<div class="item"><span class="side ' + (t.dir > 0 ? "up" : "down") + '">' + (t.dir > 0 ? tr("long") : tr("short")) +
+        '</span><span class="det num">' + t.units + " " + tr("units") + " " + fmt(t.entry) + " → " + fmt(t.exit) +
+        '</span><span class="num ' + cls(t.pnl) + '">' + sgn(t.pnl) + "</span></div>";
+    }).join("");
+  }
+
+  function render() {
+    var sp = shownPrice();
+    var eq = equity(), u = unreal(), tot = eq - START_CASH;
+    if (eq > s.peak) s.peak = eq;
+    var chg = (sp / START_PRICE - 1) * 100;
+    $("price").textContent = fmt(sp);
+    var c = $("chg"); c.textContent = sgn(chg) + "%"; c.className = "chg num " + cls(chg);
+    $("equity").textContent = fmt(eq);
+    var o = $("open"); o.textContent = sgn(u); o.className = "num " + cls(u);
+    var t = $("total"); t.textContent = sgn(tot); t.className = "num " + cls(tot);
+    $("pos").textContent = s.pos ? (s.pos > 0 ? "+" : "") + s.pos + " @ " + fmt(s.avg) : tr("none");
+    $("nTrades").textContent = s.closedN;
+    $("winRate").textContent = s.closedN ? Math.round(s.wins / s.closedN * 100) + "%" : "–";
+    $("peak").textContent = fmt(s.peak);
+    var halted = s.haltMs > 0;
+    $("halt").hidden = !halted;
+    if (halted) $("haltTime").textContent = fmt1(s.haltMs / 1000) + " s";
+    ["buy", "sell", "close"].forEach(function (id) { $(id).disabled = s.over || halted; });
+    draw();
+  }
+
+  var cv = $("chart"), ctx = cv.getContext("2d");
+  function css(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function draw() {
+    var dpr = window.devicePixelRatio || 1;
+    var w = cv.clientWidth, h = cv.clientHeight;
+    if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    var data = s.prices.slice(0, s.shownLen).slice(-VIEW);
+    var lo = Math.min.apply(null, data), hi = Math.max.apply(null, data);
+    if (s.pos) { lo = Math.min(lo, s.avg); hi = Math.max(hi, s.avg); }
+    var pad = (hi - lo) * 0.12 || 0.5; lo -= pad; hi += pad;
+    var L = 8, R = 62, T0 = 10, B = 12;
+    var pw = w - L - R, ph = h - T0 - B;
+    var off = VIEW - data.length;
+    var x = function (i) { return L + ((i + off) / (VIEW - 1)) * pw; };
+    var y = function (v) { return T0 + (1 - (v - lo) / (hi - lo)) * ph; };
+
+    ctx.font = "11px " + css("--font-data");
+    ctx.textBaseline = "middle";
+    var grid = css("--grid"), muted = css("--muted"), up = css("--up"), gold = css("--gold");
+    ctx.lineWidth = 1;
+    for (var g = 0; g <= 4; g++) {
+      var gv = lo + (hi - lo) * g / 4, gy = Math.round(y(gv)) + 0.5;
+      ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(L, gy); ctx.lineTo(L + pw, gy); ctx.stroke();
+      ctx.fillStyle = muted; ctx.textAlign = "left"; ctx.fillText(gv.toFixed(2), L + pw + 6, gy);
+    }
+
+    ctx.beginPath();
+    data.forEach(function (v, i) { i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); });
+    ctx.lineTo(x(data.length - 1), T0 + ph); ctx.lineTo(x(0), T0 + ph); ctx.closePath();
+    ctx.fillStyle = "rgba(46, 229, 157, 0.12)"; ctx.fill();
+
+    ctx.beginPath();
+    data.forEach(function (v, i) { i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)); });
+    ctx.strokeStyle = up; ctx.lineWidth = 1.7; ctx.lineJoin = "round"; ctx.stroke();
+
+    if (s.pos) {
+      var ey = y(s.avg);
+      ctx.setLineDash([5, 4]); ctx.strokeStyle = gold; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(L, ey); ctx.lineTo(L + pw, ey); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = gold; ctx.textAlign = "left"; ctx.fillText(tr("entry") + " " + s.avg.toFixed(2), L + 4, ey - 8);
+    }
+
+    var sp = data[data.length - 1], ly = y(sp), lx = x(data.length - 1);
+    ctx.fillStyle = gold; ctx.beginPath(); ctx.arc(lx, ly, 3.5, 0, 6.2832); ctx.fill();
+    ctx.fillRect(L + pw + 2, ly - 9, R - 4, 18);
+    ctx.fillStyle = css("--on-gold"); ctx.textAlign = "left"; ctx.fillText(sp.toFixed(2), L + pw + 6, ly);
+  }
+
+  function chips(id, items, get, set, label) {
+    var box = $(id);
+    box.innerHTML = "";
+    items.forEach(function (v) {
+      var b = document.createElement("button");
+      b.className = "chip";
+      b._v = v; b._label = label;
+      b.textContent = label(v);
+      b.addEventListener("click", function () { set(v); sync(); });
+      box.appendChild(b);
+    });
+    function sync() { Array.prototype.forEach.call(box.children, function (b) { b.setAttribute("aria-pressed", String(b._v === get())); }); }
+    sync();
+    return function relabel() { Array.prototype.forEach.call(box.children, function (b) { b.textContent = b._label(b._v); }); };
+  }
+  var relabelQty = chips("qtys", QTYS, function () { return qty; }, function (v) { qty = v; }, function (v) { return v + " " + tr("units"); });
+  chips("speeds", SPEEDS, function () { return speed; }, function (v) { speed = v; }, function (v) { return v + "×"; });
+
+  function applyLang() {
+    document.documentElement.lang = LANG;
+    Array.prototype.forEach.call(document.querySelectorAll("[data-i]"), function (el) { el.textContent = tr(el.getAttribute("data-i")); });
+    $("lpl").setAttribute("aria-pressed", String(LANG === "pl"));
+    $("len").setAttribute("aria-pressed", String(LANG === "en"));
+    $("pause").textContent = paused ? tr("resume") : tr("pause");
+    $("chart").setAttribute("aria-label", "SYNTH/USD");
+    relabelQty();
+    if (s) { renderHist(); renderNews(); renderOverMsg(); render(); }
+  }
+  function setLang(l) {
+    LANG = l;
+    try { localStorage.setItem("fm-lang", l); } catch (e) {}
+    applyLang();
+  }
+  $("lpl").addEventListener("click", function () { setLang("pl"); });
+  $("len").addEventListener("click", function () { setLang("en"); });
+
+  $("buy").addEventListener("click", function () { trade(1); });
+  $("sell").addEventListener("click", function () { trade(-1); });
+  $("close").addEventListener("click", closeAll);
+  $("restart").addEventListener("click", function () { fresh(); render(); });
+  $("pause").addEventListener("click", function () { paused = !paused; $("pause").textContent = paused ? tr("resume") : tr("pause"); });
+  document.addEventListener("keydown", function (e) {
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    var k = e.key.toLowerCase();
+    if (k === "b") trade(1); else if (k === "s") trade(-1); else if (k === "c") closeAll();
+  });
+  window.addEventListener("resize", function () { if (s) draw(); });
+
+  fresh();
+  applyLang();
+  var last = performance.now();
+  setInterval(function () {
+    var now = performance.now(), dt = Math.min(now - last, 250);
+    last = now;
+    if (paused || s.over) return;
+    if (s.haltMs > 0) {
+      s.haltMs -= dt;
+      if (s.haltMs <= 0) { s.haltMs = 0; s.shownLen = s.prices.length; }
+    }
+    for (var i = 0; i < speed; i++) step();
+    render();
+  }, TICK_MS);
+})();
+</script>
+</body>
+</html>
