@@ -140,7 +140,7 @@ Lobby ──POST /init──► Room (on room.create, before reply)
   export function createTokenVerifier(opts: { projectId: string; emulator: boolean; fetchJwks: () => Promise<Jwks>; now: () => number }): TokenVerifier
   ```
   - Parse header/payload with zod (`unknown` boundary). `alg` must be `RS256` (reject `none` unless `emulator`).
-  - Find key by `kid` in JWKS (refetch once if missing); `crypto.subtle.importKey('jwk', …, {name:'RSASSA-PKCS1-v1_5', hash:'SHA-256'})` then `verify`.
+  - Find key by `kid` in the cached JWKS (no refetch on an unknown `kid`: the fetcher is TTL-cached, so a second call returns the same keys; revised after review); `crypto.subtle.importKey('jwk', …, {name:'RSASSA-PKCS1-v1_5', hash:'SHA-256'})` then `verify`.
   - Claims: `iss === 'https://securetoken.google.com/' + projectId`; `aud === projectId`; `exp*1000 > now`; `iat*1000 <= now + 60_000`; `sub` non-empty string; `email_verified === true` (BR-002, FR-007).
   - Emulator mode (`AUTH_EMULATOR === "true"`): skip signature check and accept `alg: "none"`; claims still checked. Production mode never sets this flag.
 - `src/auth/jwks.ts` — `fetchFirebaseJwks(fetchFn, now)`: `GET https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com`. Caches in a module variable with TTL from `Cache-Control: max-age` (fallback `JWKS_FALLBACK_TTL_MS`). In-memory cache is not persistent state (allowed, ARCH: memory only). Fetch failure → verify returns `null` → `auth` refused (PRD §15 failure handling).
@@ -206,7 +206,7 @@ Lobby ──POST /init──► Room (on room.create, before reply)
   ```
   - Stores `players: Member[]`, `observers: Member[]`, `hostUid: string | null`, `status: 'lobby'`, `emptySince` deletion timer handle.
   - `join`: rejects a uid already in the room with `INVALID_STATE` (one socket per user per room; reconnect is M4). Full → `ROOM_FULL`. Nick: `uniqueNick(taken, nick)` (FR-002).
-  - Host rule (documented decision): creator is host (BR-013). If the creator has not joined yet, the first joiner becomes host (`hostUid` is re-pointed while the creator is absent). Once the host leaves, `nextHost` applies.
+  - Host rule (documented decision, revised after review): creator is host (BR-013). The room is listed at creation, but until the creator has joined, any other user's `join` answers `INVALID_STATE`, so nobody can take the seat or the host role. A creator who never comes leaves the room empty and the 5 min timer deletes it (BR-014). Once the host leaves, `nextHost` applies; in an empty room the next joiner becomes host.
   - `leave`: remove member; if host → `nextHost`; `publish(summary)` and `broadcast`; if the room is now empty → schedule `EMPTY_ROOM_TTL_MS` (BR-014) deletion timer. A join cancels the pending deletion.
   - Deletion: `publish(null)`, `dispose()`. The shell then stops heartbeats.
   - `kick(actor, nick)`: `isAdmin(actor)` else `FORBIDDEN`; target not found → `INVALID_STATE`; target gets `kicked` then `close(4000-range or 1000)`; they may rejoin (BR-017, FR-017 AC).
@@ -238,25 +238,25 @@ Lobby ──POST /init──► Room (on room.create, before reply)
 
 ## Implementation Steps
 
-1. [ ] `packages/shared`: add `zod` dependency. Extend `src/config.ts` with `AUTH_TIMEOUT_MS`, `HEARTBEAT_MS`, `STALE_AFTER_MS`, `LOBBY_SWEEP_MS`, `JWKS_FALLBACK_TTL_MS` (values as in Key Changes).
-2. [ ] `packages/shared/src/validation.ts`: add `roomFormSchema`, `RoomForm`, `nickSchema` (zod, using M1's `ROOM_NAME_*`, `PROFIT_TARGET_MIN`, `NICK_PATTERN`). Tests: name 2 chars rejected, 3 and 30 accepted, 31 rejected; target `null` ok, `99` rejected, `100` ok, `1_000_000` ok, `50` rejected (FR-009 AC); unknown key rejected (`.strict()`).
-3. [ ] `packages/shared/src/protocol/errors.ts`: `ERROR_CODES` closed union including `ROOM_NOT_FOUND`.
-4. [ ] `packages/shared/src/protocol/views.ts`: `RoomSummary`, `MemberView`, `RoomView` as in Key Changes.
-4b. [ ] `packages/shared/src/protocol/close-codes.ts`: `AUTH_FAILED = 4401`, `KICKED = 4403`, `ROOM_CLOSED = 4410` (exported `as const`).
-5. [ ] `packages/shared/src/protocol/client.ts`: all client schemas (`auth`, `room.create`, `room.join`, `room.leave`, `room.start`, `order`, `close`, `admin.kick`, `admin.closeRoom`), all `.strict()`; `parseClientMessage(raw: unknown)`. Tests: `order` with `price` → rejected (NFR-004, FR-012 AC); `qty: 75` rejected; `side: 'CLOSE'` rejected; `auth` token > 4096 chars rejected; unknown `type` rejected.
-6. [ ] `packages/shared/src/protocol/server.ts` + `index.ts` barrel; `ServerMessage` and `ClientMessage` types via `z.infer`; `protocol/index.ts` re-exports `ERROR_CODES`.
-7. [ ] `packages/worker` scaffold: `package.json` (`@fm/worker`, deps `@fm/shared`, devDeps `wrangler`, `@cloudflare/workers-types`, `@cloudflare/vitest-pool-workers`, `vitest`), `tsconfig.json` (types `@cloudflare/workers-types`), `vitest.config.ts` (pool-workers config pointing at `wrangler.toml`), `wrangler.toml` (bindings, migrations, public vars), `.dev.vars.example`; add `!.dev.vars.example` to `.gitignore` so the template is committed.
-8. [ ] `src/env.ts` (`Env`, `parseEnv`, `AUTH_EMULATOR` exact `"true"`), `src/origin.ts` (`isAllowedOrigin`). Tests: exact-match only; missing Origin → false; `https://evil.example` → false; comma list parsed.
-9. [ ] `src/auth/verify-token.ts` (`createTokenVerifier`): RS256 path via WebCrypto, claim checks (iss, aud, exp, iat, sub, `email_verified`), emulator mode accepts `alg: none`, production rejects it. Tests with a locally generated RSA key pair (WebCrypto in test): valid token → `{uid}`; wrong `aud` → null; expired → null; `email_verified: false` → null (FR-007 AC, BR-002); `alg: none` in production → null; `alg: none` in emulator → `{uid}`; tampered payload → null.
-10. [ ] `src/auth/jwks.ts` (`fetchFirebaseJwks` with TTL cache from `Cache-Control`, fallback TTL). Test: second call within TTL does not fetch; fetch failure → verifier returns null (PRD §15).
-11. [ ] `src/auth/auth-gate.ts` (`AuthGate`): 5 s timeout → close 4401; first non-auth message → close 4401; bad token → 4401; valid → `auth.ok {admin}`; second `auth` re-verifies (FR-007 edge). Tests with fake timers: no auth within 5 000 ms → 4401; auth at 4 999 ms → ok; admin flag true only for UIDs in `ADMIN_UIDS` (`isAdmin`).
-12. [ ] `src/lobby/lobby-logic.ts` (`LobbyLogic`): `register`, `remove`, `has`, `list`, `sweep`; sweep timer armed only while non-empty. Tests (fake clock): FR-008 AC — room with no heartbeat for 3× interval (90 s) removed, a room heartbeating every 30 s stays; broadcast only on change; list order = registration order; sweep timer not armed when empty.
-13. [ ] `src/room/roster.ts`: `assignRole`, `uniqueNick` (FR-002 `Jan#2`, then `#3`; base truncated so the result ≤ 16 chars), `nextHost`. Tests: FR-010 AC (lobby with 3 players → player; 4 players → observer; 4 observers → `full`); BR-013 (host leaves → next player by join order; no players → earliest observer; empty → null); FR-002 AC (`Jan` twice → `Jan#2`).
-14. [ ] `src/room/room-logic.ts` (`RoomLogic`, lobby state only): `join` (role, `ROOM_FULL`, duplicate uid → `INVALID_STATE`, nick suffix), `leave` (host transfer, empty → deletion timer), `kick` (admin, FORBIDDEN for non-admin, `kicked` + close, rejoin allowed), `closeRoom` (admin, `ROOM_CLOSED` to all, `publish(null)`), `summary()`, `viewFor(uid)` (no UIDs). Tests with fake clock and fake send (BR-011, BR-012 lobby join, BR-013, BR-014 5 min deletion, BR-017, FR-016 AC, FR-017 AC "kicked player can rejoin"; creator-not-present rule: first joiner becomes host).
-15. [ ] `src/room/room.ts` (`Room` DO shell): `/init` (once; 409 on second), `/close`, WS upgrade with `AuthGate`, message switch with `never` exhaustiveness, `publish` via `LOBBY` stub (`/register`, `/deregister`) inside `ctx.waitUntil`, heartbeat `setInterval(HEARTBEAT_MS)`, socket close → `onSocketClosed`. Unknown room → `ROOM_NOT_FOUND` + close.
-16. [ ] `src/lobby/lobby.ts` (`Lobby` DO shell): `/ws` upgrade with `AuthGate`, subscriber set, `lobby.rooms` snapshot on subscribe, `room.create` (`newUniqueId`, `POST /init`, reply `room.created`), `admin.closeRoom` (admin check, `ROOM_NOT_FOUND`, forward `/close`), internal `POST /register` and `POST /deregister` (zod-parsed body), broadcast on change, no `storage` use.
-17. [ ] `src/index.ts`: routes `/ws/lobby`, `/ws/room/:roomId`; 426 for non-upgrade; 403 for bad Origin (before forwarding); invalid room id → 404; `export { Room, Lobby }`. Internal paths (`/register`, `/deregister`, `/init`, `/close`) are not forwarded from public routes.
-18. [ ] Integration tests with `@cloudflare/vitest-pool-workers` (`test/integration/`):
+1. [x] `packages/shared`: add `zod` dependency. Extend `src/config.ts` with `AUTH_TIMEOUT_MS`, `HEARTBEAT_MS`, `STALE_AFTER_MS`, `LOBBY_SWEEP_MS`, `JWKS_FALLBACK_TTL_MS` (values as in Key Changes).
+2. [x] `packages/shared/src/validation.ts`: add `roomFormSchema`, `RoomForm`, `nickSchema` (zod, using M1's `ROOM_NAME_*`, `PROFIT_TARGET_MIN`, `NICK_PATTERN`). Tests: name 2 chars rejected, 3 and 30 accepted, 31 rejected; target `null` ok, `99` rejected, `100` ok, `1_000_000` ok, `50` rejected (FR-009 AC); unknown key rejected (`.strict()`).
+3. [x] `packages/shared/src/protocol/errors.ts`: `ERROR_CODES` closed union including `ROOM_NOT_FOUND`.
+4. [x] `packages/shared/src/protocol/views.ts`: `RoomSummary`, `MemberView`, `RoomView` as in Key Changes.
+4b. [x] `packages/shared/src/protocol/close-codes.ts`: `AUTH_FAILED = 4401`, `KICKED = 4403`, `ROOM_CLOSED = 4410` (exported `as const`).
+5. [x] `packages/shared/src/protocol/client.ts`: all client schemas (`auth`, `room.create`, `room.join`, `room.leave`, `room.start`, `order`, `close`, `admin.kick`, `admin.closeRoom`), all `.strict()`; `parseClientMessage(raw: unknown)`. Tests: `order` with `price` → rejected (NFR-004, FR-012 AC); `qty: 75` rejected; `side: 'CLOSE'` rejected; `auth` token > 4096 chars rejected; unknown `type` rejected.
+6. [x] `packages/shared/src/protocol/server.ts` + `index.ts` barrel; `ServerMessage` and `ClientMessage` types via `z.infer`; `protocol/index.ts` re-exports `ERROR_CODES`.
+7. [x] `packages/worker` scaffold: `package.json` (`@fm/worker`, deps `@fm/shared`, devDeps `wrangler`, `@cloudflare/workers-types`, `@cloudflare/vitest-pool-workers`, `vitest`), `tsconfig.json` (types `@cloudflare/workers-types`), `vitest.config.ts` (pool-workers config pointing at `wrangler.toml`), `wrangler.toml` (bindings, migrations, public vars), `.dev.vars.example`; add `!.dev.vars.example` to `.gitignore` so the template is committed.
+8. [x] `src/env.ts` (`Env`, `parseEnv`, `AUTH_EMULATOR` exact `"true"`), `src/origin.ts` (`isAllowedOrigin`). Tests: exact-match only; missing Origin → false; `https://evil.example` → false; comma list parsed.
+9. [x] `src/auth/verify-token.ts` (`createTokenVerifier`): RS256 path via WebCrypto, claim checks (iss, aud, exp, iat, sub, `email_verified`), emulator mode accepts `alg: none`, production rejects it. Tests with a locally generated RSA key pair (WebCrypto in test): valid token → `{uid}`; wrong `aud` → null; expired → null; `email_verified: false` → null (FR-007 AC, BR-002); `alg: none` in production → null; `alg: none` in emulator → `{uid}`; tampered payload → null.
+10. [x] `src/auth/jwks.ts` (`fetchFirebaseJwks` with TTL cache from `Cache-Control`, fallback TTL). Test: second call within TTL does not fetch; fetch failure → verifier returns null (PRD §15).
+11. [x] `src/auth/auth-gate.ts` (`AuthGate`): 5 s timeout → close 4401; first non-auth message → close 4401; bad token → 4401; valid → `auth.ok {admin}`; second `auth` re-verifies (FR-007 edge). Tests with fake timers: no auth within 5 000 ms → 4401; auth at 4 999 ms → ok; admin flag true only for UIDs in `ADMIN_UIDS` (`isAdmin`).
+12. [x] `src/lobby/lobby-logic.ts` (`LobbyLogic`): `register`, `remove`, `has`, `list`, `sweep`; sweep timer armed only while non-empty. Tests (fake clock): FR-008 AC — room with no heartbeat for 3× interval (90 s) removed, a room heartbeating every 30 s stays; broadcast only on change; list order = registration order; sweep timer not armed when empty.
+13. [x] `src/room/roster.ts`: `assignRole`, `uniqueNick` (FR-002 `Jan#2`, then `#3`; base truncated so the result ≤ 16 chars), `nextHost`. Tests: FR-010 AC (lobby with 3 players → player; 4 players → observer; 4 observers → `full`); BR-013 (host leaves → next player by join order; no players → earliest observer; empty → null); FR-002 AC (`Jan` twice → `Jan#2`).
+14. [x] `src/room/room-logic.ts` (`RoomLogic`, lobby state only): `join` (role, `ROOM_FULL`, duplicate uid → `INVALID_STATE`, nick suffix), `leave` (host transfer, empty → deletion timer), `kick` (admin, FORBIDDEN for non-admin, `kicked` + close, rejoin allowed), `closeRoom` (admin, `ROOM_CLOSED` to all, `publish(null)`), `summary()`, `viewFor(uid)` (no UIDs). Tests with fake clock and fake send (BR-011, BR-012 lobby join, BR-013, BR-014 5 min deletion, BR-017, FR-016 AC, FR-017 AC "kicked player can rejoin"; creator-not-present rule: first joiner becomes host).
+15. [x] `src/room/room.ts` (`Room` DO shell): `/init` (once; 409 on second), `/close`, WS upgrade with `AuthGate`, message switch with `never` exhaustiveness, `publish` via `LOBBY` stub (`/register`, `/deregister`) inside `ctx.waitUntil`, heartbeat `setInterval(HEARTBEAT_MS)`, socket close → `onSocketClosed`. Unknown room → `ROOM_NOT_FOUND` + close.
+16. [x] `src/lobby/lobby.ts` (`Lobby` DO shell): `/ws` upgrade with `AuthGate`, subscriber set, `lobby.rooms` snapshot on subscribe, `room.create` (`newUniqueId`, `POST /init`, reply `room.created`), `admin.closeRoom` (admin check, `ROOM_NOT_FOUND`, forward `/close`), internal `POST /register` and `POST /deregister` (zod-parsed body), broadcast on change, no `storage` use.
+17. [x] `src/index.ts`: routes `/ws/lobby`, `/ws/room/:roomId`; 426 for non-upgrade; 403 for bad Origin (before forwarding); invalid room id → 404; `export { Room, Lobby }`. Internal paths (`/register`, `/deregister`, `/init`, `/close`) are not forwarded from public routes.
+18. [x] Integration tests with `@cloudflare/vitest-pool-workers` (`test/integration/`):
     - FR-007 AC: unverified token → socket closed 4401; no auth in 5 s → 4401; wrong Origin → 403; token not in URL (route has no query parsing).
     - FR-008 AC: create room via lobby socket → a second subscriber sees the room within 2 s (real timer, short poll).
     - FR-009 AC: valid form → `room.created` then `room.join` → `room.state` with `you.isHost === true`; invalid form (`target 50`) → `INVALID_PAYLOAD`, no room created.
@@ -264,18 +264,18 @@ Lobby ──POST /init──► Room (on room.create, before reply)
     - FR-016 AC: empty room gone from list after the deletion TTL (use injected short TTL via `env` override in test only, or the fake clock path in `RoomLogic` and a single real-timer smoke test).
     - NFR-004: `order` with `price` field → `error INVALID_PAYLOAD`.
     - FR-017: non-admin `admin.closeRoom` → `FORBIDDEN`; admin → `ROOM_CLOSED` to members and room gone from list.
-19. [ ] Grep guard test `test/no-storage.test.ts`: `packages/worker/src/**` contains no `ctx.storage`, `state.storage`, `alarm`, `setAlarm`, `acceptWebSocket` (hibernation), `caches.default`, `KV`, `D1` (BR-020, decision 37).
-20. [ ] Docs: `docs/PRD.md` §20 row 37 (no hibernation for Lobby or Room; duration budget checked in M6); `docs/ARCHITECTURE.md` (error list adds `ROOM_NOT_FOUND`; packages block lists new files; decision 34 note "applies to Lobby as well"); `docs/PRD.md` §21 unchanged.
-21. [ ] Final light verification: `pnpm lint`, `pnpm typecheck`, `pnpm test` (shared + worker incl. pool-workers) green; steps ticked; Implementation Log filled.
+19. [x] Grep guard test `test/no-storage.test.ts`: `packages/worker/src/**` contains no `ctx.storage`, `state.storage`, `alarm`, `setAlarm`, `acceptWebSocket` (hibernation), `caches.default`, `KV`, `D1` (BR-020, decision 37).
+20. [x] Docs: `docs/PRD.md` §20 row 37 (no hibernation for Lobby or Room; duration budget checked in M6); `docs/ARCHITECTURE.md` (error list adds `ROOM_NOT_FOUND`; packages block lists new files; decision 34 note "applies to Lobby as well"); `docs/PRD.md` §21 unchanged.
+21. [x] Final light verification: `pnpm lint`, `pnpm typecheck`, `pnpm test` (shared + worker incl. pool-workers) green; steps ticked; Implementation Log filled.
 
 ## Checkpoints (Todo List)
 
-- [ ] CP1 — Protocol and validation: steps 1–6; `pnpm --filter @fm/shared test` green (room form, protocol strictness, `price` rejected).
-- [ ] CP2 — Worker scaffold and auth: steps 7–11; worker Vitest green for origin, verifier, JWKS cache, auth gate (4401 and 5 s rule).
-- [ ] CP3 — Pure logic: steps 12–14; Vitest green for `LobbyLogic`, `roster`, `RoomLogic` (FR-008, FR-010, FR-016, FR-017 AC).
-- [ ] CP4 — Durable Objects and routing: steps 15–17; `pnpm typecheck` clean across `shared` and `worker`.
-- [ ] CP5 — Integration and guards: steps 18–19; pool-workers integration suite and storage-guard test green.
-- [ ] CP6 — Docs and final light verification: steps 20–21; lint, typecheck and all Vitest green.
+- [x] CP1 — Protocol and validation: steps 1–6; `pnpm --filter @fm/shared test` green (room form, protocol strictness, `price` rejected). — 96 tests green
+- [x] CP2 — Worker scaffold and auth: steps 7–11; worker Vitest green for origin, verifier, JWKS cache, auth gate (4401 and 5 s rule). — 49 tests green
+- [x] CP3 — Pure logic: steps 12–14; Vitest green for `LobbyLogic`, `roster`, `RoomLogic` (FR-008, FR-010, FR-016, FR-017 AC). — 109 worker unit tests green
+- [x] CP4 — Durable Objects and routing: steps 15–17; `pnpm typecheck` clean across `shared` and `worker`. — typecheck clean
+- [x] CP5 — Integration and guards: steps 18–19; pool-workers integration suite and storage-guard test green. — 30 integration + 11 guard tests green
+- [x] CP6 — Docs and final light verification: steps 20–21; lint, typecheck and all Vitest green. — 96 shared + 143 web + 150 worker tests green
 
 ## Risks & Mitigations
 
@@ -310,11 +310,11 @@ Lobby ──POST /init──► Room (on room.create, before reply)
 
 ## Success Checklist
 - [ ] All success criteria met, with evidence (Vitest output, especially ≤ 2 s list visibility and 4401/403 cases)
-- [ ] Lint, typecheck, Vitest green in `shared` and `worker`
-- [ ] No storage or hibernation APIs in `worker` (guard test green)
-- [ ] Docs updated (PRD §20 row 37, ARCH error list and packages block)
+- [x] Lint, typecheck, Vitest green in `shared` and `worker`
+- [x] No storage or hibernation APIs in `worker` (guard test green)
+- [x] Docs updated (PRD §20 row 37, ARCH error list and packages block)
 - [ ] Code review approved (`first-million-review`)
-- [ ] No regressions (M1 engine tests still green; M2 is independent)
+- [x] No regressions (M1 engine tests still green; M2 is independent) — shared engine and web suites unchanged and green
 
 ## Timeline & Estimates
 - Phase 1 (protocol, validation, config): ~3 h
@@ -325,7 +325,58 @@ Lobby ──POST /init──► Room (on room.create, before reply)
 - **Total**: ~21 h (rough, plus buffer)
 
 ## Open Questions
-- [ ] None blocking. Host-when-creator-absent rule decided above (first joiner becomes host); if the user wants strict creator-only hosting, the room must wait for the creator, which needs a timeout rule not in the PRD.
+- [x] Host when the creator is absent: resolved after review. Only the creator can join first; no timeout rule needed, the empty-room TTL (BR-014) covers a creator who never arrives.
 
 ## Implementation Log
-(Empty. first-million-implement appends one line per step event here.)
+- Base: main @ 9097952, worktree `.claude/worktrees/03-worker-lobby-rooms`, branch `feature/03-worker-lobby-rooms`
+- Step 1 — started
+- Step 1 — done — files: packages/shared/package.json, pnpm-lock.yaml, packages/shared/src/config.ts — zod ^4.6.6 (same as web), 5 worker tunables
+- Step 2 — started
+- Step 2 — done — files: packages/shared/src/validation.ts, packages/shared/test/validation.test.ts — `nickSchema`, `roomFormSchema` (duration/speed literals built from `rules.ts` sets, one source), 9 tests. `suffixNick` left in place (no caller; superseded by `uniqueNick` in step 13)
+- Step 3 — started
+- Step 3 — done — files: packages/shared/src/protocol/errors.ts — 9 codes incl. `ROOM_NOT_FOUND`
+- Step 4 — started
+- Step 4 — done — files: packages/shared/src/protocol/views.ts — `RoomSummary`, `MemberView`, `RoomView` (duration/speed typed via `RoundDuration`/`Speed` from `rules.ts`)
+- Step 4b — started
+- Step 4b — done — files: packages/shared/src/protocol/close-codes.ts — `CLOSE_CODES` object `as const` (AUTH_FAILED 4401, KICKED 4403, ROOM_CLOSED 4410)
+- Step 5 — started
+- Step 5 — done — files: packages/shared/src/protocol/client.ts, packages/shared/test/protocol.test.ts — `clientMessageSchema` (discriminated union, all strict), `ClientMessage` type, `parseClientMessage` (JSON-decodes string frames, accepts decoded values), 10 tests. Token max 4096, roomId max 64 (DO id = 64 hex)
+- Step 6 — started
+- Step 6 — done — files: packages/shared/src/protocol/server.ts, packages/shared/src/protocol/views.ts, packages/shared/src/protocol/index.ts, packages/shared/package.json, packages/shared/test/protocol.test.ts — deviation: `RoomSummary`/`MemberView`/`RoomView` and `ServerMessage` are zod schemas + `z.infer` types (spec step 6 asks `ServerMessage` via `z.infer`; one definition also serves Lobby `/register` parsing and M5 client parsing). Added `"./protocol"` export to shared `package.json` so `@fm/shared/protocol` resolves to the barrel. 96 shared tests green
+- CP1 — shared typecheck + 96 Vitest green
+- Step 7 — started
+- Step 7 — done — files: packages/worker/{package.json,tsconfig.json,tsconfig.src.json,vitest.config.ts,wrangler.toml,.dev.vars.example}, .gitignore, pnpm-lock.yaml — deviations: `@cloudflare/vitest-pool-workers` is deprecated (renamed, peer vitest ^4.1 only), so devDep is its successor `@cloudflare/vitest-plugin` ^1.4.0 (same `cloudflareTest` API, supports vitest 5; no vitest pin in worker); vitest `projects` = `unit` (Node, `test/**` minus `test/integration`) + `integration` (`cloudflareTest` plugin); tsconfig split like shared (`tsconfig.src.json` workers types only); `.dev.vars.example` overrides `FIREBASE_PROJECT_ID` to the emulator's `demo-first-million` (the web emulator project id). Not runnable until step 8 adds sources
+- Step 8 — started
+- Step 8 — done — files: packages/worker/src/env.ts, packages/worker/src/origin.ts, packages/worker/test/origin.test.ts — `Env`, `parseEnv` → `{projectId, adminUids, emulator}`, `splitList` (shared by origin), `isAllowedOrigin`; 9 tests. Worker unit tests live in `test/` (mirrors shared), run with `vitest run --project unit`
+- Step 9 — started
+- Step 9 — done — files: packages/worker/src/auth/verify-token.ts, packages/worker/src/auth/jwks.ts (types + zod schema only; fetcher comes in step 10), packages/worker/test/auth/{verify-token.test.ts,token-helpers.ts}, packages/worker/package.json (+`zod`, worker parses JWKS itself) — 20 tests (valid, aud/iss/exp/iat/sub/email_verified, tampered, foreign key, none in prod, HS256, kid refetch once, JWKS failure, malformed, emulator). Signed tokens are still signature-checked in emulator mode; only `alg: none` skips it
+- Step 10 — started
+- Step 10 — done — files: packages/worker/src/auth/jwks.ts, packages/worker/test/auth/jwks.test.ts — `createJwksFetcher(fetchFn, now)` (TTL from `max-age`, fallback `JWKS_FALLBACK_TTL_MS`, in-flight dedupe, stale keys kept on failed refresh) + `fetchFirebaseJwks` instance; 8 tests (37 worker unit tests green). `Date.now()` only in the module-level instance wiring
+- Step 11 — started
+- Step 11 — done — files: packages/worker/src/auth/auth-gate.ts, packages/worker/src/timers.ts, packages/worker/test/auth/auth-gate.test.ts, packages/worker/test/fake-clock.ts — `AuthGate` (+`dispose()` for socket close; pipelined frame before auth.ok closes 4401; re-auth keeps UID, `onAuthed` once), shared `Handle`/`Timers` seam (`Handle = number`) and `FakeClock` test helper reused by later logic tests (spec used fake timers; fake clock matches CODE_QUALITY). 12 tests, 49 worker unit tests green
+- CP2 — worker typecheck clean, 49 unit tests green (origin, verifier, JWKS, auth gate)
+- Step 12 — started
+- Step 12 — done — files: packages/worker/src/lobby/lobby-logic.ts, packages/worker/test/lobby/lobby-logic.test.ts — `LobbyLogic`; broadcast compares against the last broadcast JSON (not the previous `list()`), because stale rooms already drop out of `list()` between sweeps; stale = `> STALE_AFTER_MS` per spec (so a room is gone at the first sweep after 90 s). 12 tests, 61 worker unit tests green
+- Step 13 — started
+- Step 13 — done — files: packages/worker/src/room/roster.ts, packages/worker/test/room/roster.test.ts, packages/shared/src/validation.ts (doc comment on `suffixNick` only) — `assignRole`, `uniqueNick` (reuses `suffixNick` for the format, cuts the base to fit `NICK_MAX`), `nextHost`; 14 tests, 75 worker unit tests green. CODE_QUALITY "Known debt" entry for `suffixNick` to be closed in step 20
+- Step 14 — started
+- Step 14 — done — files: packages/worker/src/room/room-logic.ts, packages/worker/test/room/room-logic.test.ts; lint fixes in packages/shared/test/validation.test.ts, packages/worker/test/auth/verify-token.test.ts, packages/worker/test/origin.test.ts (unused-var in omit helpers) — `RoomLogic` + public `viewFor(uid)`. Deviations: `RoomDeps.now()` left out (no caller in lobby state; M4 adds it); empty-room timer is also armed in the constructor so a room nobody joins is deleted after 5 min (BR-014); after delete/close, `join` answers `ROOM_CLOSED`; host re-point rule = "no host member present → joiner becomes host". Shell calls `deps.publish(logic.summary())` once after init (constructor does not publish). 34 tests, 109 worker unit tests green; `pnpm lint` clean
+- CP3 — LobbyLogic, roster, RoomLogic Vitest green (109 worker unit tests)
+- Step 15 — started
+- Step 15 — done — files: packages/worker/src/room/room.ts, packages/worker/src/socket.ts, packages/worker/src/internal.ts, packages/worker/src/timers.ts (+`runtimeTimers`) — `Room` DO shell. Added two shared shell helpers (the Lobby needs the same plumbing, step 16): `socket.ts` (`createSocketAcceptor`: plain `accept()`, `AuthGate`, zod parse of every frame → `INVALID_PAYLOAD`, `assertNever`) and `internal.ts` (zod bodies for `/init`, `/close`, `/deregister`, `lobbyStub`, `postJson`, `WS_PATH = '/ws'`: index.ts rewrites the public route to it). Decisions: one primary socket per uid per room (`sockets` map set on auth; a second tab gets `INVALID_STATE`); `/init` body `id` must equal `ctx.id`; `/close` carries `actorUid` and the Room re-checks admin (403). Runtime behaviour is checked by the step 18 integration tests; typecheck and lint clean
+- Step 16 — started
+- Step 16 — done — files: packages/worker/src/lobby/lobby.ts — `Lobby` DO shell on `createSocketAcceptor` (subscribers set, snapshot on auth, `room.create` → `newUniqueId` + `POST /init` → `room.created`, `admin.closeRoom` → admin check, `ROOM_NOT_FOUND`, forward `POST /close {actorUid}`), internal `POST /register` / `/deregister` zod-parsed, room messages on the lobby socket → `INVALID_STATE`, no `storage` use. Typecheck and lint clean; runtime checked in step 18
+- Step 17 — started
+- Step 17 — done — files: packages/worker/src/index.ts — routes `GET /ws/lobby`, `GET /ws/room/:roomId`; other path/method or invalid DO id → 404; no `Upgrade: websocket` → 426; bad/missing `Origin` → 403 before forwarding; forwards a rewritten request to `/ws` only, so `/init`, `/close`, `/register`, `/deregister` are unreachable from outside; no query parsing. Check order: route (404), upgrade (426), Origin (403). `export { Room, Lobby }`
+- CP4 — `pnpm typecheck` clean across shared, web and worker
+- Step 18 — started
+- Step 18 — done — files: packages/worker/test/integration/{helpers.ts,env.d.ts,routing.test.ts,auth.test.ts,rooms.test.ts}, packages/worker/vitest.config.ts (test-only bindings `AUTH_EMULATOR`, `ADMIN_UIDS=uid-admin`, `FIREBASE_PROJECT_ID`) — 30 integration tests in workerd over real sockets: Origin 403 / 426 / 404 / internal paths unreachable; 4401 for unverified, garbage, non-auth first message, 5 s silence, URL token ignored; list visibility < 2 s; create + join + `isHost`; target 50 → `INVALID_PAYLOAD`; 4 players / observers / `ROOM_FULL`; `#2` nick; `ROOM_NOT_FOUND` for an uninitialised id; host handover + list update; `order` with `price` → `INVALID_PAYLOAD`; FORBIDDEN for non-admin close/kick; admin close → `ROOM_CLOSED` + 4410 + list drop; kick → 4403 + rejoin. Deviation: FR-016 5-min TTL not run with a real timer (the constant is 300 s); covered by `RoomLogic` fake-clock tests plus the leave → list integration test, as the spec allows
+- Step 19 — started
+- Step 19 — done — files: packages/worker/test/no-storage.test.ts — comment-stripped scan of `src/**` for storage, alarms, hibernation, Cache API, KV, D1, R2, `localStorage` + `wrangler.toml` binds no KV/D1/R2; 11 tests; verified it fails when `ctx.storage.put` is added (temp file removed). It lives in the `unit` project (needs `node:fs`), spec path `test/no-storage.test.ts` kept
+- CP5 — 30 integration tests + 11 guard tests green
+- Step 20 — started
+- Step 20 — done — files: docs/PRD.md (§20 row 37), docs/ARCHITECTURE.md (status, packages block, dependency rule, memory-only invariant, error list + close codes, emulator note, A2 covers `Lobby`), docs/CODE_QUALITY.md (`suffixNick` debt reworded) — ARCH decisions are numbered A1–A7, so the spec's "decision 34 note" became A2. PRD §21 unchanged
+- Step 21 — started
+- Step 21 — done — `pnpm lint` clean, `pnpm typecheck` clean (shared, web, worker), `pnpm test` green: shared 8 files / 96 tests, web 18 / 143, worker 11 / 150 (unit + 30 workerd integration). Background checker subagents were killed by a session restart, so the three commands were run inline in the worktree. Heavy checks (e2e, build, Lighthouse, axe) not run, left to `first-million-review`
+- CP6 — lint, typecheck and all Vitest green; docs updated
+- Review fixes — files: packages/worker/vitest.config.ts (integration `testTimeout` 15 s, `hookTimeout` 30 s: cold-start flake), packages/shared/src/config.ts (`MAX_FRAME_CHARS` 8 192), packages/shared/src/protocol/client.ts (text frame over the cap is refused before `JSON.parse`), packages/worker/src/auth/verify-token.ts (dropped the no-op second `fetchJwks()`), packages/worker/src/room/room-logic.ts (`creatorJoined`: others get `INVALID_STATE` until the creator has joined), tests: shared/protocol, worker verify-token, room-logic, integration rooms (creator joins first as `uid-1`), new integration/shell.test.ts (creator seat, token refresh, second socket, frame size, `/init` 409 and id mismatch, `/close` 403), helper `sendRaw`. `pnpm lint`, `pnpm typecheck` clean; shared 97, web 143, worker 160 tests green
