@@ -12,9 +12,12 @@ type Mounted = Awaited<ReturnType<typeof mountWithApp>>['wrapper']
 
 let current: Mounted | null = null
 
+/** Mounts the view and starts a round through the setup screen (5 min, goal 20,000). */
 async function mountView(): Promise<Mounted> {
   const { wrapper } = await mountWithApp(SinglePlayView)
   current = wrapper
+  await wrapper.find('#single-goal').setValue('20000')
+  await wrapper.find('form.setup').trigger('submit')
   return wrapper
 }
 
@@ -97,5 +100,31 @@ describe('SinglePlayView', () => {
     const wrapper = await mountView()
     await buttonByText(wrapper, pl.single.pause).trigger('click')
     expect(buttonByText(wrapper, pl.single.resume).exists()).toBe(true)
+  })
+
+  it('BR-009: the setup screen comes first and the goal is required', async () => {
+    const { wrapper } = await mountWithApp(SinglePlayView)
+    current = wrapper
+    expect(wrapper.find('form.setup').exists()).toBe(true)
+    expect(wrapper.find('.round-bar').exists()).toBe(false)
+
+    await wrapper.find('form.setup').trigger('submit')
+    expect(wrapper.find('[role="alert"]').text()).toBe(pl.single.setup.goalError)
+    expect(wrapper.find('form.setup').exists()).toBe(true)
+  })
+
+  it('BR-009: no trade can be made from the setup screen', async () => {
+    const { wrapper } = await mountWithApp(SinglePlayView)
+    current = wrapper
+    press('b')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('form.setup').exists()).toBe(true)
+  })
+
+  it('FR-004: the time and goal of the setup screen show in the round bar', async () => {
+    const wrapper = await mountView()
+    expect(wrapper.find('.round-bar').text()).toContain('5:00')
+    // The thousands separator is a non-breaking space, hence `\s`.
+    expect(wrapper.find('.round-bar').text()).toMatch(/20\s000/)
   })
 })

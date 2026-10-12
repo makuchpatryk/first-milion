@@ -10,7 +10,7 @@ const room = (over: Partial<RoomSummary> = {}): RoomSummary => ({
   observers: 0,
   maxPlayers: 4,
   durationMin: 5,
-  profitTarget: null,
+  profitTarget: 20_000,
   speed: 3,
   status: 'lobby',
   ...over,

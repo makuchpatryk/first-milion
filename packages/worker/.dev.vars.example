@@ -3,4 +3,5 @@
 FIREBASE_PROJECT_ID="demo-first-million"
 AUTH_EMULATOR="true"
 # Comma-separated UIDs allowed to use admin actions (BR-017). Take yours from the emulator UI (http://127.0.0.1:4000).
+# Several admins: ADMIN_UIDS="uid1,uid2"
 ADMIN_UIDS="<local emulator uid>"

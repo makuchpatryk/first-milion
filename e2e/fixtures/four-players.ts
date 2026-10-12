@@ -15,7 +15,7 @@ export interface RoomForm {
   readonly name: string
   readonly durationMin?: 3 | 5 | 10
   readonly speed?: 1 | 3 | 8
-  /** Whole dollars; left out means no profit target. */
+  /** Whole dollars, at least 20,000 (BR-009); left out means the minimum goal. */
   readonly target?: number
 }
 
@@ -92,9 +92,7 @@ export async function createRoom(host: Seat, form: RoomForm): Promise<string> {
       .getByRole('button', { name: `${form.speed}×` })
       .click()
   }
-  if (form.target !== undefined) {
-    await page.getByLabel('Profit target ($)', { exact: true }).fill(String(form.target))
-  }
+  await page.getByLabel('Goal ($)', { exact: true }).fill(String(form.target ?? 20_000))
   await page.getByRole('button', { name: 'Create room' }).click()
   await expect(page).toHaveURL(ROOM_URL)
   return roomIdOf(page)

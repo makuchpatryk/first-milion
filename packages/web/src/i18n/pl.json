@@ -49,10 +49,21 @@
       "unknown": "Coś poszło nie tak. Spróbuj ponownie."
     }
   },
+  "nav": {
+    "label": "Nawigacja",
+    "back": "Wróć",
+    "backToMenu": "Menu",
+    "backToRooms": "Pokoje",
+    "settings": "Ustawienia"
+  },
+  "settings": {
+    "title": "Ustawienia"
+  },
   "menu": {
+    "title": "Menu",
     "loggedInAs": "Zalogowano jako {nick}",
     "singleTitle": "Single play",
-    "singleDesc": "Sam przeciw rynkowi. Bez limitu czasu, z pauzą. Wyniki nie są zapisywane.",
+    "singleDesc": "Sam przeciw rynkowi. Wybierz czas i cel, z pauzą. Wyniki nie są zapisywane.",
     "roomsTitle": "Pokoje",
     "roomsDesc": "Do 4 graczy, wspólna cena i ranking rundy na żywo."
   },
@@ -77,7 +88,22 @@
     "mode": "Single play",
     "sub": "SYNTH/USD, symulowany rynek. Losowe ceny i newsy. Wyniki nie są zapisywane.",
     "chartLabel": "SYNTH/USD",
-    "menu": "Menu",
+    "setup": {
+      "title": "Nowa runda",
+      "intro": "Wybierz czas i cel. Osiągnij cel, zanim skończy się czas, aby wygrać. Wyniki nie są zapisywane.",
+      "time": "Czas rundy",
+      "goal": "Cel ($)",
+      "goalHint": "Wymagane: liczba całkowita, minimum 20 000.",
+      "goalError": "Cel musi być liczbą całkowitą od 20 000.",
+      "start": "Start"
+    },
+    "timeLeft": "Czas",
+    "goal": "Cel",
+    "goalProgress": "Postęp do celu",
+    "goalReached": "Cel osiągnięty",
+    "timeUp": "Koniec czasu",
+    "resultMsg": "Wynik łączny {r} z celu {g}.",
+    "changeSettings": "Zmień ustawienia",
     "capital": "Kapitał",
     "open": "Wynik otwarty",
     "pos": "Pozycja",
@@ -108,7 +134,6 @@
   },
   "rooms": {
     "title": "Pokoje",
-    "menu": "Menu",
     "listLabel": "Lista pokoi",
     "empty": "Brak otwartych pokoi. Stwórz własny.",
     "create": "Utwórz pokój",
@@ -118,15 +143,14 @@
     "observers": "Obserwatorzy {n}/{max}",
     "duration": "{n} min",
     "target": "Cel {n} $",
-    "noTarget": "bez celu",
     "speed": "{n}×",
     "lobby": "Lobby",
     "running": "W trakcie",
     "joinPlayer": "Dołącz jako gracz",
     "watch": "Obserwuj",
     "full": "Pełny",
-    "nickInvalid": "Twój nick jest niepoprawny. Zmień go w menu, zanim wejdziesz do pokoju.",
-    "toMenu": "Przejdź do menu",
+    "nickInvalid": "Twój nick jest niepoprawny. Zmień go w ustawieniach, zanim wejdziesz do pokoju.",
+    "toSettings": "Przejdź do ustawień",
     "connecting": "Łączenie z serwerem…",
     "reconnecting": "Utracono połączenie. Łączenie ponownie…"
   },
@@ -138,21 +162,20 @@
     "durationValue": "{n} min",
     "speed": "Tempo",
     "speedValue": "{n}×",
-    "target": "Cel zysku ($)",
-    "targetHint": "Opcjonalnie: liczba całkowita, minimum 100. Puste pole oznacza brak celu.",
+    "target": "Cel ($)",
+    "targetHint": "Wymagane: liczba całkowita, minimum 20 000.",
     "submit": "Utwórz pokój",
-    "back": "Wróć do listy",
     "error": {
       "name": "Nazwa musi mieć od 3 do 30 znaków.",
-      "target": "Cel musi być liczbą całkowitą od 100 albo pustym polem."
+      "target": "Cel musi być liczbą całkowitą od 20 000."
     }
   },
   "lobby": {
     "params": "Ustawienia rundy",
     "duration": "Czas rundy",
     "speed": "Tempo",
-    "target": "Cel zysku",
-    "players": "Gracze ({n}/{max})",
+    "target": "Cel",
+    "players":"Gracze ({n}/{max})",
     "observers": "Obserwatorzy ({n}/{max})",
     "noObservers": "Brak obserwatorów.",
     "host": "gospodarz",
@@ -170,8 +193,8 @@
   },
   "round": {
     "countdown": "Do końca",
-    "target": "Cel zysku",
-    "targetProgress": "Postęp do celu zysku",
+    "target": "Cel",
+    "targetProgress": "Postęp do celu",
     "ranking": "Ranking na żywo",
     "you": "ty",
     "observerHint": "Obserwujesz rundę. Przyciski handlu są ukryte.",
@@ -187,7 +210,7 @@
   "results": {
     "title": "Koniec rundy",
     "reason": {
-      "TARGET": "Ktoś osiągnął cel zysku.",
+      "TARGET": "Ktoś osiągnął cel.",
       "TIME": "Czas rundy minął.",
       "ALL_ELIMINATED": "Wszyscy gracze zostali wyeliminowani."
     },
@@ -249,7 +272,6 @@
   },
   "privacy": {
     "title": "Polityka prywatności",
-    "back": "Wróć",
     "dataTitle": "Dane konta",
     "dataBody": "Przechowujemy wyłącznie dane konta w Firebase Authentication: adres e-mail, nick i identyfikator konta. E-mail służy tylko do logowania, weryfikacji i resetu hasła. Inni gracze go nie widzą.",
     "infraTitle": "Infrastruktura",

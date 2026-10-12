@@ -8,7 +8,7 @@ import {
 } from '@fm/shared/rules'
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import ChipGroup from '../components/ChipGroup.vue'
 import { useLobby } from '../composables/use-lobby'
 import { parseCreateForm } from '../room/create-form'
@@ -70,9 +70,6 @@ watch(
 
 <template>
   <section class="create" aria-labelledby="create-title">
-    <div class="top">
-      <RouterLink to="/rooms" class="link link-muted">{{ t('create.back') }}</RouterLink>
-    </div>
     <h1 id="create-title">{{ t('create.title') }}</h1>
 
     <form novalidate @submit.prevent="submit">

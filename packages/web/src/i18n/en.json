@@ -49,10 +49,21 @@
       "unknown": "Something went wrong. Try again."
     }
   },
+  "nav": {
+    "label": "Navigation",
+    "back": "Back",
+    "backToMenu": "Menu",
+    "backToRooms": "Rooms",
+    "settings": "Settings"
+  },
+  "settings": {
+    "title": "Settings"
+  },
   "menu": {
+    "title": "Menu",
     "loggedInAs": "Logged in as {nick}",
     "singleTitle": "Single play",
-    "singleDesc": "You against the market. No time limit, with pause. Results are not saved.",
+    "singleDesc": "You against the market. Pick the time and the goal, with pause. Results are not saved.",
     "roomsTitle": "Rooms",
     "roomsDesc": "Up to 4 players, one shared price and a live round ranking."
   },
@@ -77,7 +88,22 @@
     "mode": "Single play",
     "sub": "SYNTH/USD, simulated market. Random prices and news. Results are not saved.",
     "chartLabel": "SYNTH/USD",
-    "menu": "Menu",
+    "setup": {
+      "title": "New round",
+      "intro": "Pick the time and the goal. Reach the goal before the time runs out to win. Results are not saved.",
+      "time": "Round length",
+      "goal": "Goal ($)",
+      "goalHint": "Required: a whole number, at least 20,000.",
+      "goalError": "The goal must be a whole number from 20,000.",
+      "start": "Start"
+    },
+    "timeLeft": "Time left",
+    "goal": "Goal",
+    "goalProgress": "Progress to the goal",
+    "goalReached": "Goal reached",
+    "timeUp": "Time is up",
+    "resultMsg": "Total result {r} of the goal {g}.",
+    "changeSettings": "Change settings",
     "capital": "Equity",
     "open": "Open P&L",
     "pos": "Position",
@@ -108,7 +134,6 @@
   },
   "rooms": {
     "title": "Rooms",
-    "menu": "Menu",
     "listLabel": "Room list",
     "empty": "No open rooms. Create your own.",
     "create": "Create room",
@@ -117,16 +142,15 @@
     "players": "Players {n}/{max}",
     "observers": "Observers {n}/{max}",
     "duration": "{n} min",
-    "target": "Target ${n}",
-    "noTarget": "no target",
+    "target": "Goal ${n}",
     "speed": "{n}×",
     "lobby": "Lobby",
     "running": "Running",
     "joinPlayer": "Join as player",
     "watch": "Watch",
     "full": "Full",
-    "nickInvalid": "Your nickname is invalid. Change it in the menu before entering a room.",
-    "toMenu": "Go to menu",
+    "nickInvalid": "Your nickname is invalid. Change it in settings before entering a room.",
+    "toSettings": "Go to settings",
     "connecting": "Connecting to the server…",
     "reconnecting": "Connection lost. Reconnecting…"
   },
@@ -138,20 +162,19 @@
     "durationValue": "{n} min",
     "speed": "Speed",
     "speedValue": "{n}×",
-    "target": "Profit target ($)",
-    "targetHint": "Optional: a whole number, at least 100. Leave empty for no target.",
+    "target": "Goal ($)",
+    "targetHint": "Required: a whole number, at least 20,000.",
     "submit": "Create room",
-    "back": "Back to list",
     "error": {
       "name": "The name must be 3 to 30 characters.",
-      "target": "The target must be a whole number from 100, or empty."
+      "target": "The goal must be a whole number from 20,000."
     }
   },
   "lobby": {
     "params": "Round settings",
     "duration": "Round length",
     "speed": "Speed",
-    "target": "Profit target",
+    "target": "Goal",
     "players": "Players ({n}/{max})",
     "observers": "Observers ({n}/{max})",
     "noObservers": "No observers.",
@@ -170,8 +193,8 @@
   },
   "round": {
     "countdown": "Time left",
-    "target": "Profit target",
-    "targetProgress": "Progress to the profit target",
+    "target": "Goal",
+    "targetProgress": "Progress to the goal",
     "ranking": "Live ranking",
     "you": "you",
     "observerHint": "You are watching the round. Trade buttons are hidden.",
@@ -187,7 +210,7 @@
   "results": {
     "title": "Round over",
     "reason": {
-      "TARGET": "Someone reached the profit target.",
+      "TARGET": "Someone reached the goal.",
       "TIME": "Round time ran out.",
       "ALL_ELIMINATED": "All players were eliminated."
     },
@@ -249,7 +272,6 @@
   },
   "privacy": {
     "title": "Privacy policy",
-    "back": "Back",
     "dataTitle": "Account data",
     "dataBody": "We store only account data in Firebase Authentication: your email address, nickname and account ID. Email is used only to log in, verify the account and reset the password. Other players cannot see it.",
     "infraTitle": "Infrastructure",

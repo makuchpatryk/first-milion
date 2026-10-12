@@ -10,7 +10,7 @@ import { isAllowedOrigin } from '../src/origin'
 // run in workerd: `integration/rooms.test.ts`, `integration/auth.test.ts`,
 // `integration/routing.test.ts`. This file holds the table-driven rules over all messages.
 
-const form = { name: 'Friday round', durationMin: 5, speed: 3, profitTarget: null } as const
+const form = { name: 'Friday round', durationMin: 5, speed: 3, profitTarget: 20_000 } as const
 
 /** One valid message per client type; `satisfies` makes a new message type a compile error here. */
 const SAMPLES = {

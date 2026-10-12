@@ -90,8 +90,8 @@ describe('reachedTarget (BR-009)', () => {
     expect(reachedTarget(seat('A', 499.99), PRICE, 500)).toBe(false)
   })
 
-  it('a room without a target never reaches one', () => {
-    expect(reachedTarget(seat('A', 1_000_000), PRICE, null)).toBe(false)
+  it('BR-009: a goal is reached at exactly the goal', () => {
+    expect(reachedTarget(seat('A', 20_000), PRICE, 20_000)).toBe(true)
   })
 
   it('an eliminated player cannot reach the target', () => {

@@ -9,7 +9,7 @@ const view = (over: Partial<RoomView> = {}): RoomView => ({
   name: 'Alpha',
   hostNick: 'Ann',
   durationMin: 5,
-  profitTarget: null,
+  profitTarget: 20_000,
   speed: 3,
   status: 'lobby',
   players: [{ nick: 'Ann', status: 'active' }],

@@ -45,6 +45,7 @@ test.describe('FR-001 login, verification, password rule', () => {
     await expect(page).toHaveURL(/\/menu$/)
     await expect(page.getByText(account.nick, { exact: true }).first()).toBeVisible()
 
+    await page.getByRole('link', { name: 'Settings' }).click()
     await page.getByRole('button', { name: 'Log out' }).click()
     await expect(page).toHaveURL(/\/login$/)
   })

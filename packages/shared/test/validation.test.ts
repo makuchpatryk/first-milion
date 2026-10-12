@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { createRng } from '../src/rng'
 import { isValidNick, nickSchema, randomNick, roomFormSchema, suffixNick } from '../src/validation'
 
-const validForm = { name: 'Friday round', durationMin: 5, speed: 3, profitTarget: null }
+const validForm = { name: 'Friday round', durationMin: 5, speed: 3, profitTarget: 20_000 }
 const parseForm = (patch: Record<string, unknown>) =>
   roomFormSchema.safeParse({ ...validForm, ...patch })
 
 describe('roomFormSchema', () => {
-  it('FR-009 AC: a valid form with no target is accepted', () => {
+  it('BR-009: a valid form with a goal of 20,000 is accepted', () => {
     expect(roomFormSchema.safeParse(validForm).success).toBe(true)
+  })
+
+  it('BR-009: a null goal is rejected, the goal is required', () => {
+    expect(parseForm({ profitTarget: null }).success).toBe(false)
   })
 
   it('FR-009 AC: name of 2 characters is rejected, 3 and 30 are accepted, 31 is rejected', () => {
@@ -24,10 +28,10 @@ describe('roomFormSchema', () => {
     expect(parsed.success && parsed.data.name).toBe('abc')
   })
 
-  it('FR-009 AC: target 99 and 50 are rejected, 100 and 1_000_000 are accepted', () => {
-    expect(parseForm({ profitTarget: 50 }).success).toBe(false)
-    expect(parseForm({ profitTarget: 99 }).success).toBe(false)
-    expect(parseForm({ profitTarget: 100 }).success).toBe(true)
+  it('BR-009 AC: goal 19,999 and 100 are rejected, 20,000 and 1_000_000 are accepted', () => {
+    expect(parseForm({ profitTarget: 100 }).success).toBe(false)
+    expect(parseForm({ profitTarget: 19_999 }).success).toBe(false)
+    expect(parseForm({ profitTarget: 20_000 }).success).toBe(true)
     expect(parseForm({ profitTarget: 1_000_000 }).success).toBe(true)
   })
 

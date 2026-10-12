@@ -35,7 +35,7 @@ describe('lobby list (FR-008)', () => {
       maxPlayers: 4,
       durationMin: 5,
       speed: 1,
-      profitTarget: null,
+      profitTarget: 20_000,
       status: 'lobby',
       hostNick: null,
     })

@@ -47,7 +47,8 @@ export function createHarness(options: HarnessOptions = {}): Harness {
       name: 'Friday round',
       durationMin: 3,
       speed: 8,
-      profitTarget: null,
+      // Out of reach: only time or elimination ends a test round unless a test sets a goal.
+      profitTarget: 1_000_000_000,
       hostUid: 'uid-1',
       ...init,
     },

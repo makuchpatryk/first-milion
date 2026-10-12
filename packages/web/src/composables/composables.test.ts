@@ -76,7 +76,7 @@ describe('useLobby', () => {
   it('UF-003: createRoom and closeRoom send intents only', () => {
     const t = fakeOpen<LobbyHandlers>()
     const lobby = useLobby(t.open)
-    const form = { name: 'Alpha', durationMin: 5, speed: 3, profitTarget: null } as const
+    const form = { name: 'Alpha', durationMin: 5, speed: 3, profitTarget: 20_000 } as const
     lobby.createRoom(form)
     lobby.closeRoom('r1')
     expect(t.handle.sent).toEqual([

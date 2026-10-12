@@ -12,6 +12,7 @@ const PATHS = [
   '/verify',
   '/menu',
   '/single',
+  '/settings',
   '/privacy',
   '/rooms',
   '/rooms/new',

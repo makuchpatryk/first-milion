@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { MAX_FRAME_CHARS } from '../src/config'
 import { ERROR_CODES, parseClientMessage, serverMessageSchema } from '../src/protocol'
 
-const form = { name: 'Friday round', durationMin: 5, speed: 3, profitTarget: null }
+const form = { name: 'Friday round', durationMin: 5, speed: 3, profitTarget: 20_000 }
 
 describe('parseClientMessage', () => {
   it('accepts every client message type', () => {
@@ -60,6 +60,7 @@ describe('parseClientMessage', () => {
 
   it('FR-009: a room.create with an invalid form is rejected', () => {
     expect(parseClientMessage({ type: 'room.create', form: { ...form, profitTarget: 50 } }).ok).toBe(false)
+    expect(parseClientMessage({ type: 'room.create', form: { ...form, profitTarget: null } }).ok).toBe(false)
   })
 
   it('BR-016: a room.join with an invalid nick is rejected', () => {

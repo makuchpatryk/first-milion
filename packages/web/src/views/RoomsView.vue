@@ -26,9 +26,7 @@ const nickOk = computed(() => isValidNick(session.user?.nick ?? ''))
 const closing = ref<RoomSummary | null>(null)
 
 const targetText = (room: RoomSummary): string =>
-  room.profitTarget === null
-    ? t('rooms.noTarget')
-    : t('rooms.target', { n: formatDecimal(room.profitTarget, 0, locale.value) })
+  t('rooms.target', { n: formatDecimal(room.profitTarget, 0, locale.value) })
 
 function join(room: RoomSummary): void {
   void router.push(`/rooms/${encodeURIComponent(room.id)}`)
@@ -42,10 +40,6 @@ function confirmClose(): void {
 
 <template>
   <section class="rooms" aria-labelledby="rooms-title">
-    <div class="top">
-      <RouterLink to="/menu" class="link link-muted">{{ t('rooms.menu') }}</RouterLink>
-    </div>
-
     <header>
       <h1 id="rooms-title">{{ t('rooms.title') }}</h1>
       <RouterLink to="/rooms/new" class="btn create">{{ t('rooms.create') }}</RouterLink>
@@ -53,7 +47,7 @@ function confirmClose(): void {
 
     <p v-if="!nickOk" class="error" role="alert">
       {{ t('rooms.nickInvalid') }}
-      <RouterLink to="/menu" class="link">{{ t('rooms.toMenu') }}</RouterLink>
+      <RouterLink to="/settings" class="link">{{ t('rooms.toSettings') }}</RouterLink>
     </p>
     <p v-if="status === 'closed' && closeCode !== null" class="error" role="alert">
       {{ t(closeKey(closeCode)) }}

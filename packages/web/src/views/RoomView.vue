@@ -42,14 +42,8 @@ function leaveClosed(): void {
 
 <template>
   <section class="room" aria-labelledby="room-title">
-    <div class="top">
-      <RouterLink to="/rooms" class="link link-muted">{{ t('rooms.title') }}</RouterLink>
-      <button
-        v-if="state.view?.status === 'running'"
-        type="button"
-        class="link link-muted"
-        @click="leave"
-      >
+    <div v-if="state.view?.status === 'running'" class="top">
+      <button type="button" class="link link-muted" @click="leave">
         {{ t('lobby.leave') }}
       </button>
     </div>
