@@ -22,9 +22,7 @@ const { locale } = useLocale()
 const kicking = ref<string | null>(null)
 
 const target = () =>
-  props.view.profitTarget === null
-    ? t('rooms.noTarget')
-    : t('rooms.target', { n: formatDecimal(props.view.profitTarget, 0, locale.value) })
+  t('rooms.target', { n: formatDecimal(props.view.profitTarget, 0, locale.value) })
 
 const isMe = (nick: string): boolean => nick === props.view.you.nick
 

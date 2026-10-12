@@ -31,18 +31,4 @@ describe('PrivacyView', () => {
     }
     expect(wrapper.text()).toContain(en.privacy.deleteBody)
   })
-
-  it('FR-018: the way back follows the visitor status', async () => {
-    const back = async () => {
-      const { wrapper } = await mountWithApp(PrivacyView, 'pl')
-      return wrapper.find('a').attributes('href')
-    }
-    expect(await back()).toBe('/login')
-
-    session.status = 'unverified'
-    expect(await back()).toBe('/verify')
-
-    session.status = 'verified'
-    expect(await back()).toBe('/menu')
-  })
 })

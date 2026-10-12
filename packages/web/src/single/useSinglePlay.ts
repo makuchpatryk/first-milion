@@ -11,6 +11,7 @@ import {
   placeOrder,
   shownEquity,
   shownPrices,
+  type SingleRound,
 } from './loop'
 
 /** A background tab throttles timers; one interval never advances the halt by more than this. */
@@ -28,13 +29,15 @@ interface Options {
 
 /**
  * Single play (FR-004, BR-006): the 80 ms timer shell around the pure engine in `loop.ts`.
- * Each visit starts a fresh game; nothing is stored anywhere.
+ * Nothing runs until `start` (the setup screen picks time and goal). Each game starts fresh;
+ * nothing is stored anywhere.
  */
 export function useSinglePlay(options: Options = {}) {
   const now = options.now ?? (() => performance.now())
   const rng = options.rng ?? Math.random
 
   const sim = shallowRef(createSingle(rng))
+  const started = ref(false)
   const qty = ref<OrderQty>(DEFAULT_QTY)
   const speed = ref<Speed>(DEFAULT_SPEED)
   const paused = ref(false)
@@ -45,8 +48,8 @@ export function useSinglePlay(options: Options = {}) {
     const t = now()
     const elapsed = Math.min(t - last, MAX_ELAPSED_MS)
     last = t
-    // `last` still advances while paused, so resuming does not count the pause as halt time.
-    if (paused.value || sim.value.over) return
+    // `last` still advances while paused, so resuming does not count the pause as halt or round time.
+    if (!started.value || paused.value || sim.value.end !== null) return
     sim.value = advanceSingle(sim.value, elapsed, speed.value, rng)
   }
 
@@ -57,21 +60,38 @@ export function useSinglePlay(options: Options = {}) {
   }
   if (getCurrentScope()) onScopeDispose(dispose)
 
+  /** Orders only count while a started game runs (the setup screen takes no trades). */
+  const trading = (): boolean => started.value && sim.value.end === null
+
   function buy(): void {
-    sim.value = placeOrder(sim.value, 'BUY', qty.value)
+    if (trading()) sim.value = placeOrder(sim.value, 'BUY', qty.value)
   }
 
   function sell(): void {
-    sim.value = placeOrder(sim.value, 'SELL', qty.value)
+    if (trading()) sim.value = placeOrder(sim.value, 'SELL', qty.value)
   }
 
   function close(): void {
-    sim.value = closeOrder(sim.value)
+    if (trading()) sim.value = closeOrder(sim.value)
   }
 
-  function restart(): void {
-    sim.value = createSingle(rng)
+  /** Begins a game with the setup screen's time and goal. */
+  function start(round: SingleRound): void {
+    sim.value = createSingle(rng, round)
     last = now()
+    paused.value = false
+    started.value = true
+  }
+
+  /** Play again with the same time and goal. */
+  function restart(): void {
+    start(sim.value.round)
+  }
+
+  /** Back to the setup screen. */
+  function changeSettings(): void {
+    started.value = false
+    paused.value = false
   }
 
   function togglePause(): void {
@@ -87,6 +107,7 @@ export function useSinglePlay(options: Options = {}) {
 
   return {
     sim,
+    started,
     qty,
     speed,
     paused,
@@ -102,7 +123,9 @@ export function useSinglePlay(options: Options = {}) {
     buy,
     sell,
     close,
+    start,
     restart,
+    changeSettings,
     togglePause,
     dispose,
   }

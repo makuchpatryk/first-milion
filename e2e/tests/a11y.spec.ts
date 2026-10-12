@@ -74,8 +74,12 @@ baseTest.describe('NFR-003 public screens', () => {
 test.describe('NFR-003 signed-in screens', () => {
   test('menu, settings panels and single play have no serious violations', async ({ newSeat }) => {
     const { page } = await newSeat({ prefix: 'a11y' })
-    await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Menu' })).toBeVisible()
     await audit(page, 'menu')
+
+    await page.getByRole('link', { name: 'Settings' }).click()
+    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await audit(page, 'settings')
 
     await page.getByRole('button', { name: 'Change' }).click()
     await expect(page.getByLabel('New nickname')).toBeVisible()
@@ -85,7 +89,13 @@ test.describe('NFR-003 signed-in screens', () => {
     await expect(page.getByLabel('Password to confirm')).toBeVisible()
     await audit(page, 'settings: delete account')
 
+    await page.getByRole('link', { name: /Menu$/ }).click()
     await page.getByRole('link', { name: /^Single play/ }).click()
+    await expect(page.getByRole('heading', { name: 'New round' })).toBeVisible()
+    await audit(page, 'single play setup')
+
+    await page.getByLabel('Goal ($)').fill('20000')
+    await page.getByRole('button', { name: 'Start' }).click()
     await expect(page.getByRole('heading', { name: 'Recent trades' })).toBeVisible()
     await audit(page, 'single play')
   })
@@ -108,7 +118,7 @@ test.describe('NFR-003 signed-in screens', () => {
     await page.getByRole('button', { name: 'Create room' }).click()
     await expect(page.getByText('The name must be 3 to 30 characters.')).toBeVisible()
     await audit(page, 'create room')
-    await page.getByRole('link', { name: 'Back to list' }).click()
+    await page.getByRole('link', { name: /Rooms$/ }).click()
 
     await createRoom(host, { name, durationMin: 3, speed: 8 })
     await expect(page.getByRole('heading', { name: 'Players (1/4)' })).toBeVisible()

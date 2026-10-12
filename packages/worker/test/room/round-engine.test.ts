@@ -80,8 +80,8 @@ describe('profit target (FR-013 AC, BR-009)', () => {
     expect(roundEnd(h)?.ranking.map((row) => row.place)).toEqual([1, 1, 3])
   })
 
-  it('BR-009: no target in the room, no TARGET end however far ahead a player is', () => {
-    const h = started(2, { profitTarget: null, seed: 1 })
+  it('BR-009: a goal nobody reaches in time gives no TARGET end however far ahead a player is', () => {
+    const h = started(2, { seed: 1 })
     h.tick(2)
     h.room.order('uid-1', 'BUY', 250)
     h.runToEnd(ROUND_TICKS)

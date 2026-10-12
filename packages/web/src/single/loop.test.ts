@@ -62,7 +62,7 @@ describe('advanceSingle: timing (FR-004)', () => {
 
   it('FR-004: a finished game does not advance', () => {
     const rng = createRng(SEED)
-    const sim = { ...createSingle(rng), over: true }
+    const sim = { ...createSingle(rng), end: 'MARGIN' as const }
     expect(advanceSingle(sim, 80, 8, rng)).toBe(sim)
   })
 })
@@ -128,11 +128,11 @@ describe('advanceSingle: margin call (FR-003, BR-005)', () => {
     }
   }
 
-  it('BR-005: equity <= 0 flattens the position, books the trade and sets over', () => {
+  it('BR-005: equity <= 0 flattens the position, books the trade and ends the game as MARGIN', () => {
     const rng = createRng(SEED)
     const next = advanceSingle(bankruptSim(rng), 80, 1, rng)
 
-    expect(next.over).toBe(true)
+    expect(next.end).toBe('MARGIN')
     expect(next.portfolio.units).toBe(0)
     expect(next.portfolio.closedTrades).toBe(1)
     expect(next.history).toHaveLength(1)
@@ -155,7 +155,7 @@ describe('advanceSingle: margin call (FR-003, BR-005)', () => {
       frozenLen: 1,
     }
     const next = advanceSingle(halted, 80, 1, rng)
-    expect(next.over).toBe(true)
+    expect(next.end).toBe('MARGIN')
     expect(next.frozenLen).toBeNull()
     expect(isTradingHalted(next.market)).toBe(false)
   })
@@ -164,7 +164,55 @@ describe('advanceSingle: margin call (FR-003, BR-005)', () => {
     const rng = createRng(SEED)
     const sim = createSingle(rng)
     const low = { ...sim, market: { ...sim.market, price: 5 } }
-    expect(advanceSingle(low, 80, 8, rng).over).toBe(false)
+    expect(advanceSingle(low, 80, 8, rng).end).toBeNull()
+  })
+})
+
+describe('advanceSingle: round time and goal (FR-004, BR-009)', () => {
+  it('BR-009: the round time runs down by the elapsed ms and never below zero', () => {
+    const rng = createRng(SEED)
+    const sim = createSingle(rng, { durationMs: 1000, goal: 20_000 })
+    expect(advanceSingle(sim, 300, 1, rng).timeLeftMs).toBe(700)
+    expect(advanceSingle(sim, 5000, 1, rng).timeLeftMs).toBe(0)
+  })
+
+  it('BR-009: the time running out ends the game as TIME, and the next interval does nothing', () => {
+    const rng = createRng(SEED)
+    const sim = createSingle(rng, { durationMs: 80, goal: 20_000 })
+    const next = advanceSingle(sim, 80, 8, rng)
+    expect(next.end).toBe('TIME')
+    expect(next.timeLeftMs).toBe(0)
+    expect(advanceSingle(next, 80, 8, rng)).toBe(next)
+  })
+
+  it('BR-009: the goal reached on a step ends the game as TARGET', () => {
+    const rng = createRng(SEED)
+    // Long 250 at the true price 100; a market at 150 puts the total result far above a goal of 100.
+    const sim = createSingle(rng, { durationMs: 60_000, goal: 100 })
+    const winning: SingleSim = {
+      ...sim,
+      market: { ...sim.market, price: 150 },
+      portfolio: executeOrder(emptyPortfolio, 'BUY', 250, 100),
+    }
+    expect(advanceSingle(winning, 80, 1, rng).end).toBe('TARGET')
+  })
+
+  it('BR-009: the goal is checked after every order, so an order that reaches it ends the game', () => {
+    const rng = createRng(SEED)
+    const sim = createSingle(rng, { durationMs: 60_000, goal: 100 })
+    const ahead: SingleSim = {
+      ...sim,
+      market: { ...sim.market, price: 150 },
+      portfolio: executeOrder(emptyPortfolio, 'BUY', 250, 100),
+    }
+    expect(placeOrder(ahead, 'SELL', 10).end).toBe('TARGET')
+    expect(closeOrder(ahead).end).toBe('TARGET')
+  })
+
+  it('BR-009: an order below the goal does not end the game', () => {
+    const rng = createRng(SEED)
+    const sim = createSingle(rng, { durationMs: 60_000, goal: 20_000 })
+    expect(placeOrder(sim, 'BUY', 50).end).toBeNull()
   })
 })
 
@@ -188,7 +236,7 @@ describe('placeOrder and closeOrder', () => {
 
   it('BR-005: orders and close are no-ops after the margin call', () => {
     const rng = createRng(SEED)
-    const sim = { ...placeOrder(createSingle(rng), 'BUY', 50), over: true }
+    const sim = { ...placeOrder(createSingle(rng), 'BUY', 50), end: 'MARGIN' as const }
     expect(placeOrder(sim, 'SELL', 50)).toBe(sim)
     expect(closeOrder(sim)).toBe(sim)
   })

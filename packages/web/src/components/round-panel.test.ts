@@ -12,7 +12,7 @@ const view = (over: Partial<RoomView> = {}): RoomView => ({
   name: 'Alpha',
   hostNick: 'Ann',
   durationMin: 5,
-  profitTarget: null,
+  profitTarget: 20_000,
   speed: 3,
   status: 'running',
   players: [
@@ -134,21 +134,16 @@ describe('RoundPanel (UF-004 step 2, UF-005)', () => {
     expect(wrapper.findAll('ol > li')).toHaveLength(2)
   })
 
-  it('BR-009: a profit target shows a labelled progress bar with the share reached', () => {
+  it('BR-009: the goal shows a labelled progress bar with the share reached', () => {
     const wrapper = mountPanel({
-      view: view({ profitTarget: 1_000 }),
-      state: roundState({ you: me({ equity: 10_250 }) }),
+      view: view({ profitTarget: 20_000 }),
+      state: roundState({ you: me({ equity: 15_000 }) }),
       canTrade: true,
     })
     const bar = wrapper.find('[role="progressbar"]')
     expect(bar.attributes('aria-label')).toBe(pl.round.targetProgress)
-    expect(bar.attributes('aria-valuemax')).toBe('1000')
-    expect(bar.attributes('aria-valuenow')).toBe('250')
-  })
-
-  it('no progress bar without a target', () => {
-    const wrapper = mountPanel({ view: view(), state: roundState(), canTrade: true })
-    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    expect(bar.attributes('aria-valuemax')).toBe('20000')
+    expect(bar.attributes('aria-valuenow')).toBe('5000')
   })
 
   it('FR-004 keys: B buys, S sells, C closes while trading is allowed', () => {

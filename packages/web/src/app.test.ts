@@ -1,12 +1,19 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('firebase/auth', () => ({ onAuthStateChanged: vi.fn() }))
+vi.mock('./auth/firebase', () => ({ auth: { currentUser: null } }))
+
 import App from './App.vue'
+import { session } from './auth/session'
 import pl from './i18n/pl.json'
 import { buttonByText, mountWithApp } from './test-support'
 
 beforeEach(() => {
   document.documentElement.lang = 'pl'
   localStorage.clear()
+  session.status = 'loading'
+  session.user = null
 })
 
 describe('App shell', () => {
@@ -33,5 +40,53 @@ describe('App shell', () => {
     expect(localStorage.getItem('fm-lang')).toBe('en')
     expect(wrapper.find('a.skip').text()).toBe('Skip to content')
     expect(buttonByText(wrapper, 'EN').attributes('aria-pressed')).toBe('true')
+  })
+})
+
+describe('App navigation', () => {
+  it('the logo, with its icon, links to /menu', async () => {
+    const { wrapper } = await mountWithApp(App)
+
+    const logo = wrapper.find('header.bar a.logo')
+    expect(logo.attributes('href')).toBe('/menu')
+    expect(logo.find('svg').attributes('aria-hidden')).toBe('true')
+    expect(logo.text()).toBe(`${pl.app.brandFirst} ${pl.app.brandSecond}`)
+  })
+
+  it('a verified user has Settings in the bar next to the logo, no language chips', async () => {
+    session.status = 'verified'
+    const { wrapper } = await mountWithApp(App, 'pl', '/menu')
+
+    const links = wrapper.findAll('header.bar a')
+    expect(links.map((a) => a.attributes('href'))).toEqual(['/menu', '/settings'])
+    expect(links[1]?.text()).toBe('')
+    expect(links[1]?.attributes('aria-label')).toBe(pl.nav.settings)
+    expect(wrapper.findAll('header.bar button')).toHaveLength(0)
+  })
+
+  it('Back sits in its own row below the bar', async () => {
+    session.status = 'verified'
+    const { wrapper } = await mountWithApp(App, 'pl', '/rooms')
+
+    const back = wrapper.find('nav.crumbs a.back')
+    expect(back.attributes('href')).toBe('/menu')
+    expect(back.text()).toBe(pl.nav.backToMenu)
+    expect(wrapper.find('header.bar a.back').exists()).toBe(false)
+  })
+
+  it('there is no Back row on the menu', async () => {
+    session.status = 'verified'
+    const { wrapper } = await mountWithApp(App, 'pl', '/menu')
+
+    expect(wrapper.find('nav.crumbs').exists()).toBe(false)
+  })
+
+  it('a logged-out visitor keeps the language chips in the bar and gets no Settings link', async () => {
+    session.status = 'out'
+    const { wrapper } = await mountWithApp(App, 'pl', '/privacy')
+
+    expect(wrapper.find('nav.crumbs a.back').attributes('href')).toBe('/login')
+    expect(wrapper.find('header.bar a[href="/settings"]').exists()).toBe(false)
+    expect(buttonByText(wrapper, 'PL').exists()).toBe(true)
   })
 })

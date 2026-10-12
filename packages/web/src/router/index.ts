@@ -18,6 +18,7 @@ export function createAppRouter(
       { path: '/verify', component: () => import('../views/VerifyView.vue') },
       { path: '/menu', component: () => import('../views/MenuView.vue') },
       { path: '/single', component: () => import('../views/SinglePlayView.vue') },
+      { path: '/settings', component: () => import('../views/SettingsView.vue') },
       { path: '/rooms', component: () => import('../views/RoomsView.vue') },
       // Static before dynamic: `new` must not be read as a room id.
       { path: '/rooms/new', component: () => import('../views/CreateRoomView.vue') },

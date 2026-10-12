@@ -40,7 +40,7 @@ export interface RoomInit {
   name: string
   durationMin: RoundDuration
   speed: Speed
-  profitTarget: number | null
+  profitTarget: number
   /** The creator (BR-013). */
   hostUid: string
 }

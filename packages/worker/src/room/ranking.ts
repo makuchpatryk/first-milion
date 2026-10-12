@@ -48,8 +48,8 @@ export function rankSeats(seats: readonly RankableSeat[], price: number): RankRo
 }
 
 /** Has the seat's total result reached the profit target (BR-009)? Eliminated seats cannot. */
-export function reachedTarget(seat: RankableSeat, price: number, target: number | null): boolean {
-  return target !== null && seat.status !== 'eliminated' && totalResult(seat.portfolio, price) >= target
+export function reachedTarget(seat: RankableSeat, price: number, target: number): boolean {
+  return seat.status !== 'eliminated' && totalResult(seat.portfolio, price) >= target
 }
 
 /** Winners at round time: everyone sharing the first place among the not eliminated (BR-009). */

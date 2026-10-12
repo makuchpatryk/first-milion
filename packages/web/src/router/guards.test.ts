@@ -18,9 +18,15 @@ describe('routeFor', () => {
     }
   })
 
-  it('FR-006: a verified user reaches /menu and /single', () => {
+  it('FR-006: a verified user reaches /menu, /single and /settings', () => {
     expect(routeFor('verified', '/menu')).toBeNull()
     expect(routeFor('verified', '/single')).toBeNull()
+    expect(routeFor('verified', '/settings')).toBeNull()
+  })
+
+  it('settings are for verified users only', () => {
+    expect(routeFor('out', '/settings')).toBe('/login')
+    expect(routeFor('unverified', '/settings')).toBe('/verify')
   })
 
   it('FR-006: a verified user is redirected from /login and /verify to /menu', () => {

@@ -46,9 +46,7 @@ const tone = (n: number): string => (n > 0 ? 'up' : n < 0 ? 'down' : '')
 const arrow = (n: number): string => (n > 0 ? '▲ ' : n < 0 ? '▼ ' : '')
 
 const target = computed(() => props.view.profitTarget)
-const progress = computed(() =>
-  target.value === null ? 0 : targetProgress(total.value, target.value),
-)
+const progress = computed(() => targetProgress(total.value, target.value))
 
 const formatQty = (n: OrderQty): string => `${n} ${t('single.units')}`
 
@@ -88,7 +86,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
       </div>
     </header>
 
-    <div v-if="target !== null" class="target">
+    <div class="target">
       <div class="target-row">
         <span class="label">{{ t('round.target') }}</span>
         <span class="num">

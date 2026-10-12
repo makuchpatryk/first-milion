@@ -45,17 +45,26 @@ async function mountForm() {
 }
 
 describe('CreateRoomView (UF-003, FR-009)', () => {
-  it('a valid form sends exactly the parsed object, with null for an empty target', async () => {
+  it('a valid form sends exactly the parsed object, with the goal as a number', async () => {
     const { lobby, wrapper } = await mountForm()
     await wrapper.find('#room-name').setValue('  Alpha  ')
+    await wrapper.find('#room-target').setValue('25000')
     await wrapper.find('form').trigger('submit')
     expect(lobby.createRoom).toHaveBeenCalledTimes(1)
     expect(lobby.createRoom).toHaveBeenCalledWith({
       name: 'Alpha',
       durationMin: 5,
       speed: 3,
-      profitTarget: null,
+      profitTarget: 25_000,
     })
+  })
+
+  it('BR-009 AC: the goal is required, so an empty goal creates nothing', async () => {
+    const { lobby, wrapper } = await mountForm()
+    await wrapper.find('#room-name').setValue('Alpha')
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.text()).toContain(pl.create.error.target)
+    expect(lobby.createRoom).not.toHaveBeenCalled()
   })
 
   it('the chips choose the duration and the speed that are sent', async () => {
@@ -64,20 +73,20 @@ describe('CreateRoomView (UF-003, FR-009)', () => {
     const chip = (label: string) => wrapper.findAll('button.chip').find((b) => b.text() === label)
     await chip('10 min')?.trigger('click')
     await chip('8×')?.trigger('click')
-    await wrapper.find('#room-target').setValue('250')
+    await wrapper.find('#room-target').setValue('30000')
     await wrapper.find('form').trigger('submit')
     expect(lobby.createRoom).toHaveBeenCalledWith({
       name: 'Alpha',
       durationMin: 10,
       speed: 8,
-      profitTarget: 250,
+      profitTarget: 30_000,
     })
   })
 
-  it('FR-009 AC: a target of 99 shows the target error and creates nothing', async () => {
+  it('BR-009 AC: a goal of 19999 shows the goal error and creates nothing', async () => {
     const { lobby, wrapper } = await mountForm()
     await wrapper.find('#room-name').setValue('Alpha')
-    await wrapper.find('#room-target').setValue('99')
+    await wrapper.find('#room-target').setValue('19999')
     await wrapper.find('form').trigger('submit')
     expect(wrapper.text()).toContain(pl.create.error.target)
     expect(lobby.createRoom).not.toHaveBeenCalled()
@@ -121,6 +130,7 @@ describe('CreateRoomView (UF-003, FR-009)', () => {
   it('a double submit sends one room.create; a server error allows the next attempt', async () => {
     const { lobby, wrapper } = await mountForm()
     await wrapper.find('#room-name').setValue('Alpha')
+    await wrapper.find('#room-target').setValue('25000')
     await wrapper.find('form').trigger('submit')
     await wrapper.find('form').trigger('submit')
     expect(lobby.createRoom).toHaveBeenCalledTimes(1)

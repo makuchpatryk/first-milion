@@ -5,37 +5,39 @@ const input = (over: Partial<CreateFormInput> = {}): CreateFormInput => ({
   name: 'Alpha',
   durationMin: 5,
   speed: 3,
-  targetText: '',
+  targetText: '25000',
   ...over,
 })
 
 describe('parseCreateForm (FR-009)', () => {
-  it('an empty target means no target (null)', () => {
-    expect(parseCreateForm(input())).toEqual({
+  it('a whole goal of at least 20,000 is a number', () => {
+    expect(parseCreateForm(input({ targetText: ' 25000 ' }))).toEqual({
       ok: true,
-      form: { name: 'Alpha', durationMin: 5, speed: 3, profitTarget: null },
+      form: { name: 'Alpha', durationMin: 5, speed: 3, profitTarget: 25000 },
     })
   })
 
-  it('a whole target of at least 100 is a number', () => {
-    const result = parseCreateForm(input({ targetText: ' 500 ' }))
-    expect(result).toEqual({
-      ok: true,
-      form: { name: 'Alpha', durationMin: 5, speed: 3, profitTarget: 500 },
-    })
-  })
-
-  it('FR-009 AC: a target of 99 is refused with the target error', () => {
-    expect(parseCreateForm(input({ targetText: '99' }))).toEqual({
+  it('the goal is required: an empty field is refused with the target error', () => {
+    expect(parseCreateForm(input({ targetText: '' }))).toEqual({
       ok: false,
       errors: { name: null, target: 'create.error.target' },
     })
   })
 
-  it.each(['12.5', 'abc', '-200', '1e3'])('a target of "%s" is not a whole number', (text) => {
-    const result = parseCreateForm(input({ targetText: text }))
-    expect(result.ok).toBe(false)
+  it('a goal below 20,000 is refused with the target error', () => {
+    expect(parseCreateForm(input({ targetText: '19999' }))).toEqual({
+      ok: false,
+      errors: { name: null, target: 'create.error.target' },
+    })
   })
+
+  it.each(['12.5', 'abc', '-25000', '1e5', '20 000'])(
+    'a goal of "%s" is not a whole number',
+    (text) => {
+      const result = parseCreateForm(input({ targetText: text }))
+      expect(result.ok).toBe(false)
+    },
+  )
 
   it.each(['ab', 'x'.repeat(31), '   '])('a name of "%s" is refused with the name error', (name) => {
     expect(parseCreateForm(input({ name }))).toEqual({

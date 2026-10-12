@@ -5,6 +5,8 @@ async function openSinglePlay(page: Page): Promise<void> {
   await signIn(page, await createAccount({ prefix: 'solo' }))
   await page.getByRole('link', { name: /^Single play/ }).click()
   await expect(page).toHaveURL(/\/single$/)
+  await page.getByLabel('Goal ($)').fill('20000')
+  await page.getByRole('button', { name: 'Start' }).click()
   await expect(page.getByRole('heading', { name: 'Recent trades' })).toBeVisible()
 }
 

@@ -37,4 +37,5 @@ export const PASSWORD_MIN_LENGTH = 8
 export const ROOM_NAME_MIN = 3
 export const ROOM_NAME_MAX = 30
 
-export const PROFIT_TARGET_MIN = 100
+/** Goal every room and single-play round needs (BR-009). */
+export const PROFIT_TARGET_MIN = 20_000

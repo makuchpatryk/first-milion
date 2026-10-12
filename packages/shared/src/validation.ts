@@ -12,13 +12,16 @@ import type { Rng } from './rng'
 /** Nickname rules (BR-016, FR-002); the protocol and the web form share this. */
 export const nickSchema = z.string().regex(NICK_PATTERN)
 
-/** Room creation form (FR-009). `profitTarget` is `null` for "no target". */
+/** The goal (BR-009): required, a whole number of dollars from 20,000. Rooms and single play share it. */
+export const goalSchema = z.number().int().min(PROFIT_TARGET_MIN)
+
+/** Room creation form (FR-009). `profitTarget` is the goal. */
 export const roomFormSchema = z
   .object({
     name: z.string().trim().min(ROOM_NAME_MIN).max(ROOM_NAME_MAX),
     durationMin: z.literal(ROUND_DURATIONS_MIN),
     speed: z.literal(SPEEDS),
-    profitTarget: z.number().int().min(PROFIT_TARGET_MIN).nullable(),
+    profitTarget: goalSchema,
   })
   .strict()
 export type RoomForm = z.infer<typeof roomFormSchema>

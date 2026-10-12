@@ -1,7 +1,7 @@
 import type { SessionStatus } from '../auth/session'
 
 /** Reachable by a logged-in, verified user. */
-const VERIFIED_PATHS: readonly string[] = ['/menu', '/single', '/rooms']
+const VERIFIED_PATHS: readonly string[] = ['/menu', '/single', '/rooms', '/settings']
 
 /** `/rooms/new` and `/rooms/:id`: screens that create or enter a room. */
 const isRoomScreen = (path: string): boolean => path.startsWith('/rooms/') && path.length > 7

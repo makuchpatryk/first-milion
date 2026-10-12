@@ -76,7 +76,7 @@ test(`NFR-006: four players play a ${DURATION_MIN}-minute round at ${SPEED}× to
     expect(firstMismatch(streams[0] ?? [], stream)).toBe(-1)
   }
 
-  // Every socket got `round.end` with a reason, and the same result (no profit target → time).
+  // Every socket got `round.end` with a reason, and the same result (the goal is not reached → time).
   const ends = received.map((frames) =>
     frames.flatMap(({ msg }) => (msg.type === 'round.end' ? [msg] : [])),
   )
