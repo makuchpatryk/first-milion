@@ -125,34 +125,34 @@ Worker  /ws/lobby, /ws/room/:id
 
 ## Implementation Steps
 
-1. [ ] `packages/web/src/net/url.ts` (build `ws`/`wss` URL from `VITE_WORKER_URL`; no token in URL). Test: URL has no query string; `http` → `ws`, `https` → `wss`.
-2. [ ] `packages/web/src/net/ws-client.ts` (`createSocket`): auth on open, `auth.ok` → ready, `parseServerMessage` on incoming, backoff 500 ms ×2 cap 8 s, 4401 once-refresh then closed, 4403/4410 no reconnect, `refreshToken()`, no queue. Tests with a fake socket and fake timers: backoff sequence 500, 1000, 2000, 4000, 8000, 8000; 4401 → one refresh then second 4401 → closed; 4403 → no reconnect; invalid JSON / invalid schema → ignored; `refreshToken` sends one `auth`.
-3. [ ] `packages/web/src/net/lobby-socket.ts`, `room-socket.ts` (room socket sends `room.join {roomId, nick}` after `auth.ok`; nick from `session.user.nick`). Tests: join sent exactly once per ready.
-4. [ ] `packages/web/src/room/lobby-state.ts` (`reduceLobby`, `joinPolicy`). Tests (BP-003): lobby + 3 players → player; lobby + 4 players + 3 observers → observer; 4 observers → closed; running → observer or closed; `auth.ok.admin` sets `isAdmin`; `lobby.rooms` replaces the list.
-5. [ ] `packages/web/src/room/room-state.ts` (`reduceRoom`): `room.joined`/`room.state` set view; `room.history` sets history; `room.tick` appends prices (cap 2 400), updates halt, news (fade at 90 ticks, FR-005), endsInMs, ranking, you; `round.end` sets lastResult; `error` and close codes set flags. Tests: history cap; news fade after 90 ticks; `canTrade` false for observer, eliminated and halted.
-6. [ ] `packages/web/src/room/error-map.ts`: exhaustive `ErrorCode` and close code → i18n key. Test: every key present in PL and EN; `never` check compiles (typecheck).
-7. [ ] `packages/web/src/i18n/*.json`: add key groups listed above (PL and EN), keeping parity; M2's locale test keeps passing.
-8. [ ] `packages/web/src/composables/use-lobby.ts`, `use-room.ts`: wire socket → reducer state with `shallowRef`; `onScopeDispose` closes socket and cancels timers (CODE_QUALITY cleanup rule). Test: dispose closes the socket once.
-9. [ ] `RoomsView.vue`: list, join actions via `joinPolicy`, empty state, "Create room", admin "Close room" with `<dialog>` confirm (sends `admin.closeRoom`, admin-only rendering from `isAdmin`). Component test: admin sees "Close room", non-admin does not; closed rows have disabled action.
-10. [ ] `CreateRoomView.vue`: form with `roomFormSchema` validation (name 3–30; target `null` or integer ≥ 100; 99 → error key), chips for duration and speed, submit → `room.create` → navigate on `room.created`. Test: 99 → error key; empty target → `null`; invalid name → error key; valid form sends exactly the parsed object.
-11. [ ] `RoomView.vue` (route `/rooms/:id`): open room socket, join on `auth.ok`, reconnect banner with 30 s countdown (`role="status"`), leave, close and kick dialogs, switch LobbyPanel/RoundPanel on `view.status`.
-12. [ ] `components/LobbyPanel.vue`: parameters, players (host marked), observers, host "Start round" (`disabled` unless ≥1 player), admin "Kick" per row with confirm, last round summary card. Component test: start disabled with 0 players; kick button only for admin.
-13. [ ] `components/RoundPanel.vue`: reuse M2 `PriceChart` (history prop), price/change/stats, countdown, profit target progress (`role="progressbar"`), live ranking `<ol>`, `NewsBar` (M2), trade buttons with `canTrade`, B/S/C keys with the single-play input guard, halt overlay (`aria-live="assertive"`), eliminated banner. Test: observer sees no trade buttons (UF-005 AC); halt disables buttons; keys ignored in inputs.
-14. [ ] `components/ResultsDialog.vue`: opens on `round.end`; reason and winners text (plural/shared place); ranking table; "Back to lobby" closes. Test: winners list renders shared place with two names.
-15. [ ] `router.ts`: add `/rooms`, `/rooms/new`, `/rooms/:id` behind the verified guard; `App.vue` nav "Rooms" enabled. Test: unverified user cannot open `/rooms/:id` (M2 guard).
-16. [ ] `auth/session.ts` (M2) glue: `onIdTokenChanged` → `refreshToken()` for open sockets (FR-007 edge). Test: token change triggers exactly one `auth` send per open socket.
-17. [ ] Accessibility pass (code level): `aria-live` on news and halt and results; focus moves to dialog title on open and back to trigger on close; ranking as `<ol>`; progress bar labelled; no information by colour alone (text with up/down markers); `prefers-reduced-motion` respected.
-18. [ ] Docs: `docs/ARCHITECTURE.md` packages block updated for `web/src/room/` and `web/src/net/`.
-19. [ ] Final light verification: `pnpm lint`, `pnpm typecheck`, `pnpm test` green in `packages/web`; steps ticked; Implementation Log filled.
+1. [x] `packages/web/src/net/url.ts` (build `ws`/`wss` URL from `VITE_WORKER_URL`; no token in URL). Test: URL has no query string; `http` → `ws`, `https` → `wss`.
+2. [x] `packages/web/src/net/ws-client.ts` (`createSocket`): auth on open, `auth.ok` → ready, `parseServerMessage` on incoming, backoff 500 ms ×2 cap 8 s, 4401 once-refresh then closed, 4403/4410 no reconnect, `refreshToken()`, no queue. Tests with a fake socket and fake timers: backoff sequence 500, 1000, 2000, 4000, 8000, 8000; 4401 → one refresh then second 4401 → closed; 4403 → no reconnect; invalid JSON / invalid schema → ignored; `refreshToken` sends one `auth`.
+3. [x] `packages/web/src/net/lobby-socket.ts`, `room-socket.ts` (room socket sends `room.join {roomId, nick}` after `auth.ok`; nick from `session.user.nick`). Tests: join sent exactly once per ready.
+4. [x] `packages/web/src/room/lobby-state.ts` (`reduceLobby`, `joinPolicy`). Tests (BP-003): lobby + 3 players → player; lobby + 4 players + 3 observers → observer; 4 observers → closed; running → observer or closed; `auth.ok.admin` sets `isAdmin`; `lobby.rooms` replaces the list.
+5. [x] `packages/web/src/room/room-state.ts` (`reduceRoom`): `room.joined`/`room.state` set view; `room.history` sets history; `room.tick` appends prices (cap 2 400), updates halt, news (fade at 90 ticks, FR-005), endsInMs, ranking, you; `round.end` sets lastResult; `error` and close codes set flags. Tests: history cap; news fade after 90 ticks; `canTrade` false for observer, eliminated and halted.
+6. [x] `packages/web/src/room/error-map.ts`: exhaustive `ErrorCode` and close code → i18n key. Test: every key present in PL and EN; `never` check compiles (typecheck).
+7. [x] `packages/web/src/i18n/*.json`: add key groups listed above (PL and EN), keeping parity; M2's locale test keeps passing.
+8. [x] `packages/web/src/composables/use-lobby.ts`, `use-room.ts`: wire socket → reducer state with `shallowRef`; `onScopeDispose` closes socket and cancels timers (CODE_QUALITY cleanup rule). Test: dispose closes the socket once.
+9. [x] `RoomsView.vue`: list, join actions via `joinPolicy`, empty state, "Create room", admin "Close room" with `<dialog>` confirm (sends `admin.closeRoom`, admin-only rendering from `isAdmin`). Component test: admin sees "Close room", non-admin does not; closed rows have disabled action.
+10. [x] `CreateRoomView.vue`: form with `roomFormSchema` validation (name 3–30; target `null` or integer ≥ 100; 99 → error key), chips for duration and speed, submit → `room.create` → navigate on `room.created`. Test: 99 → error key; empty target → `null`; invalid name → error key; valid form sends exactly the parsed object.
+11. [x] `RoomView.vue` (route `/rooms/:id`): open room socket, join on `auth.ok`, reconnect banner with 30 s countdown (`role="status"`), leave, close and kick dialogs, switch LobbyPanel/RoundPanel on `view.status`.
+12. [x] `components/LobbyPanel.vue`: parameters, players (host marked), observers, host "Start round" (`disabled` unless ≥1 player), admin "Kick" per row with confirm, last round summary card. Component test: start disabled with 0 players; kick button only for admin.
+13. [x] `components/RoundPanel.vue`: reuse M2 `PriceChart` (history prop), price/change/stats, countdown, profit target progress (`role="progressbar"`), live ranking `<ol>`, `NewsBar` (M2), trade buttons with `canTrade`, B/S/C keys with the single-play input guard, halt overlay (`aria-live="assertive"`), eliminated banner. Test: observer sees no trade buttons (UF-005 AC); halt disables buttons; keys ignored in inputs.
+14. [x] `components/ResultsDialog.vue`: opens on `round.end`; reason and winners text (plural/shared place); ranking table; "Back to lobby" closes. Test: winners list renders shared place with two names.
+15. [x] `router.ts`: add `/rooms`, `/rooms/new`, `/rooms/:id` behind the verified guard; `App.vue` nav "Rooms" enabled. Test: unverified user cannot open `/rooms/:id` (M2 guard).
+16. [x] `auth/session.ts` (M2) glue: `onIdTokenChanged` → `refreshToken()` for open sockets (FR-007 edge). Test: token change triggers exactly one `auth` send per open socket.
+17. [x] Accessibility pass (code level): `aria-live` on news and halt and results; focus moves to dialog title on open and back to trigger on close; ranking as `<ol>`; progress bar labelled; no information by colour alone (text with up/down markers); `prefers-reduced-motion` respected.
+18. [x] Docs: `docs/ARCHITECTURE.md` packages block updated for `web/src/room/` and `web/src/net/`.
+19. [x] Final light verification: `pnpm lint`, `pnpm typecheck`, `pnpm test` green in `packages/web`; steps ticked; Implementation Log filled.
 
 ## Checkpoints (Todo List)
 
-- [ ] CP1 — Socket layer: steps 1–3; Vitest green for backoff, 4401/4403 handling, refresh, URL.
-- [ ] CP2 — Pure state: steps 4–6; Vitest green for `reduceLobby`, `joinPolicy`, `reduceRoom`, error map; locale parity green.
-- [ ] CP3 — Lobby and rooms screens: steps 7–10, 15; component tests green (admin visibility, form validation, join policy).
-- [ ] CP4 — Room screens: steps 11–14; component tests green (observer buttons hidden, start disabled, kick admin-only, results winners).
-- [ ] CP5 — Glue and accessibility: steps 8, 16–18; `pnpm lint`, `pnpm typecheck`, all Vitest green.
-- [ ] CP6 — Final light verification: step 19.
+- [x] CP1 — Socket layer: steps 1–3; Vitest green for backoff, 4401/4403 handling, refresh, URL. — 23 tests green in `src/net`, typecheck + eslint clean
+- [x] CP2 — Pure state: steps 4–6; Vitest green for `reduceLobby`, `joinPolicy`, `reduceRoom`, error map; locale parity green. — 52 tests green (`src/room`, `src/i18n`), typecheck + eslint clean
+- [x] CP3 — Lobby and rooms screens: steps 7–10, 15; component tests green (admin visibility, form validation, join policy). — 298 web tests green, typecheck + eslint clean
+- [x] CP4 — Room screens: steps 11–14; component tests green (observer buttons hidden, start disabled, kick admin-only, results winners). — same run
+- [x] CP5 — Glue and accessibility: steps 8, 16–18; `pnpm lint`, `pnpm typecheck`, all Vitest green. — root lint, typecheck, 672 tests PASS
+- [x] CP6 — Final light verification: step 19. — same run; heavy checks deferred to review
 
 ## Risks & Mitigations
 
@@ -200,4 +200,46 @@ Worker  /ws/lobby, /ws/room/:id
 - [ ] Final PL wording of round and admin texts: drafted in the implementation; the user reviews them before release (also covers privacy text in M2).
 
 ## Implementation Log
-(Empty. first-million-implement appends one line per step event here.)
+- Base: main @ b1be882 (clean), worktree `.claude/worktrees/05-multiplayer-ui-admin`, branch `feature/05-multiplayer-ui-admin`
+- Spec drift noted: server sends `room.state` (no `room.joined`); no `parseServerMessage` in shared (web uses `serverMessageSchema.safeParse`); router lives in `router/index.ts` + `router/guards.ts`; server re-sends `auth.ok` after a token refresh, so `ready` and `room.join` fire once per connection
+- Step 1 — started
+- Step 1 — done — files: packages/web/src/net/url.ts, url.test.ts, src/env.d.ts, .env.example — `socketUrl(base, path)`, `lobbyPath`, `roomPath`; added `VITE_WORKER_URL` typing + example; 5 tests
+- Step 2 — started
+- Step 2 — done — files: packages/web/src/net/ws-client.ts, ws-client.test.ts — `createSocket` with injectable `openSocket`/`schedule`/`cancel`; `getToken(forceRefresh)`; `ready` once per connection (refresh `auth.ok` ignored for status); 13 tests
+- Step 3 — started
+- Step 3 — done — files: packages/web/src/net/lobby-socket.ts, room-socket.ts, token-refresh.ts, sockets.test.ts — `openLobbySocket`, `openRoomSocket(roomId, nick, deps)` (join per ready), `withTokenRefresh` + `notifyTokenChanged` subscriber list (used by step 16); 5 tests. Nick is a parameter: caller (use-room, step 8) reads `session.user.nick`, keeping `net/` free of `auth/`
+- Step 4 — started
+- Step 4 — done — files: packages/web/src/room/lobby-state.ts, lobby-state.test.ts — `reduceLobby`, `joinPolicy` (uses `MAX_PLAYERS`/`MAX_OBSERVERS` from shared); added `error` to `LobbyState` for the UF-003 server-error case; 10 tests
+- Step 5 — started
+- Step 5 — done — files: packages/web/src/room/room-state.ts, room-state.test.ts — `reduceRoom(state, msg)` (no `nowMs`: the server sends `endsInMs`, nothing needs a clock), `shownHistory`, `canTrade` (kept here, no separate `join-policy.ts`, since `joinPolicy` lives in lobby-state). Deviations: `frozenLen` added so the chart stops at the halt start (BR-015, server sends true prices); `newsAgeTicks` counts price steps (`prices.length`) like the engine's `newsAge`, so 90 = `NEWS_FADE_TICKS` at any speed; `order.ok` updates `you` and clears `error`; a lobby→running `room.state` resets round fields; 16 tests
+- Step 6 — started
+- Step 6 — done — files: packages/web/src/room/error-map.ts, error-map.test.ts, src/i18n/pl.json, en.json — `errorKey` (exhaustive, `never`), `closeKey`; the `error.*` and `close.*` groups were added here (not in step 7) because the test needs them; 13 tests
+- Step 7 — started
+- Step 7 — done — files: packages/web/src/i18n/pl.json, en.json — added `rooms`, `create`, `lobby`, `round`, `results` (plural `winners`), `admin` groups, PL and EN; shared labels (equity, position, buy/sell/close, halt bar) are reused from `single.*`, not copied; locale tests (12) green. Later steps may add keys to these groups
+- Step 8 — started
+- Step 8 — done — files: packages/web/src/composables/use-lobby.ts, use-room.ts, socket-deps.ts, composables.test.ts, src/auth/session.ts — `useLobby(open?)`, `useRoom(roomId, nick, {open?, now?})` with `shallowRef` state, `canTrade` (needs `ready`), 30 s reconnect countdown (`reconnectLeftS`), `leave()`; `getIdToken(force)` added to `auth/session.ts` for the socket `auth` token; 11 tests (dispose closes once, countdown, intents)
+- Step 9 — started
+- Step 9 — done — files: packages/web/src/views/RoomsView.vue, rooms-view.test.ts, components/ModalDialog.vue, ConfirmDialog.vue, styles/base.css (`.btn-quiet`), test-support.ts (room paths), i18n json (dropped an unused key) — list, join by `joinPolicy`, empty state, nick-invalid block (BR-016), admin-only close with native `<dialog>` (rendered only when `isAdmin`); `ModalDialog` handles focus to title and back to opener (reused by kick and results); 11 tests
+- Step 10 — started
+- Step 10 — done — files: packages/web/src/views/CreateRoomView.vue, create-room-view.test.ts, room/create-form.ts, create-form.test.ts — `parseCreateForm` (pure: target text → `number | null`, `roomFormSchema` issues → `create.error.*` keys) shared by the view; errors show after touch or submit; navigates on `room.created`; 20 tests
+- Step 11 — started
+- Step 11 — paused — `RoomView` composes the panels and the dialog of steps 12–14, so those are built first (typecheck would fail otherwise); resume at step 11 after step 14
+- Step 12 — started
+- Step 12 — done — files: packages/web/src/components/LobbyPanel.vue, lobby-panel.test.ts, RoundResult.vue, i18n json (`admin.kickNamed`) — parameters, players (host/you/status), observers, host-only Start (disabled with 0 players + hint), kick for admin on every other member (players and observers) with confirm, last-round card; `RoundResult` (reason, winners plural, ranking table) extracted because step 14 shows the same content; 8 tests
+- Step 13 — started
+- Step 13 — done — files: packages/web/src/components/RoundPanel.vue, round-panel.test.ts, room/countdown.ts, countdown.test.ts — reuses `PriceChart` (its `prices` prop, fed by `shownHistory`, so no new `history` prop was needed) and `NewsBar`; countdown `m:ss`, target progress bar, ranking `<ol>` with explicit competition place, stats from `you` (open P&L via shared `unrealized`, total = equity − `START_CASH`), controls from the room view's role (no flicker before the first tick), B/S/C keys with the single-play guard, halt bar `aria-live="assertive"`, up/down arrows next to colour; 12 + 5 tests
+- Step 14 — started
+- Step 14 — done — files: packages/web/src/components/ResultsDialog.vue, results-dialog.test.ts — `ModalDialog` + `RoundResult` + "Back to lobby"; `open` is controlled by the parent (RoomView sets it on `round.end`); tests include shared place with two names, no-winner text, and focus to title / back to opener; 6 tests
+- Step 11 — resumed (panels exist)
+- Step 11 — done — files: packages/web/src/views/RoomView.vue, room-view.test.ts, room/room-state.ts (+`isAdmin` from `auth.ok`, with test), test-support.ts (`mountWithApp` takes the initial path), i18n json (`round.closedTitle`, `round.backToRooms`) — opens the room named in the route with the session nick, lobby/round panel by `view.status`, reconnect banner with 30 s countdown (`role="status"`) and a seat-lost text at 0, close dialog for 4401/4403/4410 with a way out, results dialog on `round.end`, join-error text with a link back (BP-003 exception). The "invalid nick → leave" redirect is done in the router guard (step 15); 11 tests
+- Step 15 — started
+- Step 15 — done — files: packages/web/src/router/index.ts, guards.ts, guards.test.ts, views/MenuView.vue, menu.test.ts — routes `/rooms`, `/rooms/new`, `/rooms/:id` (lazy) behind the verified guard; `routeFor(status, path, nickValid)` sends a verified user without a valid nick from a room screen to `/rooms` (BR-016). Deviation: there is no nav in `App.vue`; the entry point is the Rooms card in `MenuView`, now a link (was disabled); 4 new guard tests, all 298 web tests green
+- Step 16 — started
+- Step 16 — done — files: packages/web/src/auth/session.ts, session.test.ts — `init` subscribes `onIdTokenChanged` → `notifyTokenChanged()` (net/ subscriber list from step 3); 3 tests: one refresh per open socket, none after close; `getIdToken` force/no-user
+- Step 17 — started
+- Step 17 — done — files: packages/web/src/components/ModalDialog.vue, results-dialog.test.ts, architecture.test.ts — checked in code: `aria-live` on news bar (M2), halt bar (`role="alert"`, assertive) and dialogs (a dialog is named by its title and described by its body, so a screen reader reads the result on open; the title takes focus, focus returns to the opener), ranking `<ol>`, labelled progress bar, ▲/▼ markers beside colour, text for every status, motion limited by `tokens.css` reduce rule plus a `no-preference` guard on the progress fill; new architecture tests: `new WebSocket` only under `net/`, `net/` imports no auth/views/Firebase, no `?token=` anywhere; contrast/axe/360 px left to review
+- Step 18 — started
+- Step 18 — done — files: docs/ARCHITECTURE.md, docs/CODE_QUALITY.md — packages block lists `web/src/net/`, `room/`, `composables/`, views and panels; status line says M5 in code; dependency rule: `net/` imports no auth/views/Firebase, `room.join` once per connection; single-sources table gets the `web/src/room/` row. PRD §19 M5 unchanged
+- Step 19 — started
+- Step 19 — done — root `pnpm lint`, `pnpm typecheck`, `pnpm test` all PASS (background subagents): shared 103, web 305, worker 264 tests; heavy checks (e2e, build, Lighthouse, axe, 360 px) deferred to review
+- Review fixes — done — the three warnings and four suggestions from the first review: create form sends one `room.create` per attempt (`pending`, cleared on error or a lost socket); form defaults are `DEFAULT_ROUND_DURATION_MIN` / `DEFAULT_SPEED` in shared rules (no casts); the timer `cancel` narrows instead of casting; round-panel unit and position text moved to `round.haltSeconds` / `round.position`; trade buttons off while the result dialog is open; a missing `VITE_WORKER_URL` gives a network notice via `net/unreachable.ts`; the room list shows a reconnect text (`rooms.reconnecting`). Tests: web 309, shared 103, worker 264 PASS; lint and typecheck PASS

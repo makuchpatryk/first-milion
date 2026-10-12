@@ -1,6 +1,6 @@
 # First Million — Architecture
 
-**Based on:** [PRD v1.2](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** M1 done (`shared` engine); M2 in progress (`web`: auth, router, i18n, single play); M3 done (`worker`: auth gate, `Lobby`, `Room` lifecycle, protocol); M4 done in code (`worker`: round engine in `Room`)
+**Based on:** [PRD v1.2](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** M1 done (`shared` engine); M2 in progress (`web`: auth, router, i18n, single play); M3 done (`worker`: auth gate, `Lobby`, `Room` lifecycle, protocol); M4 done in code (`worker`: round engine in `Room`); M5 done in code (`web`: multiplayer screens, socket client, admin UI)
 
 ## Drivers
 
@@ -17,14 +17,17 @@
 packages/shared   pure TS: rules.ts (BR-003 values), config.ts (tunables), engine/, protocol/ (zod), validation.ts
 packages/worker   index.ts (Origin, routing, WS upgrade), env.ts, origin.ts, socket.ts (shared WS plumbing of both DO shells), internal.ts (Lobby↔Room request bodies), timers.ts,
                   auth/ (verify-token.ts, jwks.ts, auth-gate.ts), lobby/ (lobby.ts DO shell + lobby-logic.ts), room/ (room.ts DO shell + room-logic.ts + roster.ts + round.ts, ranking.ts, rate-limit.ts)
-packages/web      Vue 3 (src/): auth/ (Firebase), net/ (WebSocket, M5), router/, single/, views/, components/ (Canvas chart), i18n/, styles/
+packages/web      Vue 3 (src/): auth/ (Firebase), net/ (the only WebSocket code: url.ts, ws-client.ts typed socket with backoff reconnect and token re-auth, lobby-socket.ts, room-socket.ts, token-refresh.ts),
+                  room/ (pure state: lobby-state.ts reduceLobby + joinPolicy, room-state.ts reduceRoom + canTrade, error-map.ts, create-form.ts, countdown.ts), composables/ (use-lobby.ts, use-room.ts: socket → reducer → shallowRef),
+                  router/, single/, views/ (Rooms, CreateRoom, Room), components/ (Canvas chart, LobbyPanel, RoundPanel, ResultsDialog, ModalDialog), i18n/, styles/
 e2e/              Playwright
 ```
 
 Dependency rules:
 - `shared` imports no platform API (DOM, Workers, Firebase); only dependency `zod`.
 - `web` and `worker` import `shared`, never each other. Protocol in `shared/protocol` is the only contract.
-- Firebase SDK only in `web/auth`; token verification only in `worker/auth`; WebSocket only in `web/net`; runtime APIs only in DO shells and `index.ts`.
+- Firebase SDK only in `web/auth`; token verification only in `worker/auth`; WebSocket only in `web/net` (it imports no `auth`, `views` or Firebase; the token comes in as `getToken`); runtime APIs only in DO shells and `index.ts`.
+- `web` screens render state from the pure reducers in `web/room` and send intents; the server's `ready` fires once per connection (a refresh's `auth.ok` is not one), so `room.join` is sent once per connection.
 - `RoomLogic`, `LobbyLogic` and `AuthGate` are plain TS with injected clock, timers, RNG and `send`, testable without the Workers runtime.
 
 ## Invariants

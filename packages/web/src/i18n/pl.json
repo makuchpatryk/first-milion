@@ -106,6 +106,123 @@
     "short": "SHORT",
     "entry": "wejście"
   },
+  "rooms": {
+    "title": "Pokoje",
+    "menu": "Menu",
+    "listLabel": "Lista pokoi",
+    "empty": "Brak otwartych pokoi. Stwórz własny.",
+    "create": "Utwórz pokój",
+    "host": "Gospodarz",
+    "noHost": "—",
+    "players": "Gracze {n}/{max}",
+    "observers": "Obserwatorzy {n}/{max}",
+    "duration": "{n} min",
+    "target": "Cel {n} $",
+    "noTarget": "bez celu",
+    "speed": "{n}×",
+    "lobby": "Lobby",
+    "running": "W trakcie",
+    "joinPlayer": "Dołącz jako gracz",
+    "watch": "Obserwuj",
+    "full": "Pełny",
+    "nickInvalid": "Twój nick jest niepoprawny. Zmień go w menu, zanim wejdziesz do pokoju.",
+    "toMenu": "Przejdź do menu",
+    "connecting": "Łączenie z serwerem…",
+    "reconnecting": "Utracono połączenie. Łączenie ponownie…"
+  },
+  "create": {
+    "title": "Nowy pokój",
+    "name": "Nazwa pokoju",
+    "nameHint": "3–30 znaków.",
+    "duration": "Czas rundy",
+    "durationValue": "{n} min",
+    "speed": "Tempo",
+    "speedValue": "{n}×",
+    "target": "Cel zysku ($)",
+    "targetHint": "Opcjonalnie: liczba całkowita, minimum 100. Puste pole oznacza brak celu.",
+    "submit": "Utwórz pokój",
+    "back": "Wróć do listy",
+    "error": {
+      "name": "Nazwa musi mieć od 3 do 30 znaków.",
+      "target": "Cel musi być liczbą całkowitą od 100 albo pustym polem."
+    }
+  },
+  "lobby": {
+    "params": "Ustawienia rundy",
+    "duration": "Czas rundy",
+    "speed": "Tempo",
+    "target": "Cel zysku",
+    "players": "Gracze ({n}/{max})",
+    "observers": "Obserwatorzy ({n}/{max})",
+    "noObservers": "Brak obserwatorów.",
+    "host": "gospodarz",
+    "you": "ty",
+    "status": {
+      "active": "aktywny",
+      "disconnected": "rozłączony",
+      "eliminated": "wyeliminowany"
+    },
+    "start": "Start rundy",
+    "waitHost": "Czekamy, aż gospodarz rozpocznie rundę.",
+    "needPlayer": "Do startu potrzebny jest co najmniej jeden gracz.",
+    "leave": "Wyjdź z pokoju",
+    "lastRound": "Ostatnia runda"
+  },
+  "round": {
+    "countdown": "Do końca",
+    "target": "Cel zysku",
+    "targetProgress": "Postęp do celu zysku",
+    "ranking": "Ranking na żywo",
+    "you": "ty",
+    "observerHint": "Obserwujesz rundę. Przyciski handlu są ukryte.",
+    "eliminated": "Jesteś wyeliminowany. Obserwujesz ranking do końca rundy.",
+    "reconnecting": "Łączenie ponownie… zostało {s} s",
+    "haltSeconds": "{s} s",
+    "position": "{units} × {avg}",
+    "reconnectLost": "Nie udało się wrócić na czas. Straciłeś miejsce gracza i możesz tylko obserwować.",
+    "dismissError": "Zamknij komunikat",
+    "closedTitle": "Rozłączono",
+    "backToRooms": "Wróć do listy pokoi"
+  },
+  "results": {
+    "title": "Koniec rundy",
+    "reason": {
+      "TARGET": "Ktoś osiągnął cel zysku.",
+      "TIME": "Czas rundy minął.",
+      "ALL_ELIMINATED": "Wszyscy gracze zostali wyeliminowani."
+    },
+    "winners": "Brak zwycięzcy. | Zwycięzca: {names} | Zwycięzcy (miejsce ex aequo): {names}",
+    "place": "Miejsce",
+    "player": "Gracz",
+    "equity": "Kapitał",
+    "back": "Wróć do lobby"
+  },
+  "admin": {
+    "closeRoom": "Zamknij pokój",
+    "closeTitle": "Zamknąć pokój?",
+    "closeBody": "Pokój „{name}” zniknie z listy, a wszyscy w nim zostaną rozłączeni.",
+    "kick": "Wyrzuć",
+    "kickNamed": "Wyrzuć {nick}",
+    "kickTitle": "Wyrzucić gracza?",
+    "kickBody": "{nick} straci miejsce w pokoju. Będzie mógł wrócić."
+  },
+  "error": {
+    "rateLimited": "Za dużo zleceń naraz. Zwolnij na chwilę.",
+    "halted": "Zawieszenie notowań: zlecenia są wstrzymane.",
+    "eliminated": "Jesteś wyeliminowany. Możesz tylko obserwować.",
+    "forbidden": "Nie masz uprawnień do tej akcji.",
+    "invalidState": "Tej akcji nie można teraz wykonać.",
+    "invalidPayload": "Serwer odrzucił te dane.",
+    "roomFull": "Pokój jest pełny.",
+    "roomClosed": "Pokój został zamknięty.",
+    "roomNotFound": "Nie ma takiego pokoju."
+  },
+  "close": {
+    "authFailed": "Sesja wygasła. Zaloguj się ponownie.",
+    "kicked": "Administrator usunął Cię z pokoju.",
+    "roomClosed": "Administrator zamknął pokój.",
+    "network": "Utracono połączenie z serwerem."
+  },
   "news": {
     "none": "Rynek rusza. Brak wiadomości.",
     "shock": {

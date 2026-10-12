@@ -82,13 +82,12 @@ function chooseLocale(next: Locale): void {
         <span class="card-desc">{{ t('menu.singleDesc') }}</span>
       </RouterLink>
 
-      <!-- Rooms arrive in M5: visible (FR-006) but not a route yet. -->
-      <a class="card card-off" role="link" aria-disabled="true">
+      <RouterLink to="/rooms" class="card">
         <span class="card-head">
           <span class="card-title">{{ t('menu.roomsTitle') }}</span>
         </span>
         <span class="card-desc">{{ t('menu.roomsDesc') }}</span>
-      </a>
+      </RouterLink>
     </div>
 
     <section class="account" aria-labelledby="account-title">
@@ -216,11 +215,6 @@ header p {
   padding: 18px;
   color: var(--text);
   text-decoration: none;
-}
-
-.card-off {
-  color: var(--muted);
-  cursor: not-allowed;
 }
 
 .card-head {

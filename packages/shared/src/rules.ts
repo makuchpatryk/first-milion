@@ -14,6 +14,10 @@ export type RoundDuration = (typeof ROUND_DURATIONS_MIN)[number]
 export const SPEEDS = [1, 3, 8] as const
 export type Speed = (typeof SPEEDS)[number]
 
+/** Preselected chips of the room form; each is one of the lists above. */
+export const DEFAULT_ROUND_DURATION_MIN: RoundDuration = 5
+export const DEFAULT_SPEED: Speed = 3
+
 export const MAX_PLAYERS = 4
 export const MAX_OBSERVERS = 4
 

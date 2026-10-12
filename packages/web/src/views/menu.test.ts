@@ -41,12 +41,12 @@ describe('MenuView', () => {
     expect(wrapper.text()).toContain('Jan_7')
   })
 
-  it('FR-006: the Rooms card is disabled and has no route until M5', async () => {
+  it('UF-003: the Rooms card links to /rooms', async () => {
     const { wrapper } = await mountWithApp(MenuView)
 
-    const rooms = wrapper.find('[aria-disabled="true"]')
+    const rooms = wrapper.find('a[href="/rooms"]')
     expect(rooms.text()).toContain(pl.menu.roomsTitle)
-    expect(rooms.attributes('href')).toBeUndefined()
+    expect(wrapper.find('[aria-disabled="true"]').exists()).toBe(false)
   })
 
   it('FR-002 AC: an invalid nickname shows the error key and makes no SDK call', async () => {

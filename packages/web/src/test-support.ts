@@ -6,18 +6,30 @@ import type { Locale } from './i18n/locale'
 
 const Blank = defineComponent({ render: () => null })
 
-const PATHS = ['/', '/login', '/verify', '/menu', '/single', '/privacy']
+const PATHS = [
+  '/',
+  '/login',
+  '/verify',
+  '/menu',
+  '/single',
+  '/privacy',
+  '/rooms',
+  '/rooms/new',
+  '/rooms/:id',
+]
 
 /** Mounts `component` with the real i18n messages and a memory router (component tests only). */
 export async function mountWithApp(
   component: Component,
   locale: Locale = 'pl',
+  /** Route the component sees while it mounts (`useRoute()` params). */
+  path = '/',
 ): Promise<{ wrapper: VueWrapper; router: Router }> {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: PATHS.map((path) => ({ path, component: Blank })),
   })
-  await router.push('/')
+  await router.push(path)
   await router.isReady()
   // `mount` types the wrapper's component as `any` for a plain `Component`; narrow it once here.
   const wrapper = mount(component, {
