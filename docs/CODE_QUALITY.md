@@ -54,7 +54,7 @@ Rules First Million is written and reviewed against. **KISS and YAGNI first** (s
 ## Known debt
 
 - **M6 heavy checks were written, not run.** The Playwright specs, the axe spec, `check-bundle`, `check-no-emulator` on a real build, Lighthouse and both workflows have never run; their first run is in `first-million-review`. Assumptions to confirm there: the Auth emulator's project admin endpoint (`Bearer owner`) creates a verified user with a chosen `localId`; `page.routeWebSocket` proxies the room socket for the reconnect specs (the page is reloaded after installing it, and the in-page tap does not see that page's frames); `wrangler dev --var` accepts the three flags; the `firebase-auth` chunk split of Vite 8 (Rolldown `codeSplitting`).
-- **Production values in `wrangler.toml` are placeholders** (`first-million-prod`, `https://first-million.pages.dev`); replace them at release, together with the Pages and Worker domains. `test/config.test.ts` only checks their shape.
+- **Production values in `wrangler.toml` are the real release values** (Firebase project `first-milion`, Pages project and domain `https://first-milion.pages.dev`; the spelling with one `l` is the actual project name). Change them together with the Pages project name in `deploy.yml` and the Pages and Worker domains. `test/config.test.ts` only checks their shape.
 - The login page is the only Lighthouse subject next to `/privacy`; the signed-in screens are covered by axe, not by Lighthouse (they need a session).
 
 - `suffixNick` (`shared/validation.ts`) alone can exceed 16 characters; callers must use `uniqueNick` (`worker/room/roster.ts`), which cuts the base first. Fold the truncation into `suffixNick` if a second caller appears.
