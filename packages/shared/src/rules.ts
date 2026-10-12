@@ -18,6 +18,8 @@ export const MAX_PLAYERS = 4
 export const MAX_OBSERVERS = 4
 
 export const ORDER_RATE_PER_SEC = 10
+/** Sliding window the order rate limit counts in (BR-018). */
+export const ORDER_RATE_WINDOW_MS = 1_000
 export const DISCONNECT_GRACE_MS = 30_000
 export const EMPTY_ROOM_TTL_MS = 300_000
 

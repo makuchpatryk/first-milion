@@ -458,8 +458,10 @@ There is no database (BR-020). The entities below exist only in memory.
 | realized | number | yes | | |
 | closedTrades, wins | number | yes | | |
 | status | `active`\|`eliminated`\|`disconnected` | yes | | |
-| disconnectedAt | timestamp\|null | no | 30 s | |
-| reachedEquityAt | timestamp | yes | for BR-010 | |
+| disconnectedAt | timestamp\|null | no | 30 s | set while the socket is gone, also after elimination (the player may return and watch) |
+| reachedEquityAt | timestamp | yes | for BR-010 | server time of the last change of equity value (decision 40) |
+
+- **Note:** an eliminated player stays in `players` as a watch-only seat until the next start (decision 38); the observer list is for people who joined as observers.
 
 - **Relations:** Room 1—N Player, Room 1—N Observer; Lobby 1—N room entries.
 - **Retention / deletion:** removed from memory when leaving the room or when the room is deleted.
@@ -606,6 +608,10 @@ There is no database (BR-020). The entities below exist only in memory.
 | 35 | Firebase Auth emulator in dev and e2e | Real test accounts | User's choice; no real email sent, no quota use, 0 PLN |
 | 36 | All deployment (Pages, Worker, Firebase project setup) in M6; M1–M5 run locally | Deploy Pages at the end of M2 | User's choice; one deployment pass, no half-configured production environment |
 | 37 | No WebSocket hibernation for `Lobby` or `Room`: both stay alive in memory while a room exists, with a 30 s heartbeat (stale after 90 s). Duration budget (13,000 GB-s/day on the free plan) is checked in M6 | Hibernation for `Lobby` | User's choice after reading the Cloudflare docs: hibernation resets in-memory state, so the room list would empty after each eviction, and keeping it elsewhere breaks BR-020 |
+| 38 | An eliminated player (bankruptcy or disconnect timeout) keeps a watch-only seat: status `eliminated`, equity 0, shared last place, sees the stream. The seat resets to `active` at the next start. This is how BR-012 "stays as an observer" is implemented; it does not take an observer slot, so the BR-011 cap holds | Move the player to the observers list (BR-012 literal, breaks the cap of 4 or needs an exemption) | User's choice (M4 planning) |
+| 39 | TRADING_HALT counts down in wall-clock ms: 5 s at any speed. The elapsed time of one tick interval is capped at 250 ms (a stalled Durable Object cannot skip the halt) | Count the halt in game ticks (0.6 s on screen at 8×) | User's choice (M4 planning) |
+| 40 | BR-010 tie-break "reached that equity value earlier" = server time of the player's last change of equity value; computable on every tick | Time of the first reach of the final value (known only at the end) | Planning default, adopted (M4) |
+| 41 | M4 room rules: the order rate limit counts every schema-valid `order` and `close`, accepted or refused; `room.leave` in a running round is a dropped socket (30 s grace, so leaving cannot escape a loss); a disconnect in the lobby removes the seat at once; the host role passes when the host's socket drops, to the next connected member; a player who is gone when the round ends is dropped from the seats (the result keeps the row); a kick during a round removes the seat; an observer may be host (starting needs ≥ 1 seated player) | Count only accepted orders; grace on leave in the lobby; keep absent players seated | Planning defaults, adopted (M4) |
 
 ## 21. Open Questions
 None.

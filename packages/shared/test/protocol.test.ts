@@ -97,3 +97,80 @@ describe('serverMessageSchema', () => {
     expect(serverMessageSchema.safeParse({ type: 'auth.ok', admin: true, uid: 'u1' }).success).toBe(false)
   })
 })
+
+describe('serverMessageSchema round messages (FR-011..FR-015)', () => {
+  const you = {
+    role: 'player',
+    status: 'active',
+    units: 50,
+    avg: 100.03,
+    realized: 0,
+    equity: 10_000,
+    closedTrades: 0,
+    wins: 0,
+  }
+  const ranking = [
+    { nick: 'Jan', equity: 10_000, status: 'active', place: 1 },
+    { nick: 'Ola', equity: 0, status: 'eliminated', place: 2 },
+  ]
+  const tick = {
+    type: 'room.tick',
+    prices: [100, 100.2, 99.9],
+    price: 99.9,
+    halt: null,
+    news: null,
+    endsInMs: 180_000,
+    ranking,
+    you,
+  }
+  const messages = {
+    'room.history': { type: 'room.history', prices: [100, 101] },
+    'room.tick': tick,
+    'order.ok': { type: 'order.ok', fill: 100.03, you },
+    'round.end': { type: 'round.end', reason: 'TARGET', winners: ['Jan'], ranking },
+  }
+
+  it('accepts the documented shape of every round message', () => {
+    for (const msg of Object.values(messages)) {
+      expect(serverMessageSchema.safeParse(msg).success).toBe(true)
+    }
+  })
+
+  it('rejects unknown fields on every round message', () => {
+    for (const msg of Object.values(messages)) {
+      expect(serverMessageSchema.safeParse({ ...msg, uid: 'u1' }).success).toBe(false)
+    }
+  })
+
+  it('FR-012: a close with no position answers order.ok with a null fill', () => {
+    expect(serverMessageSchema.safeParse({ type: 'order.ok', fill: null, you }).success).toBe(true)
+  })
+
+  it('FR-005 / BR-015: a tick carries a halt countdown and every news type with its parameters', () => {
+    const news = [
+      { type: 'SHOCK', dir: -1, mag: 0.02, idx: 3 },
+      { type: 'FLASH_CRASH', drop: 0.05 },
+      { type: 'VOL_SPIKE' },
+      { type: 'TRADING_HALT' },
+      { type: 'TREND', dir: 1 },
+    ]
+    for (const item of news) {
+      const msg = { ...tick, halt: { msLeft: 4_000 }, news: item }
+      expect(serverMessageSchema.safeParse(msg).success).toBe(true)
+    }
+    expect(serverMessageSchema.safeParse({ ...tick, news: { type: 'SHOCK', dir: 2, mag: 1, idx: 0 } }).success).toBe(false)
+    expect(serverMessageSchema.safeParse({ ...tick, news: { type: 'VOL_SPIKE', engine: {} } }).success).toBe(false)
+  })
+
+  it('BR-009: round.end names its reason from a closed set', () => {
+    for (const reason of ['TARGET', 'TIME', 'ALL_ELIMINATED']) {
+      expect(serverMessageSchema.safeParse({ ...messages['round.end'], reason }).success).toBe(true)
+    }
+    expect(serverMessageSchema.safeParse({ ...messages['round.end'], reason: 'QUIT' }).success).toBe(false)
+  })
+
+  it('ARCH Privacy: ranking rows carry nickname, equity, status and place only', () => {
+    const row = { nick: 'Jan', equity: 1, status: 'active', place: 1 }
+    expect(serverMessageSchema.safeParse({ ...messages['round.end'], ranking: [{ ...row, uid: 'u1' }] }).success).toBe(false)
+  })
+})

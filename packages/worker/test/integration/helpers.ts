@@ -36,14 +36,22 @@ export class TestSocket {
   readonly messages: ServerMessage[] = []
   closeCode: number | null = null
   private cursor = 0
+  /** Resolvers of the calls waiting for the next frame; woken on every message and on close. */
+  private waiters: Array<() => void> = []
 
   private constructor(private readonly ws: WebSocket) {
     ws.addEventListener('message', (event) => {
       this.messages.push(JSON.parse(String(event.data)) as ServerMessage)
+      this.wake()
     })
     ws.addEventListener('close', (event) => {
       this.closeCode = event.code
+      this.wake()
     })
+  }
+
+  private wake(): void {
+    for (const resolve of this.waiters.splice(0)) resolve()
   }
 
   static async open(path: string): Promise<TestSocket> {
@@ -74,20 +82,43 @@ export class TestSocket {
   }
 
   /** The next message of `type` not yet consumed; earlier ones of other types are skipped. */
-  async next<T extends ServerMessage['type']>(
+  next<T extends ServerMessage['type']>(
     type: T,
     within = 2_000,
   ): Promise<Extract<ServerMessage, { type: T }>> {
-    const deadline = Date.now() + within
-    for (;;) {
-      while (this.cursor < this.messages.length) {
-        const msg = this.messages[this.cursor++]
-        if (msg?.type === type) return msg as Extract<ServerMessage, { type: T }>
+    return this.nextWhere(type, () => true, within)
+  }
+
+  /**
+   * The next unconsumed message of `type` that `match` accepts; others are skipped. Woken by the
+   * socket's own events and bounded by one timer, so a message that never comes fails after
+   * `within` ms with what did arrive, instead of hanging until the test timeout.
+   */
+  async nextWhere<T extends ServerMessage['type']>(
+    type: T,
+    match: (msg: Extract<ServerMessage, { type: T }>) => boolean,
+    within = 2_000,
+  ): Promise<Extract<ServerMessage, { type: T }>> {
+    let expired = false
+    const timer = setTimeout(() => {
+      expired = true
+      this.wake()
+    }, within)
+    try {
+      for (;;) {
+        while (this.cursor < this.messages.length) {
+          const msg = this.messages[this.cursor++]
+          if (msg?.type !== type) continue
+          const typed = msg as Extract<ServerMessage, { type: T }>
+          if (match(typed)) return typed
+        }
+        if (expired) {
+          throw new Error(`no ${type} within ${within} ms; got ${JSON.stringify(this.messages)}`)
+        }
+        await new Promise<void>((resolve) => this.waiters.push(resolve))
       }
-      if (Date.now() >= deadline) {
-        throw new Error(`no ${type} within ${within} ms; got ${JSON.stringify(this.messages)}`)
-      }
-      await waitFor(10)
+    } finally {
+      clearTimeout(timer)
     }
   }
 

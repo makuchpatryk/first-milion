@@ -1,4 +1,4 @@
-import { HEARTBEAT_MS } from '@fm/shared/config'
+import { HEARTBEAT_MS, TICK_MS } from '@fm/shared/config'
 import { CLOSE_CODES, type RoomSummary } from '@fm/shared/protocol'
 import type { Env } from '../env'
 import {
@@ -26,6 +26,7 @@ import { RoomLogic } from './room-logic'
 export class Room implements DurableObject {
   private logic: RoomLogic | null = null
   private heartbeat: ReturnType<typeof setInterval> | null = null
+  private ticker: ReturnType<typeof setInterval> | null = null
   /** The one socket that speaks for a user in this room. */
   private readonly sockets = new Map<string, Connection>()
   private readonly acceptor: SocketAcceptor
@@ -61,6 +62,8 @@ export class Room implements DurableObject {
       { id, ...form, hostUid },
       {
         ...runtimeTimers,
+        now: () => Date.now(),
+        seed: () => new DataView(crypto.getRandomValues(new Uint8Array(4)).buffer).getUint32(0),
         send: (uid, msg) => this.sockets.get(uid)?.send(msg),
         close: (uid, code) => {
           const conn = this.sockets.get(uid)
@@ -128,9 +131,14 @@ export class Room implements DurableObject {
             conn.send({ type: 'error', code: 'INVALID_STATE' })
             return
           case 'room.start':
+            logic.start(session.uid)
+            this.startTicker(logic)
+            return
           case 'order':
+            logic.order(session.uid, msg.side, msg.qty)
+            return
           case 'close':
-            // Round messages: accepted by the parser, handled from M4.
+            logic.close(session.uid)
             return
           default:
             assertNever(msg)
@@ -153,6 +161,7 @@ export class Room implements DurableObject {
     let request: Request
     if (summary === null) {
       this.stopHeartbeat()
+      this.stopTicker()
       this.closeRemainingSockets()
       request = postJson(INTERNAL_PATHS.deregister, { roomId: this.ctx.id.toString() })
     } else {
@@ -179,6 +188,24 @@ export class Room implements DurableObject {
       conn.send({ type: 'error', code: 'ROOM_CLOSED' })
       conn.close(CLOSE_CODES.ROOM_CLOSED)
     }
+  }
+
+  /**
+   * The round clock: one `tick()` per `TICK_MS`, only while a round runs (FR-011). A round that
+   * ends between two ticks (an order, a disconnect timeout) stops the interval at the next one.
+   */
+  private startTicker(logic: RoomLogic): void {
+    if (this.ticker !== null || !logic.running) return
+    this.ticker = setInterval(() => {
+      logic.tick()
+      if (!logic.running) this.stopTicker()
+    }, TICK_MS)
+  }
+
+  private stopTicker(): void {
+    if (this.ticker === null) return
+    clearInterval(this.ticker)
+    this.ticker = null
   }
 
   private stopHeartbeat(): void {
