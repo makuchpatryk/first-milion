@@ -1,6 +1,5 @@
 import AxeBuilder from '@axe-core/playwright'
-import { test as baseTest, type Page } from '@playwright/test'
-import { createAccount, signIn } from '../fixtures/auth'
+import type { Page } from '@playwright/test'
 import {
   createRoom,
   expect,
@@ -48,28 +47,6 @@ async function endRoundByBankruptcy(seats: readonly Seat[]): Promise<void> {
   }
   await expect(dialog).toBeVisible({ timeout: 30_000 })
 }
-
-baseTest.describe('NFR-003 public screens', () => {
-  baseTest('login, password reset and privacy have no serious violations', async ({ page }) => {
-    await page.goto('/login')
-    await expect(page.getByLabel('Email', { exact: true })).toBeVisible()
-    await audit(page, 'login')
-
-    await page.getByRole('button', { name: 'Forgot password' }).click()
-    await expect(page.getByRole('heading', { name: 'Reset password' })).toBeVisible()
-    await audit(page, 'password reset')
-
-    await page.goto('/privacy')
-    await expect(page.getByRole('heading', { name: 'Privacy policy' })).toBeVisible()
-    await audit(page, 'privacy')
-  })
-
-  baseTest('the verification screen has no serious violations', async ({ page }) => {
-    await signIn(page, await createAccount({ prefix: 'a11yunv', verified: false }))
-    await expect(page.getByRole('heading', { name: 'Verify your email' })).toBeVisible()
-    await audit(page, 'verify')
-  })
-})
 
 test.describe('NFR-003 signed-in screens', () => {
   test('menu, settings panels and single play have no serious violations', async ({ newSeat }) => {

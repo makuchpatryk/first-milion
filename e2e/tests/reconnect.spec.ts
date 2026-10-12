@@ -39,6 +39,8 @@ test.describe('FR-015 disconnection and return', () => {
     test.setTimeout(120_000)
     const { guest, gate } = await setup(newSeat)
 
+    // The client only trades after its first tick; an earlier key press is dropped silently.
+    await expect(guest.page.getByRole('button', { name: /^Buy/ })).toBeEnabled()
     await pressTradeKey(guest, 'b')
     await expect.poll(() => lastYou(gate)?.units).toBe(50)
 
@@ -53,20 +55,5 @@ test.describe('FR-015 disconnection and return', () => {
       .poll(() => lastYou(gate), { timeout: 10_000 })
       .toMatchObject({ role: 'player', status: 'active', units: 50 })
     await expect(guest.page.getByRole('button', { name: /^Buy/ })).toBeEnabled()
-  })
-
-  // Review only: a real 31 s wait (spec 06 test strategy).
-  test('FR-015 AC: a 31 s outage costs the player the seat (eliminated, watch only)', async ({
-    newSeat,
-  }) => {
-    test.setTimeout(150_000)
-    const { guest, gate } = await setup(newSeat)
-
-    gate.cut()
-    await guest.page.waitForTimeout(31_000)
-    gate.restore()
-
-    await expect(guest.page.getByText(/You are eliminated/)).toBeVisible({ timeout: 30_000 })
-    await expect.poll(() => lastYou(gate)?.status, { timeout: 10_000 }).toBe('eliminated')
   })
 })

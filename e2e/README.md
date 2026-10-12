@@ -23,17 +23,17 @@ Projects: `mobile` (Chromium 360×640) runs `a11y.spec.ts` and `single-play.spec
 
 ## Specs
 
-| Spec                      | Covers                                                                             | Time                                                  |
-| ------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `auth.spec.ts`            | FR-001 logged out / unverified / 7-char password                                   | seconds                                               |
-| `single-play.spec.ts`     | FR-004 keys, margin call, FR-020 no h-scroll                                       | ~1 min                                                |
-| `round-4-players.spec.ts` | NFR-006: 4 contexts, 8×, identical price streams, `round.end`                      | **3 min** (10 min with `E2E_FULL_ROUND=1`)            |
-| `latency.spec.ts`         | NFR-001: 50 orders, p95 ≤ 300 ms; numbers in the log and `latency.json` attachment | ~30 s                                                 |
-| `rate-limit.spec.ts`      | FR-012: 11th order in 1 s → `RATE_LIMITED`                                         | ~30 s                                                 |
-| `reconnect.spec.ts`       | FR-015: 10 s outage keeps the seat; 31 s outage eliminates                         | 10 s case ~40 s, **31 s case ~1.5 min (review only)** |
-| `observer.spec.ts`        | UF-005: no trade buttons, no order sent                                            | ~30 s                                                 |
-| `admin.spec.ts`           | FR-017: Close room, Kick, kicked player rejoins                                    | ~1 min                                                |
-| `a11y.spec.ts`            | NFR-003: axe on every screen at 360 px                                             | ~2 min                                                |
+| Spec                      | Covers                                                                             | Time                                       |
+| ------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------ |
+| `auth.spec.ts`            | FR-001 logged out, verified login and log out                                      | seconds                                    |
+| `single-play.spec.ts`     | FR-004 keys, margin call                                                           | ~1 min                                     |
+| `round-4-players.spec.ts` | NFR-006: 4 contexts, 8×, identical price streams, `round.end`                      | **3 min** (10 min with `E2E_FULL_ROUND=1`) |
+| `latency.spec.ts`         | NFR-001: 50 orders, p95 ≤ 300 ms; numbers in the log and `latency.json` attachment | ~30 s                                      |
+| `reconnect.spec.ts`       | FR-015: 10 s outage keeps the seat                                                 | ~40 s                                      |
+| `admin.spec.ts`           | FR-017: Close room                                                                 | ~30 s                                      |
+| `a11y.spec.ts`            | NFR-003: axe on the signed-in screens at 360 px                                    | ~2 min                                     |
+
+Dropped from e2e, covered by Vitest only: public-screen axe, unverified account, short password, no h-scroll, Buy button, Kick and rejoin, observer, rate limit, 31 s elimination.
 
 Flags: `E2E_FULL_ROUND=1` runs the 10-minute NFR-006 round (run it once before a release). `CI=1` turns on one retry.
 

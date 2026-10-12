@@ -43,35 +43,4 @@ test.describe('FR-017 admin controls', () => {
     await expect(roomRow(viewer.page, name)).toHaveCount(0)
     await expect(roomRow(admin.page, name)).toHaveCount(0)
   })
-
-  test('FR-017: only the admin sees "Kick" in a room; a kicked player can come back', async ({
-    newSeat,
-  }) => {
-    const name = uniqueRoomName('AdminKick')
-    const owner = await newSeat({ prefix: 'owner' })
-    await createRoom(owner, { name, durationMin: 3, speed: 1 })
-    const guest = await newSeat({ prefix: 'guest' })
-    await joinRoom(guest, name, 'player')
-    const admin = await newSeat(await createAdminAccount())
-    await joinRoom(admin, name, 'player')
-
-    await expect(admin.page.getByRole('button', { name: `Kick ${guest.nick}` })).toBeVisible()
-    for (const seat of [owner, guest]) {
-      await expect(seat.page.getByRole('button', { name: /^Kick/ })).toHaveCount(0)
-    }
-
-    await admin.page.getByRole('button', { name: `Kick ${guest.nick}` }).click()
-    await admin.page
-      .getByRole('dialog', { name: 'Kick the player?' })
-      .getByRole('button', { name: 'Kick', exact: true })
-      .click()
-
-    const notice = guest.page.getByRole('dialog', { name: 'Disconnected' })
-    await expect(notice.getByText('An administrator removed you from the room.')).toBeVisible()
-    await notice.getByRole('button', { name: 'Back to the room list' }).click()
-
-    // FR-017 AC: a kicked player may join again.
-    await joinRoom(guest, name, 'player')
-    await expect(guest.page.getByRole('heading', { name: /^Players \(3\/4\)/ })).toBeVisible()
-  })
 })
