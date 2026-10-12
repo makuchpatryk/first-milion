@@ -1,5 +1,27 @@
-import { NICK_PATTERN } from './rules'
+import { z } from 'zod'
+import {
+  NICK_PATTERN,
+  PROFIT_TARGET_MIN,
+  ROOM_NAME_MAX,
+  ROOM_NAME_MIN,
+  ROUND_DURATIONS_MIN,
+  SPEEDS,
+} from './rules'
 import type { Rng } from './rng'
+
+/** Nickname rules (BR-016, FR-002); the protocol and the web form share this. */
+export const nickSchema = z.string().regex(NICK_PATTERN)
+
+/** Room creation form (FR-009). `profitTarget` is `null` for "no target". */
+export const roomFormSchema = z
+  .object({
+    name: z.string().trim().min(ROOM_NAME_MIN).max(ROOM_NAME_MAX),
+    durationMin: z.literal(ROUND_DURATIONS_MIN),
+    speed: z.literal(SPEEDS),
+    profitTarget: z.number().int().min(PROFIT_TARGET_MIN).nullable(),
+  })
+  .strict()
+export type RoomForm = z.infer<typeof roomFormSchema>
 
 export function isValidNick(s: string): boolean {
   return NICK_PATTERN.test(s)
@@ -11,8 +33,8 @@ export function randomNick(rng: Rng): string {
 }
 
 /**
- * Collision suffix `#n` (FR-002). The result can exceed 16 characters; room join (M3) must
- * handle that, see spec Risks.
+ * Collision suffix `#n` (FR-002). The result can exceed 16 characters; `uniqueNick` in
+ * `worker/room/roster.ts` cuts the base first, so call that rather than this.
  */
 export function suffixNick(nick: string, n: number): string {
   return `${nick}#${n}`

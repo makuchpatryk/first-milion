@@ -5,10 +5,14 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./protocol": "./src/protocol/index.ts",
     "./*": "./src/*.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.src.json",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.6"
   }
 }
