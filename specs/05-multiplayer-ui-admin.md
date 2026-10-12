@@ -3,7 +3,7 @@
 Ticket 5 of 6 (PRD §19 M5). Index: [specs/README.md](README.md). Depends on tickets 2 (M2, web shell and single-play chart), 3 (M3, protocol and rooms) and 4 (M4, round messages).
 
 ## Summary
-Connect the web app to the server: a typed WebSocket client with reconnect and token re-auth, pure reducers for lobby and room state, and the screens of the multiplayer flow (room list, room creation, lobby, round with live ranking and news, observer view, results, admin close and kick). The chart and news bar from M2 are reused. Implementation runs on the current branch of the current checkout (no worktree). Tested with Vitest; the full flow through the UI is verified by Playwright in M6 (review only).
+Connect the web app to the server: a typed WebSocket client with reconnect and token re-auth, pure reducers for lobby and room state, and the screens of the multiplayer flow (room list, room creation, lobby, round with live ranking and news, observer view, results, admin close and kick). The chart and news bar from M2 are reused. Implementation runs on its own git worktree branch (`feature/05-multiplayer-ui-admin`), created from the current `HEAD` (tickets 2–4 merged first); local uncommitted work is not visible there and is flagged at implementation start. Tested with Vitest; the full flow through the UI is verified by Playwright in M6 (review only).
 
 ## Success Criteria
 - Room list updates live from `lobby.rooms` (BP-003); a new room appears without reload (FR-008 client side).

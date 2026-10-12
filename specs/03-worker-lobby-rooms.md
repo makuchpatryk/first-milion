@@ -3,7 +3,7 @@
 Ticket 3 of 6 (PRD §19 M3). Index: [specs/README.md](README.md). Depends on ticket 1 (M1). Ticket 2 (M2) is independent and may run in parallel.
 
 ## Summary
-Build the Cloudflare Worker and the two Durable Objects that carry multiplayer structure: Firebase ID-token verification with the WebSocket auth gate, the `Lobby` room registry with live list updates, and the `Room` lifecycle (create, join with role rules, host transfer, empty-room deletion, admin kick and close). This ticket also defines the whole WebSocket protocol as strict zod schemas in `shared/protocol`, so later tickets only implement handlers. No round engine yet (M4). Implementation runs on the current branch of the current checkout (no worktree). Local dev uses `wrangler dev` with the Firebase Auth emulator; no deploy (M6).
+Build the Cloudflare Worker and the two Durable Objects that carry multiplayer structure: Firebase ID-token verification with the WebSocket auth gate, the `Lobby` room registry with live list updates, and the `Room` lifecycle (create, join with role rules, host transfer, empty-room deletion, admin kick and close). This ticket also defines the whole WebSocket protocol as strict zod schemas in `shared/protocol`, so later tickets only implement handlers. No round engine yet (M4). Implementation runs on its own git worktree branch (`feature/03-worker-lobby-rooms`), created from the current `HEAD`; local uncommitted work is not visible there and is flagged at implementation start. Local dev uses `wrangler dev` with the Firebase Auth emulator; no deploy (M6).
 
 ## Success Criteria
 - Unverified account and bad token: socket closed with code **4401** (FR-007 AC); no `auth` within 5 s → 4401.

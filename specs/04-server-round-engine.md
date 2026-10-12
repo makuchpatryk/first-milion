@@ -3,7 +3,7 @@
 Ticket 4 of 6 (PRD §19 M4). Index: [specs/README.md](README.md). Depends on tickets 1 (M1) and 3 (M3). Ticket 3 must be done first: this ticket extends its `RoomLogic`, protocol and Room shell.
 
 ## Summary
-Make a room play rounds on the server: the host starts a round, the `Room` runs a fixed-step tick loop on the `shared` engine, one server price serves everyone, orders execute at the server price ± spread and are rate-limited, bankruptcy eliminates players, disconnects get a 30 s grace period, and the round ends by wall-clock time, profit target or total elimination with the BR-010 tie-break. A test client plays full rounds through the logic without the Workers runtime. Implementation runs on the current branch of the current checkout (no worktree).
+Make a room play rounds on the server: the host starts a round, the `Room` runs a fixed-step tick loop on the `shared` engine, one server price serves everyone, orders execute at the server price ± spread and are rate-limited, bankruptcy eliminates players, disconnects get a 30 s grace period, and the round ends by wall-clock time, profit target or total elimination with the BR-010 tie-break. A test client plays full rounds through the logic without the Workers runtime. Implementation runs on its own git worktree branch (`feature/04-server-round-engine`), created from the current `HEAD` (ticket 3 merged first); local uncommitted work is not visible there and is flagged at implementation start.
 
 ## Success Criteria
 - Host `room.start` moves the room to `running`; every player receives the same price stream (FR-011 AC); non-host → `FORBIDDEN`, start during round → `INVALID_STATE`.

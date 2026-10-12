@@ -3,7 +3,7 @@
 Ticket 1 of 6 (PRD §19 M1). Index: [specs/README.md](README.md).
 
 ## Summary
-Create the pnpm monorepo, tooling and CI gate (lint, typecheck, Vitest), then build the pure `shared` simulation engine: fixed BR values, tunable config, seeded RNG, netting/spread/equity/bankruptcy, price process, news, and nickname rules. Everything later depends on this package, so it is built first and tested hard. Implementation runs on the current branch of the current checkout (no worktree).
+Create the pnpm monorepo, tooling and CI gate (lint, typecheck, Vitest), then build the pure `shared` simulation engine: fixed BR values, tunable config, seeded RNG, netting/spread/equity/bankruptcy, price process, news, and nickname rules. Everything later depends on this package, so it is built first and tested hard. Implementation runs on its own git worktree branch (`feature/m1-skeleton-engine`). Local work not visible to the worktree: none (repo is clean, one commit `93a73c6`). The spec itself stays in the main checkout.
 
 ## Success Criteria
 - `pnpm -r typecheck`, `pnpm lint`, `pnpm test` all green on a fresh clone after `pnpm install`.
