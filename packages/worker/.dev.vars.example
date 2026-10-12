@@ -1,0 +1,6 @@
+# Copy to .dev.vars (git-ignored). Local development only: wrangler.toml holds the public values.
+# Firebase Auth emulator (PRD §20 #35): its project id and unsigned tokens.
+FIREBASE_PROJECT_ID="demo-first-million"
+AUTH_EMULATOR="true"
+# Comma-separated UIDs allowed to use admin actions (BR-017). Take yours from the emulator UI (http://127.0.0.1:4000).
+ADMIN_UIDS="<local emulator uid>"
