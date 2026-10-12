@@ -52,4 +52,4 @@ Rules First Million is written and reviewed against. **KISS and YAGNI first** (s
 
 ## Known debt
 
-- `suffixNick` (`shared/validation.ts`) can exceed 16 characters; room join must truncate or reject (M3).
+- `suffixNick` (`shared/validation.ts`) alone can exceed 16 characters; callers must use `uniqueNick` (`worker/room/roster.ts`), which cuts the base first. Fold the truncation into `suffixNick` if a second caller appears.

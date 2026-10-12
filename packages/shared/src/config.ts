@@ -29,5 +29,17 @@ export const NEWS_FADE_TICKS = 90
 
 export const HISTORY_MAX = 2_400
 
+// Worker: auth deadline (FR-007) and Lobby/Room heartbeat (FR-008).
+export const AUTH_TIMEOUT_MS = 5_000
+export const HEARTBEAT_MS = 30_000
+// A room silent for 3 heartbeats is stale (FR-008).
+export const STALE_AFTER_MS = 3 * HEARTBEAT_MS
+export const LOBBY_SWEEP_MS = 30_000
+// Used when the Firebase JWKS response carries no `max-age`.
+export const JWKS_FALLBACK_TTL_MS = 3_600_000
+// Longest text frame the server parses (NFR-004). The biggest valid message is `auth`: a token of
+// up to 4,096 characters plus its envelope.
+export const MAX_FRAME_CHARS = 8_192
+
 // Shock headlines are chosen by index; the texts themselves are i18n keys.
 export const SHOCK_TEXT_COUNT = 4

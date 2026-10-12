@@ -1,0 +1,22 @@
+name = "first-million"
+main = "src/index.ts"
+compatibility_date = "2026-10-12"
+
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
+# SQLite-backed classes are the only kind the free plan allows. No storage API is used (BR-020).
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room", "Lobby"]
+
+# Public values only. Local secrets live in `.dev.vars` (see `.dev.vars.example`).
+# `AUTH_EMULATOR` must never be set here, so it never reaches production.
+[vars]
+FIREBASE_PROJECT_ID = "first-million-dev"
+ALLOWED_ORIGINS = "http://localhost:5173"

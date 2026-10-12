@@ -605,6 +605,7 @@ There is no database (BR-020). The entities below exist only in memory.
 | 34 | Money is a raw float in the engine (no rounding of price, P&L or half spread); the UI formats with `Intl` | Round to cents in the engine | User's choice; no rounding rule to maintain, exact ties only for bit-identical equity |
 | 35 | Firebase Auth emulator in dev and e2e | Real test accounts | User's choice; no real email sent, no quota use, 0 PLN |
 | 36 | All deployment (Pages, Worker, Firebase project setup) in M6; M1–M5 run locally | Deploy Pages at the end of M2 | User's choice; one deployment pass, no half-configured production environment |
+| 37 | No WebSocket hibernation for `Lobby` or `Room`: both stay alive in memory while a room exists, with a 30 s heartbeat (stale after 90 s). Duration budget (13,000 GB-s/day on the free plan) is checked in M6 | Hibernation for `Lobby` | User's choice after reading the Cloudflare docs: hibernation resets in-memory state, so the room list would empty after each eviction, and keeping it elsewhere breaks BR-020 |
 
 ## 21. Open Questions
 None.
