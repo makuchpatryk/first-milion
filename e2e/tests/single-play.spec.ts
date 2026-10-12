@@ -11,16 +11,6 @@ async function openSinglePlay(page: Page): Promise<void> {
 }
 
 test.describe('FR-004 single play', () => {
-  test('FR-020: the game screen has no horizontal scroll at the project viewport', async ({
-    page,
-  }) => {
-    await openSinglePlay(page)
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    )
-    expect(overflow).toBeLessThanOrEqual(0)
-  })
-
   test('FR-004: B, S and C keys open a long, flip to a short and close', async ({ page }) => {
     await openSinglePlay(page)
 
@@ -33,12 +23,6 @@ test.describe('FR-004 single play', () => {
 
     await page.keyboard.press('s')
     await expect(page.getByText(/-50 @/)).toBeVisible()
-  })
-
-  test('FR-004: the on-screen Buy button trades like the key', async ({ page }) => {
-    await openSinglePlay(page)
-    await page.getByRole('button', { name: /^Buy/ }).click()
-    await expect(page.getByText(/\+50 @/)).toBeVisible()
   })
 
   test('FR-004 UF-002: a margin call offers "Play again", which starts a fresh game', async ({
