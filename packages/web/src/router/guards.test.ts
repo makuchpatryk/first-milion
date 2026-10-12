@@ -28,8 +28,26 @@ describe('routeFor', () => {
     expect(routeFor('verified', '/verify')).toBe('/menu')
   })
 
-  it('FR-006: there is no /rooms route in M2, so it falls back to /menu', () => {
-    expect(routeFor('verified', '/rooms')).toBe('/menu')
+  it('UF-003: a verified user reaches the room list, the create form and a room', () => {
+    for (const path of ['/rooms', '/rooms/new', '/rooms/abc123']) {
+      expect(routeFor('verified', path)).toBeNull()
+    }
+  })
+
+  it('FR-001 AC: an unverified user cannot open /rooms/:id', () => {
+    expect(routeFor('unverified', '/rooms/abc123')).toBe('/verify')
+    expect(routeFor('out', '/rooms/abc123')).toBe('/login')
+  })
+
+  it('BR-016: without a valid nickname a room or the create form is out of reach, the list is not', () => {
+    expect(routeFor('verified', '/rooms/abc123', false)).toBe('/rooms')
+    expect(routeFor('verified', '/rooms/new', false)).toBe('/rooms')
+    expect(routeFor('verified', '/rooms', false)).toBeNull()
+    expect(routeFor('verified', '/single', false)).toBeNull()
+  })
+
+  it('an unknown path under /rooms/ with a trailing slash only falls back to /menu', () => {
+    expect(routeFor('verified', '/rooms/')).toBe('/menu')
   })
 
   it('FR-018: /privacy is allowed for every status', () => {

@@ -47,6 +47,21 @@ describe('web architecture (ARCHITECTURE.md dependency rules)', () => {
     ).toEqual([])
   })
 
+  it('ARCHITECTURE: the WebSocket is opened only under src/net/', () => {
+    const users = offenders(shipped, /new\s+WebSocket\s*\(/)
+    expect(users.filter((f) => !f.startsWith('net/'))).toEqual([])
+    expect(users.length).toBeGreaterThan(0)
+  })
+
+  it('ARCHITECTURE: src/net/ does not import Firebase, auth or views', () => {
+    const netFiles = shipped.filter(({ file }) => file.startsWith('net/'))
+    expect(offenders(netFiles, /from\s+['"](\.\.\/)+(auth|views|components)|firebase/)).toEqual([])
+  })
+
+  it('NFR-004: no socket URL carries a token', () => {
+    expect(offenders(shipped, /[?&]token=/)).toEqual([])
+  })
+
   it('BR-020: only the language choice touches browser storage', () => {
     const users = offenders(shipped, /localStorage|sessionStorage|indexedDB/)
     expect(users).toEqual(['i18n/locale.ts'])

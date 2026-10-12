@@ -21,6 +21,7 @@ Rules First Million is written and reviewed against. **KISS and YAGNI first** (s
 | Message shapes, error codes | `shared/protocol` |
 | Nickname and room-form rules | `shared/validation.ts` |
 | Ranking, end conditions | `worker/room/` |
+| Lobby and room UI state, join labels, trade permission | `web/src/room/` reducers and `canTrade`, `joinPolicy` (mirrors the server's `assignRole`) |
 | Admin UIDs, origins | Worker vars |
 | UI text, error and news messages | `web/src/i18n/pl.json`, `en.json` |
 | Design tokens | `web/src/styles/tokens.css` |

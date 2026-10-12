@@ -64,6 +64,13 @@ a {
   color: var(--on-down);
 }
 
+/* Secondary action next to a primary `.btn`. */
+.btn-quiet {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
 /* Text-style action: 44 px touch target, underlined like a link. */
 .link {
   display: inline-flex;

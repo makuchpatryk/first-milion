@@ -1,5 +1,6 @@
-import { onAuthStateChanged, type User } from 'firebase/auth'
+import { onAuthStateChanged, onIdTokenChanged, type User } from 'firebase/auth'
 import { reactive } from 'vue'
+import { notifyTokenChanged } from '../net/token-refresh'
 import { auth } from './firebase'
 
 export type SessionStatus = 'loading' | 'out' | 'unverified' | 'verified'
@@ -22,6 +23,16 @@ let markReady: () => void = () => undefined
 export const ready = new Promise<void>((resolve) => {
   markReady = resolve
 })
+
+/**
+ * The current user's ID token for the socket `auth` message (FR-007). The SDK refreshes an
+ * expired token by itself; `forceRefresh` is for a 4401 close.
+ */
+export async function getIdToken(forceRefresh: boolean): Promise<string> {
+  const user = auth.currentUser
+  if (user === null) throw new Error('not signed in')
+  return user.getIdToken(forceRefresh)
+}
 
 /** SDK values are narrowed with `typeof` at the boundary instead of trusting their types. */
 function toSessionUser(user: User): SessionUser {
@@ -51,6 +62,8 @@ export function init(onVerified: (user: User) => Promise<void>): void {
   onAuthStateChanged(auth, (user) => {
     void settle(user, onVerified)
   })
+  // A new ID token re-authenticates the open game sockets without a reconnect (FR-007 edge).
+  onIdTokenChanged(auth, () => notifyTokenChanged())
 }
 
 async function settle(user: User | null, onVerified: (user: User) => Promise<void>): Promise<void> {

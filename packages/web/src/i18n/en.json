@@ -106,6 +106,123 @@
     "short": "SHORT",
     "entry": "entry"
   },
+  "rooms": {
+    "title": "Rooms",
+    "menu": "Menu",
+    "listLabel": "Room list",
+    "empty": "No open rooms. Create your own.",
+    "create": "Create room",
+    "host": "Host",
+    "noHost": "—",
+    "players": "Players {n}/{max}",
+    "observers": "Observers {n}/{max}",
+    "duration": "{n} min",
+    "target": "Target ${n}",
+    "noTarget": "no target",
+    "speed": "{n}×",
+    "lobby": "Lobby",
+    "running": "Running",
+    "joinPlayer": "Join as player",
+    "watch": "Watch",
+    "full": "Full",
+    "nickInvalid": "Your nickname is invalid. Change it in the menu before entering a room.",
+    "toMenu": "Go to menu",
+    "connecting": "Connecting to the server…",
+    "reconnecting": "Connection lost. Reconnecting…"
+  },
+  "create": {
+    "title": "New room",
+    "name": "Room name",
+    "nameHint": "3–30 characters.",
+    "duration": "Round length",
+    "durationValue": "{n} min",
+    "speed": "Speed",
+    "speedValue": "{n}×",
+    "target": "Profit target ($)",
+    "targetHint": "Optional: a whole number, at least 100. Leave empty for no target.",
+    "submit": "Create room",
+    "back": "Back to list",
+    "error": {
+      "name": "The name must be 3 to 30 characters.",
+      "target": "The target must be a whole number from 100, or empty."
+    }
+  },
+  "lobby": {
+    "params": "Round settings",
+    "duration": "Round length",
+    "speed": "Speed",
+    "target": "Profit target",
+    "players": "Players ({n}/{max})",
+    "observers": "Observers ({n}/{max})",
+    "noObservers": "No observers.",
+    "host": "host",
+    "you": "you",
+    "status": {
+      "active": "active",
+      "disconnected": "disconnected",
+      "eliminated": "eliminated"
+    },
+    "start": "Start round",
+    "waitHost": "Waiting for the host to start the round.",
+    "needPlayer": "At least one player is needed to start.",
+    "leave": "Leave room",
+    "lastRound": "Last round"
+  },
+  "round": {
+    "countdown": "Time left",
+    "target": "Profit target",
+    "targetProgress": "Progress to the profit target",
+    "ranking": "Live ranking",
+    "you": "you",
+    "observerHint": "You are watching the round. Trade buttons are hidden.",
+    "eliminated": "You are eliminated. You can watch the ranking until the round ends.",
+    "reconnecting": "Reconnecting… {s} s left",
+    "haltSeconds": "{s} s",
+    "position": "{units} × {avg}",
+    "reconnectLost": "Could not return in time. You lost your player seat and can only watch.",
+    "dismissError": "Dismiss message",
+    "closedTitle": "Disconnected",
+    "backToRooms": "Back to the room list"
+  },
+  "results": {
+    "title": "Round over",
+    "reason": {
+      "TARGET": "Someone reached the profit target.",
+      "TIME": "Round time ran out.",
+      "ALL_ELIMINATED": "All players were eliminated."
+    },
+    "winners": "No winner. | Winner: {names} | Winners (shared place): {names}",
+    "place": "Place",
+    "player": "Player",
+    "equity": "Equity",
+    "back": "Back to lobby"
+  },
+  "admin": {
+    "closeRoom": "Close room",
+    "closeTitle": "Close the room?",
+    "closeBody": "The room “{name}” will leave the list and everyone in it will be disconnected.",
+    "kick": "Kick",
+    "kickNamed": "Kick {nick}",
+    "kickTitle": "Kick the player?",
+    "kickBody": "{nick} will lose their place in the room. They can come back."
+  },
+  "error": {
+    "rateLimited": "Too many orders at once. Slow down for a moment.",
+    "halted": "Trading halt: orders are paused.",
+    "eliminated": "You are eliminated. You can only watch.",
+    "forbidden": "You are not allowed to do that.",
+    "invalidState": "That action is not possible right now.",
+    "invalidPayload": "The server rejected that data.",
+    "roomFull": "The room is full.",
+    "roomClosed": "The room was closed.",
+    "roomNotFound": "That room does not exist."
+  },
+  "close": {
+    "authFailed": "Your session expired. Log in again.",
+    "kicked": "An administrator removed you from the room.",
+    "roomClosed": "An administrator closed the room.",
+    "network": "Connection to the server was lost."
+  },
   "news": {
     "none": "Market is opening. No news.",
     "shock": {
