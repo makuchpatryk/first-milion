@@ -62,8 +62,10 @@ describe('web architecture (ARCHITECTURE.md dependency rules)', () => {
     expect(offenders(shipped, /[?&]token=/)).toEqual([])
   })
 
-  it('BR-020: only the language choice touches browser storage', () => {
+  it('BR-020: only the language choice and the Firebase session touch browser storage', () => {
+    // The Firebase Auth session (`initializeAuth` persistence in `auth/firebase.ts`) is the SDK's
+    // login state, not game data. Listed here so a new storage user still fails the test.
     const users = offenders(shipped, /localStorage|sessionStorage|indexedDB/)
-    expect(users).toEqual(['i18n/locale.ts'])
+    expect(users).toEqual(['auth/firebase.ts', 'i18n/locale.ts'])
   })
 })

@@ -30,6 +30,7 @@ playwright-report/
 test-results/
 blob-report/
 playwright/.cache/
+.lighthouseci/
 
 # Logs
 npm-debug.log*

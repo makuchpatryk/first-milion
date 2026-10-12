@@ -118,7 +118,7 @@ async function submitReset(): Promise<void> {
 
       <p v-if="errorKey" class="error" role="alert">{{ t(errorKey) }}</p>
 
-      <button type="submit" class="btn" :disabled="busy">
+      <button type="submit" class="btn" data-testid="auth-submit" :disabled="busy">
         {{ mode === 'register' ? t('auth.submitRegister') : t('auth.submitLogin') }}
       </button>
       <button type="button" class="link link-muted" @click="startReset">

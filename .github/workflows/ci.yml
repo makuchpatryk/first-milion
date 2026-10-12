@@ -3,8 +3,15 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      full_round:
+        description: Run the 10-minute NFR-006 round instead of the 3-minute one
+        type: boolean
+        default: false
 
 jobs:
+  # Light checks: every push and pull request (ARCHITECTURE A7).
   check:
     runs-on: ubuntu-latest
     steps:
@@ -18,3 +25,45 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+
+  # Heavy checks: `main` and manual runs only (ARCHITECTURE A7).
+  heavy:
+    needs: check
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      # The SDK throws without a key, so the build needs placeholders; nothing here is a secret
+      # and nothing talks to Firebase (the e2e run uses the Auth emulator in dev mode).
+      VITE_FIREBASE_API_KEY: ci-placeholder
+      VITE_FIREBASE_PROJECT_ID: ci-placeholder
+      VITE_WORKER_URL: https://worker.invalid
+      E2E_FULL_ROUND: ${{ inputs.full_round && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build and bundle checks (NFR-005, NFR-004)
+        run: |
+          pnpm build
+          pnpm bundle:check
+      - name: Install the Playwright browser
+        run: pnpm --filter @fm/e2e exec playwright install --with-deps chromium
+      - name: Playwright e2e and axe (NFR-001, NFR-003, NFR-006)
+        run: pnpm e2e
+      - name: Lighthouse (NFR-005)
+        run: pnpm lighthouse
+      - name: Keep the reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: heavy-reports
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            packages/web/.lighthouseci
+          if-no-files-found: ignore
