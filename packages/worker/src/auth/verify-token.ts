@@ -1,9 +1,14 @@
 import { z } from 'zod'
 import type { Jwks } from './jwks'
 
-/** The email never leaves this module (ARCHITECTURE Privacy); only the UID is returned. */
+/**
+ * The email never leaves this module (ARCHITECTURE Privacy); only the UID and the token's
+ * remaining lifetime are returned. A socket must not outlive its token (`AuthGate`).
+ */
 export interface VerifiedUser {
   uid: string
+  /** Milliseconds until the token expires; always > 0. */
+  ttlMs: number
 }
 export type TokenVerifier = (token: string) => Promise<VerifiedUser | null>
 
@@ -95,10 +100,11 @@ export function createTokenVerifier(opts: TokenVerifierOptions): TokenVerifier {
       const nowMs = now()
       if (c.iss !== `https://securetoken.google.com/${projectId}`) return null
       if (c.aud !== projectId) return null
-      if (c.exp * 1000 <= nowMs) return null
+      const ttlMs = c.exp * 1000 - nowMs
+      if (ttlMs <= 0) return null
       if (c.iat * 1000 > nowMs + CLOCK_SKEW_MS) return null
       if (!c.email_verified) return null
-      return { uid: c.sub }
+      return { uid: c.sub, ttlMs }
     } catch {
       return null
     }

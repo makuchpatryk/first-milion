@@ -1,5 +1,5 @@
 import { HEARTBEAT_MS } from '@fm/shared/config'
-import type { RoomSummary } from '@fm/shared/protocol'
+import { CLOSE_CODES, type RoomSummary } from '@fm/shared/protocol'
 import type { Env } from '../env'
 import {
   INTERNAL_PATHS,
@@ -29,6 +29,8 @@ export class Room implements DurableObject {
   /** The one socket that speaks for a user in this room. */
   private readonly sockets = new Map<string, Connection>()
   private readonly acceptor: SocketAcceptor
+  /** Lobby updates in the order they were made. */
+  private publishQueue: Promise<void> = Promise.resolve()
 
   constructor(
     private readonly ctx: DurableObjectState,
@@ -46,8 +48,10 @@ export class Room implements DurableObject {
   }
 
   private async handleInit(request: Request): Promise<Response> {
-    if (this.logic !== null) return new Response(null, { status: 409 })
     const body = roomInitBodySchema.safeParse(await request.json().catch(() => null))
+    // Checked after the `await` and assigned below with none in between: two overlapping `/init`
+    // requests cannot both pass, so the heartbeat is never started twice.
+    if (this.logic !== null) return new Response(null, { status: 409 })
     if (!body.success || body.data.id !== this.ctx.id.toString()) {
       return new Response(null, { status: 400 })
     }
@@ -105,7 +109,9 @@ export class Room implements DurableObject {
         }
         switch (msg.type) {
           case 'room.join':
-            logic.join(session.uid, msg.nick)
+            // Same check as `admin.closeRoom`: the id in the message must be this room's.
+            if (msg.roomId !== logic.summary().id) conn.send({ type: 'error', code: 'ROOM_NOT_FOUND' })
+            else logic.join(session.uid, msg.nick)
             return
           case 'room.leave':
             logic.leave(session.uid)
@@ -138,17 +144,24 @@ export class Room implements DurableObject {
     })
   }
 
-  /** Tells the Lobby; `null` means the room is gone, which also ends the heartbeat. */
+  /**
+   * Tells the Lobby; `null` means the room is gone, which ends the heartbeat and closes the
+   * sockets that are still open (members were closed by `RoomLogic`; these joined and left, or
+   * never joined). Without that they would keep the Durable Object alive for a dead room.
+   */
   private publish(summary: RoomSummary | null): void {
     let request: Request
     if (summary === null) {
       this.stopHeartbeat()
+      this.closeRemainingSockets()
       request = postJson(INTERNAL_PATHS.deregister, { roomId: this.ctx.id.toString() })
     } else {
       request = postJson(INTERNAL_PATHS.register, summary)
     }
-    // A lost update is repaired by the next heartbeat (FR-008); never let it throw here.
-    this.ctx.waitUntil(
+    // One request at a time, in order: a heartbeat still in flight must not land after the
+    // deregister and list a deleted room. A lost update is repaired by the next heartbeat
+    // (FR-008); never let it throw here.
+    this.publishQueue = this.publishQueue.then(() =>
       lobbyStub(this.env)
         .fetch(request)
         .then(
@@ -156,6 +169,16 @@ export class Room implements DurableObject {
           () => undefined,
         ),
     )
+    this.ctx.waitUntil(this.publishQueue)
+  }
+
+  private closeRemainingSockets(): void {
+    const remaining = [...this.sockets.values()]
+    this.sockets.clear() // their close events must not read as leaves
+    for (const conn of remaining) {
+      conn.send({ type: 'error', code: 'ROOM_CLOSED' })
+      conn.close(CLOSE_CODES.ROOM_CLOSED)
+    }
   }
 
   private stopHeartbeat(): void {

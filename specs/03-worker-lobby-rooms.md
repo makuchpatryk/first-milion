@@ -135,7 +135,7 @@ Lobby ──POST /init──► Room (on room.create, before reply)
 - `src/origin.ts` — `isAllowedOrigin(origin: string | null, allowlist: string): boolean` (exact match, comma list, no wildcard).
 - `src/auth/verify-token.ts`:
   ```ts
-  export interface VerifiedUser { uid: string }   // email never leaves this module
+  export interface VerifiedUser { uid: string; ttlMs: number }   // email never leaves this module; ttlMs = time left on the token (added after review)
   export type TokenVerifier = (token: string) => Promise<VerifiedUser | null>
   export function createTokenVerifier(opts: { projectId: string; emulator: boolean; fetchJwks: () => Promise<Jwks>; now: () => number }): TokenVerifier
   ```
@@ -153,7 +153,7 @@ Lobby ──POST /init──► Room (on room.create, before reply)
     get session(): Session | null        // { uid, admin } once authed
   }
   ```
-  Rules: timer fires before auth → close 4401 (FR-007); bad token / unverified → close 4401; valid → `sendAuthOk(admin)` and `onAuthed(session)`. A second `auth` on the same socket re-verifies the new token (FR-007 edge: refresh mid-session) and is accepted **only if its `uid` matches the current session**; a different UID closes with 4401 (default from the planning cross-check: a socket must not change identity).
+  Rules: timer fires before auth → close 4401 (FR-007); bad token / unverified → close 4401; valid → `sendAuthOk(admin)` and `onAuthed(session)`. A second `auth` on the same socket re-verifies the new token (FR-007 edge: refresh mid-session) and is accepted **only if its `uid` matches the current session**; a different UID closes with 4401 (default from the planning cross-check: a socket must not change identity). Revised after review: a refresh that fails does **not** close an authenticated socket (FR-007 edge: no interruption); every successful auth arms an expiry timer from `ttlMs` and the socket closes with 4401 when its token expires, so a socket never outlives its token.
 - `src/lobby/lobby-logic.ts` — pure:
   ```ts
   export interface LobbyDeps { now(): number; schedule(fn, ms): Handle; cancel(h): void; broadcast(rooms: RoomSummary[]): void }
@@ -380,3 +380,4 @@ Lobby ──POST /init──► Room (on room.create, before reply)
 - Step 21 — done — `pnpm lint` clean, `pnpm typecheck` clean (shared, web, worker), `pnpm test` green: shared 8 files / 96 tests, web 18 / 143, worker 11 / 150 (unit + 30 workerd integration). Background checker subagents were killed by a session restart, so the three commands were run inline in the worktree. Heavy checks (e2e, build, Lighthouse, axe) not run, left to `first-million-review`
 - CP6 — lint, typecheck and all Vitest green; docs updated
 - Review fixes — files: packages/worker/vitest.config.ts (integration `testTimeout` 15 s, `hookTimeout` 30 s: cold-start flake), packages/shared/src/config.ts (`MAX_FRAME_CHARS` 8 192), packages/shared/src/protocol/client.ts (text frame over the cap is refused before `JSON.parse`), packages/worker/src/auth/verify-token.ts (dropped the no-op second `fetchJwks()`), packages/worker/src/room/room-logic.ts (`creatorJoined`: others get `INVALID_STATE` until the creator has joined), tests: shared/protocol, worker verify-token, room-logic, integration rooms (creator joins first as `uid-1`), new integration/shell.test.ts (creator seat, token refresh, second socket, frame size, `/init` 409 and id mismatch, `/close` 403), helper `sendRaw`. `pnpm lint`, `pnpm typecheck` clean; shared 97, web 143, worker 160 tests green
+- Review fixes 2 — files: packages/worker/src/room/room.ts (`publish(null)` closes sockets still open after members: ROOM_CLOSED + 4410; Lobby publishes chained in order; `room.join` checks `roomId` like `admin.closeRoom`; `/init` checks `logic` after the body `await`), packages/worker/src/auth/auth-gate.ts (failed refresh keeps the session; expiry timer closes 4401 at token expiry), packages/worker/src/auth/verify-token.ts (`VerifiedUser.ttlMs`), tests: auth-gate (refresh failure, expiry, refresh extends expiry), verify-token (`ttlMs`), integration/shell.test.ts (bad refresh keeps socket, closed room closes non-member sockets, foreign `roomId`). Publish ordering is not covered by a test (needs a fake Lobby stub). `pnpm lint`, `pnpm typecheck` clean; shared 97, web 143, worker 166 tests green

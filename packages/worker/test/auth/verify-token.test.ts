@@ -11,6 +11,9 @@ import {
   type TestKey,
 } from './token-helpers'
 
+/** `validClaims` expires one hour after `NOW_MS`. */
+const TOKEN_TTL_MS = 3_600_000
+
 let key: TestKey
 let verify: TokenVerifier
 let verifyEmulator: TokenVerifier
@@ -24,12 +27,12 @@ beforeAll(async () => {
 
 describe('createTokenVerifier (production)', () => {
   it('FR-007: a valid token yields the UID', async () => {
-    expect(await verify(await signToken(key, validClaims()))).toEqual({ uid: 'uid-1' })
+    expect(await verify(await signToken(key, validClaims()))).toEqual({ uid: 'uid-1', ttlMs: TOKEN_TTL_MS })
   })
 
-  it('the result carries the UID only, never the email', async () => {
+  it('the result carries the UID and the remaining lifetime only, never the email', async () => {
     const user = await verify(await signToken(key, validClaims({ email: 'a@b.c' })))
-    expect(user).toEqual({ uid: 'uid-1' })
+    expect(user).toEqual({ uid: 'uid-1', ttlMs: TOKEN_TTL_MS })
   })
 
   it('FR-007 AC, BR-002: email_verified false is refused', async () => {
@@ -101,7 +104,7 @@ describe('createTokenVerifier (production)', () => {
     const fresh = await createTestKey('key-2')
     const fetchJwks = vi.fn(() => Promise.resolve({ keys: [...key.jwks.keys, ...fresh.jwks.keys] }))
     const verifier = createTokenVerifier({ projectId: PROJECT_ID, emulator: false, fetchJwks, now: () => NOW_MS })
-    expect(await verifier(await signToken(fresh, validClaims()))).toEqual({ uid: 'uid-1' })
+    expect(await verifier(await signToken(fresh, validClaims()))).toEqual({ uid: 'uid-1', ttlMs: TOKEN_TTL_MS })
   })
 
   it('PRD §15: a JWKS fetch failure refuses the token instead of throwing', async () => {
@@ -123,7 +126,7 @@ describe('createTokenVerifier (production)', () => {
 
 describe('createTokenVerifier (emulator)', () => {
   it('PRD §20 #35: an unsigned token is accepted in emulator mode', async () => {
-    expect(await verifyEmulator(unsignedToken(validClaims()))).toEqual({ uid: 'uid-1' })
+    expect(await verifyEmulator(unsignedToken(validClaims()))).toEqual({ uid: 'uid-1', ttlMs: TOKEN_TTL_MS })
   })
 
   it('claims are still checked in emulator mode', async () => {

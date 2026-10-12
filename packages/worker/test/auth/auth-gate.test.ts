@@ -8,7 +8,10 @@ import { FakeClock } from '../fake-clock'
 const ADMINS = new Set(['admin-uid'])
 const auth = (token: string) => JSON.stringify({ type: 'auth', token })
 
-function setup(tokens: Record<string, VerifiedUser> = { good: { uid: 'u1' }, admin: { uid: 'admin-uid' } }) {
+const TTL_MS = 3_600_000
+const user = (uid: string, ttlMs = TTL_MS): VerifiedUser => ({ uid, ttlMs })
+
+function setup(tokens: Record<string, VerifiedUser> = { good: user('u1'), admin: user('admin-uid') }) {
   const clock = new FakeClock()
   const closes: number[] = []
   const authOk: boolean[] = []
@@ -50,7 +53,7 @@ describe('AuthGate', () => {
     clock.advance(10_000)
     expect(authOk).toEqual([false])
     expect(closes).toEqual([])
-    expect(clock.pendingCount).toBe(0)
+    expect(clock.pendingCount).toBe(1) // only the token expiry is left
   })
 
   it('FR-007 AC: a bad or unverified token closes with 4401', async () => {
@@ -86,7 +89,7 @@ describe('AuthGate', () => {
   })
 
   it('FR-007 edge: a second auth with a fresh token for the same user is accepted', async () => {
-    const { gate, closes, authOk, authed } = setup({ good: { uid: 'u1' }, fresh: { uid: 'u1' } })
+    const { gate, closes, authOk, authed } = setup({ good: user('u1'), fresh: user('u1') })
     await gate.handle(auth('good'))
     await gate.handle(auth('fresh'))
     expect(authOk).toEqual([false, false])
@@ -101,12 +104,43 @@ describe('AuthGate', () => {
     expect(closes).toEqual([4401])
   })
 
-  it('FR-007 edge: a second auth with a bad token closes with 4401', async () => {
-    const { gate, closes } = setup()
+  it('FR-007 edge: a refresh with a bad token keeps the live session and does not close', async () => {
+    const { gate, closes, authOk } = setup()
     await gate.handle(auth('good'))
     await gate.handle(auth('forged'))
-    expect(closes).toEqual([4401])
+    expect(closes).toEqual([])
+    expect(authOk).toEqual([false])
+    expect(gate.session).toEqual({ uid: 'u1', admin: false })
   })
+
+  it('FR-007: the socket closes with 4401 when its token expires', async () => {
+    const { clock, gate, closes } = setup({ short: user('u1', 60_000) })
+    await gate.handle(auth('short'))
+    clock.advance(59_999)
+    expect(closes).toEqual([])
+    clock.advance(1)
+    expect(closes).toEqual([CLOSE_CODES.AUTH_FAILED])
+  })
+
+  it('FR-007 edge: a failed refresh does not extend the session past the first token expiry', async () => {
+    const { clock, gate, closes } = setup({ short: user('u1', 60_000) })
+    await gate.handle(auth('short'))
+    await gate.handle(auth('forged'))
+    clock.advance(60_000)
+    expect(closes).toEqual([CLOSE_CODES.AUTH_FAILED])
+  })
+
+  it('FR-007 edge: a successful refresh moves the expiry forward', async () => {
+    const { clock, gate, closes } = setup({ short: user('u1', 60_000), fresh: user('u1', 120_000) })
+    await gate.handle(auth('short'))
+    clock.advance(30_000)
+    await gate.handle(auth('fresh'))
+    clock.advance(60_000) // past the first expiry
+    expect(closes).toEqual([])
+    clock.advance(60_000) // 120 000 after the refresh
+    expect(closes).toEqual([CLOSE_CODES.AUTH_FAILED])
+  })
+
 
   it('non-auth messages after auth are left to the shell, not closed here', async () => {
     const { gate, closes } = setup()

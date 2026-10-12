@@ -34,6 +34,15 @@ describe('token refresh on a live socket (FR-007 edge)', () => {
     expect(socket.closeCode).toBeNull()
   })
 
+  it('a refresh with a bad token does not interrupt the session', async () => {
+    const socket = await lobby('uid-1')
+    socket.send({ type: 'auth', token: 'not-a-token' })
+    // The socket still answers: a room message on the Lobby socket is INVALID_STATE.
+    socket.send({ type: 'room.leave' })
+    expect(await socket.nextError()).toBe('INVALID_STATE')
+    expect(socket.closeCode).toBeNull()
+  })
+
   it('a second auth with another uid closes the socket with 4401', async () => {
     const socket = await lobby('uid-1')
     socket.send({ type: 'auth', token: emulatorToken('uid-2') })
@@ -52,6 +61,38 @@ describe('one socket per user per room', () => {
     second.send({ type: 'room.leave' })
     expect(await second.nextError()).toBe('INVALID_STATE')
     expect(second.closeCode).toBeNull()
+  })
+})
+
+describe('sockets of a closed room (FR-017)', () => {
+  it('an admin close also closes sockets that joined and left, or never joined', async () => {
+    const roomId = await createRoom(await lobby('uid-1'))
+    const left = await roomSocket(roomId, 'uid-1')
+    left.send({ type: 'room.join', roomId, nick: 'Jan' })
+    await left.next('room.state')
+    left.send({ type: 'room.leave' })
+    const lurker = await roomSocket(roomId, 'uid-lurker')
+
+    const admin = await lobby('uid-admin')
+    admin.send({ type: 'admin.closeRoom', roomId })
+
+    for (const socket of [left, lurker]) {
+      expect(await socket.nextError()).toBe('ROOM_CLOSED')
+      expect(await socket.closed()).toBe(CLOSE_CODES.ROOM_CLOSED)
+    }
+  })
+})
+
+describe('room.join id (NFR-004)', () => {
+  it('a room.join carrying another room id is ROOM_NOT_FOUND and joins nothing', async () => {
+    const roomId = await createRoom(await lobby('uid-1'))
+    const otherId = await createRoom(await lobby('uid-2'))
+    const socket = await roomSocket(roomId, 'uid-1')
+    socket.send({ type: 'room.join', roomId: otherId, nick: 'Jan' })
+    expect(await socket.nextError()).toBe('ROOM_NOT_FOUND')
+
+    socket.send({ type: 'room.join', roomId, nick: 'Jan' })
+    expect((await socket.next('room.state')).view.id).toBe(roomId)
   })
 })
 
