@@ -42,4 +42,4 @@ jobs:
       - name: Deploy the Worker
         run: pnpm --filter @fm/worker exec wrangler deploy --env production
       - name: Deploy the web app to Pages
-        run: pnpm --filter @fm/worker exec wrangler pages deploy ../web/dist --project-name first-million --branch main
+        run: pnpm --filter @fm/worker exec wrangler pages deploy ../web/dist --project-name first-milion --branch main
