@@ -540,31 +540,37 @@ There is no database (BR-020). The entities below exist only in memory.
 - **Includes:** FR-003, FR-005 (logic)
 - **Depends on:** —
 - **Definition of done:** pnpm monorepo with CI; the `shared` engine covered by Vitest tests (netting, spread, bankruptcy, news, type distribution).
+- **Status:** implemented
 
 ### M2: Web app single play + auth
 - **Includes:** FR-001, FR-002, FR-004, FR-005 (UI), FR-006, FR-019, FR-020, FR-018 (part: policy, account deletion)
 - **Depends on:** M1
 - **Definition of done:** after login and email verification the user can play single play (PL/EN); deployed to Pages in M6 (see §20 row 36).
+- **Status:** implemented (the Pages deployment is part of M6)
 
 ### M3: Worker, lobby, and rooms
 - **Includes:** FR-007, FR-008, FR-009, FR-010, FR-016
 - **Depends on:** M1
 - **Definition of done:** Worker tests: authorization, room creation, live list, joining, host, removal of empty rooms.
+- **Status:** implemented
 
 ### M4: Server round engine
 - **Includes:** FR-011, FR-012, FR-013, FR-014, FR-015
 - **Depends on:** M3
 - **Definition of done:** rounds played by a test client; end conditions, tie-break, elimination, disconnection, and rate limit tested.
+- **Status:** implemented
 
 ### M5: Multiplayer UI and admin
 - **Includes:** FR-017, UF-003, UF-004, UF-005
 - **Depends on:** M2, M4
 - **Definition of done:** full flow through the UI: list → create → lobby → round → results → next round; observer; admin.
+- **Status:** implemented
 
 ### M6: Quality and release
 - **Includes:** NFR-001–NFR-006
 - **Depends on:** M5
 - **Definition of done:** Playwright e2e (4 players, full round), axe audit with no AA violations, Lighthouse within budget, production deployment, free-limit usage checked. The production Firebase project sets the Auth password policy to a minimum of 8 characters, because the client check alone (BR-002) can be bypassed.
+- **Status:** release pending user accounts. Written and checked in the light run: Playwright specs (4-player round, latency, rate limit, reconnect, observer, admin, single play, auth), the axe spec, bundle and no-emulator checks, `lighthouserc.json`, Worker config and security tests, `ci.yml` (heavy job on `main`) and `deploy.yml` (manual, gated). Run in review: the Playwright, axe, build, bundle and Lighthouse checks. Left for the release step (decision 36): Firebase and Cloudflare projects, secrets, the production deploy, the free-plan usage check (NFR-002) and the Firebase password policy.
 
 # Appendix
 
@@ -612,6 +618,8 @@ There is no database (BR-020). The entities below exist only in memory.
 | 39 | TRADING_HALT counts down in wall-clock ms: 5 s at any speed. The elapsed time of one tick interval is capped at 250 ms (a stalled Durable Object cannot skip the halt) | Count the halt in game ticks (0.6 s on screen at 8×) | User's choice (M4 planning) |
 | 40 | BR-010 tie-break "reached that equity value earlier" = server time of the player's last change of equity value; computable on every tick | Time of the first reach of the final value (known only at the end) | Planning default, adopted (M4) |
 | 41 | M4 room rules: the order rate limit counts every schema-valid `order` and `close`, accepted or refused; `room.leave` in a running round is a dropped socket (30 s grace, so leaving cannot escape a loss); a disconnect in the lobby removes the seat at once; the host role passes when the host's socket drops, to the next connected member; a player who is gone when the round ends is dropped from the seats (the result keeps the row); a kick during a round removes the seat; an observer may be host (starting needs ≥ 1 seated player) | Count only accepted orders; grace on leave in the lobby; keep absent players seated | Planning defaults, adopted (M4) |
+| 42 | NFR-006 e2e round: 3 minutes at 8× by default, the full 10 minutes with `E2E_FULL_ROUND=1` (run once before a release). NFR-001 is measured in the page (order sent → `order.ok`), p95 ≤ 300 ms over 50 orders. NFR-005 counts the gzip size of all built JS chunks together (≤ 300 KB) | A 10-minute round on every review; server-side timing only; the initial chunk only | User's choice (M6 planning); the all-chunks sum is the stricter reading |
+| 43 | e2e runs against the Vite dev server, the Auth emulator and `wrangler dev` with the emulator flag given on the command line: a production build has no emulator hook (decision 35), so it cannot log in to the emulator. The production build is covered by `check-bundle` and `check-no-emulator`, and by Lighthouse | e2e on `vite preview`; real Firebase test accounts | Consequence of decision 35 (M6 implementation) |
 
 ## 21. Open Questions
 None.

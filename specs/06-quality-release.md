@@ -96,37 +96,37 @@ release (manual):   user creates Cloudflare + Firebase projects → secrets → 
 
 ## Implementation Steps
 
-1. [ ] `e2e/` workspace package: `package.json` (`@fm/e2e`, `@playwright/test`, `@axe-core/playwright`), `tsconfig.json`, `playwright.config.ts` (Chromium 360×640 and desktop projects, `webServer` for `wrangler dev` and `vite preview`, retries 1 in CI only).
-2. [ ] `e2e/fixtures/auth.ts`: emulator account creation (signUp + update emailVerified) and session injection; typed helpers. Light test: none (typecheck only); the fixture is exercised in review.
-3. [ ] `e2e/fixtures/four-players.ts`: four contexts, one room, roles; typed.
-4. [ ] `e2e/tests/auth.spec.ts`, `single-play.spec.ts` (FR-001, FR-004 e2e).
-5. [ ] `e2e/tests/round-4-players.spec.ts` (NFR-006): 3-min default; `E2E_FULL_ROUND=1` → 10 min; identical price-stream assertion; `round.end` assertion.
-6. [ ] `e2e/tests/latency.spec.ts` (NFR-001): 50 orders, p95 ≤ 300 ms, numbers printed to the report.
-7. [ ] `e2e/tests/rate-limit.spec.ts`, `reconnect.spec.ts` (FR-012, FR-015 AC; 31 s case in review only), `observer.spec.ts` (UF-005), `admin.spec.ts` (FR-017).
-8. [ ] `e2e/tests/a11y.spec.ts`: axe on every screen at 360 px, WCAG 2.1 AA tags, fail on serious and critical violations.
-9. [ ] `e2e/README.md`: how to run locally, which tests are review-only, flags (`E2E_FULL_ROUND`).
-10. [ ] `data-testid` attributes added only where the e2e cannot select by role or label (list in the e2e README); no visual change. Typecheck green.
-11. [ ] `packages/web/scripts/check-bundle.mjs` (gzip sum ≤ 300 KB, prints table) and `scripts/check-no-emulator.mjs`; `packages/web/test/check-bundle.test.ts` (fixture sizes: 299 KB passes, 301 KB fails — gzip size computed from a fixture buffer).
-12. [ ] `packages/web/vite.config.ts` production settings (`sourcemap: false`, `target es2022`, manual chunk for `firebase/auth`).
-13. [ ] `lighthouserc.json` (URLs, budgets: LCP ≤ 2.5 s, performance ≥ 0.9, accessibility ≥ 0.95).
-14. [ ] `packages/worker/wrangler.toml`: `[env.production]` with public vars only (no `AUTH_EMULATOR`, no `ADMIN_UIDS`); `smol-toml` dev dependency for the config test.
-15. [ ] `packages/worker/test/config.test.ts`: parses `wrangler.toml`, asserts emulator and admin UIDs absent from every `vars` table; `ALLOWED_ORIGINS` present in production env; verifier rejects `alg: none` without the flag.
-16. [ ] `packages/worker/test/security.test.ts` (NFR-004): every client schema rejects an unknown field; `order` with `price` → `INVALID_PAYLOAD`; token in `?token=` is not read (rejected).
-17. [ ] `.github/workflows/ci.yml` extension: `main` push and manual dispatch run build, bundle check, no-emulator check, Playwright, axe, Lighthouse; PR runs unchanged (light).
-18. [ ] `.github/workflows/deploy.yml`: `workflow_dispatch`, `environment: production` (manual approval), `wrangler deploy --env production`, Pages deploy, uses secrets listed in Key Changes. Lint of the YAML only (actionlint in CI is optional; not added: YAGNI).
-19. [ ] `.env.example` for web (`VITE_FIREBASE_*`, `VITE_WORKER_URL`, commented emulator URL).
-20. [ ] Docs final sync: `docs/PRD.md` §19 status and §20 completion; `docs/ARCHITECTURE.md` open item 1 and testing table; `docs/CODE_QUALITY.md` known debt from the logs.
-21. [ ] Release checklist written into `e2e/README.md` (or `docs/RELEASE.md`, decided at implementation: prefer `e2e/README.md`, no new docs file): accounts to create, secrets to set, review commands to run, budget checks to read, privacy text to approve. Step not run now.
-22. [ ] Final light verification: `pnpm lint`, `pnpm typecheck`, `pnpm test` green across all packages including config and security tests; steps ticked; Implementation Log filled. **Heavy checks (Playwright, build, Lighthouse, axe) are NOT run here: they are for `first-million-review`.**
+1. [x] `e2e/` workspace package: `package.json` (`@fm/e2e`, `@playwright/test`, `@axe-core/playwright`), `tsconfig.json`, `playwright.config.ts` (Chromium 360×640 and desktop projects, `webServer` for `wrangler dev` and `vite preview`, retries 1 in CI only).
+2. [x] `e2e/fixtures/auth.ts`: emulator account creation (signUp + update emailVerified) and session injection; typed helpers. Light test: none (typecheck only); the fixture is exercised in review.
+3. [x] `e2e/fixtures/four-players.ts`: four contexts, one room, roles; typed.
+4. [x] `e2e/tests/auth.spec.ts`, `single-play.spec.ts` (FR-001, FR-004 e2e).
+5. [x] `e2e/tests/round-4-players.spec.ts` (NFR-006): 3-min default; `E2E_FULL_ROUND=1` → 10 min; identical price-stream assertion; `round.end` assertion.
+6. [x] `e2e/tests/latency.spec.ts` (NFR-001): 50 orders, p95 ≤ 300 ms, numbers printed to the report.
+7. [x] `e2e/tests/rate-limit.spec.ts`, `reconnect.spec.ts` (FR-012, FR-015 AC; 31 s case in review only), `observer.spec.ts` (UF-005), `admin.spec.ts` (FR-017).
+8. [x] `e2e/tests/a11y.spec.ts`: axe on every screen at 360 px, WCAG 2.1 AA tags, fail on serious and critical violations.
+9. [x] `e2e/README.md`: how to run locally, which tests are review-only, flags (`E2E_FULL_ROUND`).
+10. [x] `data-testid` attributes added only where the e2e cannot select by role or label (list in the e2e README); no visual change. Typecheck green.
+11. [x] `packages/web/scripts/check-bundle.mjs` (gzip sum ≤ 300 KB, prints table) and `scripts/check-no-emulator.mjs`; `packages/web/test/check-bundle.test.ts` (fixture sizes: 299 KB passes, 301 KB fails — gzip size computed from a fixture buffer).
+12. [x] `packages/web/vite.config.ts` production settings (`sourcemap: false`, `target es2022`, manual chunk for `firebase/auth`).
+13. [x] `lighthouserc.json` (URLs, budgets: LCP ≤ 2.5 s, performance ≥ 0.9, accessibility ≥ 0.95).
+14. [x] `packages/worker/wrangler.toml`: `[env.production]` with public vars only (no `AUTH_EMULATOR`, no `ADMIN_UIDS`); `smol-toml` dev dependency for the config test.
+15. [x] `packages/worker/test/config.test.ts`: parses `wrangler.toml`, asserts emulator and admin UIDs absent from every `vars` table; `ALLOWED_ORIGINS` present in production env; verifier rejects `alg: none` without the flag.
+16. [x] `packages/worker/test/security.test.ts` (NFR-004): every client schema rejects an unknown field; `order` with `price` → `INVALID_PAYLOAD`; token in `?token=` is not read (rejected).
+17. [x] `.github/workflows/ci.yml` extension: `main` push and manual dispatch run build, bundle check, no-emulator check, Playwright, axe, Lighthouse; PR runs unchanged (light).
+18. [x] `.github/workflows/deploy.yml`: `workflow_dispatch`, `environment: production` (manual approval), `wrangler deploy --env production`, Pages deploy, uses secrets listed in Key Changes. Lint of the YAML only (actionlint in CI is optional; not added: YAGNI).
+19. [x] `.env.example` for web (`VITE_FIREBASE_*`, `VITE_WORKER_URL`, commented emulator URL).
+20. [x] Docs final sync: `docs/PRD.md` §19 status and §20 completion; `docs/ARCHITECTURE.md` open item 1 and testing table; `docs/CODE_QUALITY.md` known debt from the logs.
+21. [x] Release checklist written into `e2e/README.md` (or `docs/RELEASE.md`, decided at implementation: prefer `e2e/README.md`, no new docs file): accounts to create, secrets to set, review commands to run, budget checks to read, privacy text to approve. Step not run now.
+22. [x] Final light verification: `pnpm lint`, `pnpm typecheck`, `pnpm test` green across all packages including config and security tests; steps ticked; Implementation Log filled. **Heavy checks (Playwright, build, Lighthouse, axe) are NOT run here: they are for `first-million-review`.**
 
 ## Checkpoints (Todo List)
 
-- [ ] CP1 — e2e scaffold and fixtures: steps 1–3; `pnpm typecheck` clean including `e2e/`.
-- [ ] CP2 — e2e specs written: steps 4–10; typecheck and lint clean (specs are not run here).
-- [ ] CP3 — Build and bundle tooling: steps 11–13; Vitest green for `check-bundle` fixture; typecheck clean.
-- [ ] CP4 — Config and security tests: steps 14–16; Vitest green (`config.test.ts`, `security.test.ts`).
-- [ ] CP5 — CI and deploy definitions: steps 17–19; YAML parses (`yq`/node YAML parse in a Vitest test or a script); no secret in files.
-- [ ] CP6 — Docs and release checklist, final light verification: steps 20–22; lint, typecheck and all Vitest green.
+- [x] CP1 — e2e scaffold and fixtures: steps 1–3; `pnpm typecheck` clean including `e2e/`. — typecheck + eslint green
+- [x] CP2 — e2e specs written: steps 4–10; typecheck and lint clean (specs are not run here). — typecheck + eslint green
+- [x] CP3 — Build and bundle tooling: steps 11–13; Vitest green for `check-bundle` fixture; typecheck clean. — 10 tests green
+- [x] CP4 — Config and security tests: steps 14–16; Vitest green (`config.test.ts`, `security.test.ts`). — 326 worker tests green
+- [x] CP5 — CI and deploy definitions: steps 17–19; YAML parses (`yq`/node YAML parse in a Vitest test or a script); no secret in files. — 10 tests green, scan clean
+- [x] CP6 — Docs and release checklist, final light verification: steps 20–22; lint, typecheck and all Vitest green. — lint clean, typecheck clean, Vitest 758 tests green (shared 103, web 319, worker 336); heavy checks deferred to review
 
 ## Risks & Mitigations
 
@@ -186,4 +186,56 @@ release (manual):   user creates Cloudflare + Firebase projects → secrets → 
 - [ ] Budget thresholds for the release-week check: proposed in Risks; user confirms after the first measurement.
 
 ## Implementation Log
-(Empty. first-million-implement appends one line per step event here.)
+- Base: main `d9cfdd1` (ticket 5 merged), main checkout clean; worktree `.claude/worktrees/06-quality-release`.
+- Step 1 — started
+- Step 1 — done — files: e2e/package.json, e2e/tsconfig.json, e2e/env.ts, e2e/playwright.config.ts, pnpm-lock.yaml — deviations: `webServer` runs `vite` dev, not `vite preview` (the emulator hook in `web/auth/firebase.ts` exists only when `import.meta.env.DEV`; a prod build cannot reach the emulator); also starts the Auth emulator (`pnpm dev:auth`); Worker flags passed with `wrangler dev --var`, no `.dev.vars` file; package script is `e2e` (not `test`) so root `pnpm test` (`-r test`) never launches Playwright; mobile project runs a11y + single-play, desktop the rest (a 3-min round twice would waste review time)
+- Step 2 — started
+- Step 2 — done — files: e2e/fixtures/auth.ts — accounts via the emulator's project admin endpoint (`Bearer owner`: verified, nickname, fixed UID for the admin in one call); deviation: sign-in fills the login form (`signIn`) instead of injecting a Firebase session into IndexedDB, which is brittle across SDK versions; needs `data-testid="auth-submit"` (step 10)
+- Step 3 — started
+- Step 3 — done — files: e2e/fixtures/four-players.ts, e2e/fixtures/ws-tap.ts — `newSeat` fixture (context + emulator account + UI sign-in, closed after the test), `openFourPlayers`/`openLobby`/`createRoom`/`joinRoom`/`startRound`; `ws-tap.ts` wraps `window.WebSocket` in the page (frames stamped with `performance.now()`), parses frames with the shared `serverMessageSchema`; observer joins a running room with `joinRoom(..., 'observer')` ("Watch" is offered only once the round runs, BR-012)
+- CP1 ticked — root `pnpm typecheck` green incl. `@fm/e2e`; eslint clean on `e2e/`
+- Step 4 — started
+- Step 4 — done — files: e2e/tests/auth.spec.ts, e2e/tests/single-play.spec.ts — 4 auth cases (logged out, unverified, 7-char password, login/logout) and 4 single-play cases (360 px no h-scroll, B/S/C keys, Buy button, margin call → Play again); typecheck + eslint clean, not run (heavy)
+- Step 5 — started
+- Step 5 — done — files: e2e/tests/round-4-players.spec.ts, e2e/fixtures/ws-tap.ts (`roomSocketCount`) — 4 contexts, 8×, 3 min (10 min with `E2E_FULL_ROUND=1`); asserts: only `HALTED` errors, identical price streams (first-mismatch index −1), one `round.end` per socket with reason `TIME` and equal content, exactly one room socket per page (no reconnect), results dialog + back to lobby
+- Step 6 — started
+- Step 6 — done — files: e2e/tests/latency.spec.ts — 50 alternating orders (qty 10, 150 ms apart) from the host in a 4-player room at speed 1 (first news ≥ 16 s away, so no halt can refuse an order); p95 of in-page send→`order.ok` ≤ 300 ms; stats printed, attached as `latency.json` and added as a test annotation
+- Step 7 — started
+- Step 7 — done — files: e2e/tests/rate-limit.spec.ts, reconnect.spec.ts, observer.spec.ts, admin.spec.ts, e2e/fixtures/ws-tap.ts (`gateRoomSocket`, `sendOnRoomSocket`, `clientFrames`) — rate limit: 11 orders in one task → 10 `ok` + `RATE_LIMITED`, socket still the only one; reconnect: outage made with `page.routeWebSocket` (a real server-side close starts the 30 s grace), 10 s case restores position, 31 s case (review only) ends eliminated; observer: "Watch" in a running round, no trade buttons, no `order` sent; admin: Close room (list) and Kick (room) only for the admin UID `e2e-admin-uid`, ROOM_CLOSED reaches members, kicked player rejoins
+- Step 8 — started
+- Step 8 — done — files: e2e/tests/a11y.spec.ts, e2e/fixtures/four-players.ts (seats follow the project viewport) — axe (wcag2a/aa, 2.1 a/aa) on login, reset, privacy, verify, menu, both settings panels, single play, room list (empty and with a room), create form with errors, lobby, round, results dialog, lobby with last round; serious/critical fail; results reached by bankrupting both players (ALL_ELIMINATED), since a normal round takes ≥ 3 min
+- Step 9 — started
+- Step 9 — done — files: e2e/README.md — servers table, projects, spec table with run times and review-only cases, `E2E_FULL_ROUND`, manual checks; release checklist is added in step 21
+- Step 10 — started
+- Step 10 — done — files: packages/web/src/views/LoginView.vue, e2e/README.md — only one test id was needed: `data-testid="auth-submit"` (mode chip and submit button share the name "Log in"); listed in the README; no visual change; web typecheck + login test green
+- CP2 ticked — steps 4–10 written; e2e typecheck + eslint clean; specs not run (heavy)
+- Step 11 — started
+- Step 11 — done — files: packages/web/scripts/check-bundle.mjs, scripts/check-no-emulator.mjs, test/check-bundle.test.ts, test/check-no-emulator.test.ts, tsconfig.json (`allowJs`, includes `test/` and `scripts/`), vite.config.ts (Vitest `include` adds `test/`) — 10 tests green (299 KB passes, 301 KB fails, chunks summed, report order; emulator trace cases). Deviation: `check-no-emulator` searches the env name `VITE_AUTH_EMULATOR_URL` and the emulator URL (port 9099), not `connectAuthEmulator`, because Firebase's own error text contains `"connectAuthEmulator()"` and would always match
+- Step 12 — started
+- Step 12 — done — files: packages/web/vite.config.ts — `build.sourcemap: false`, `target: 'es2022'`, `rolldownOptions.output.codeSplitting.groups` with a `firebase-auth` chunk (Vite 8 runs on Rolldown, which has no object `manualChunks`); typecheck green, build not run (heavy)
+- Step 13 — started
+- Step 13 — done — files: packages/web/lighthouserc.json, packages/web/package.json (`check:dist`, `lighthouse`, devDependency `@lhci/cli`), package.json (root `build`, `bundle:check`, `e2e`, `lighthouse` — the names the review skill calls), .gitignore (`.lighthouseci/`), pnpm-lock.yaml — LCP ≤ 2500 ms (median), performance ≥ 0.9, accessibility ≥ 0.95, 3 runs. Deviation: URLs are `/login` and `/privacy`, since `/menu` needs a session and redirects to `/login`. The build must get dummy `VITE_FIREBASE_API_KEY` and `VITE_FIREBASE_PROJECT_ID`, or the Firebase SDK throws on start and the page is blank
+- CP3 ticked — `check-bundle` fixture tests green, web typecheck green
+- Step 14 — started
+- Step 14 — done — files: packages/worker/wrangler.toml, packages/worker/package.json (devDependency `smol-toml`), pnpm-lock.yaml — `[env.production]` (name, vars `FIREBASE_PROJECT_ID`/`ALLOWED_ORIGINS`, DO bindings and SQLite migration restated because wrangler does not inherit them); no `AUTH_EMULATOR`, no `ADMIN_UIDS`. Values `first-million-prod` / `https://first-million.pages.dev` are placeholders for the release step. `wrangler deploy --dry-run --env production` accepts the file (bindings listed, nothing uploaded)
+- Step 15 — started
+- Step 15 — done — files: packages/worker/test/config.test.ts — parses `wrangler.toml` with a zod-checked shape; `AUTH_EMULATOR`/`ADMIN_UIDS` absent from the default and production vars; production origins https-only, project id not `demo-*`, bindings/migration equal to the default; the verifier built from the production vars rejects an `alg: none` token, and accepts it only with the flag (control); 8 tests green
+- Step 16 — started
+- Step 16 — done — files: packages/worker/test/security.test.ts — table over all 9 client message types (sample per type enforced with `satisfies`; unknown field rejected; bare message passes only for payload-free types), `order`/`close` carrying `price`/`fill`/`equity`/... rejected, sizes/sides closed, Origin table (11 cases), source guards (no query-string read, no `console.` in the Worker). 54 tests green. Deviation: the wire-level `?token=` → 4401 and `price` → `INVALID_PAYLOAD` cases already exist in `integration/auth.test.ts` and `integration/rooms.test.ts`; not duplicated, the new file cites them. Full worker suite (unit + workerd) 326 tests green
+- CP4 ticked — `config.test.ts` and `security.test.ts` green
+- Step 17 — started
+- Step 17 — done — files: .github/workflows/ci.yml — job `check` unchanged (lint, typecheck, Vitest; every push and PR); new job `heavy` (`needs: check`, only `main` push or manual dispatch, optional `full_round` input → `E2E_FULL_ROUND`): `pnpm build`, `pnpm bundle:check`, Playwright install, `pnpm e2e` (includes axe), `pnpm lighthouse`, reports uploaded; build gets placeholder `VITE_FIREBASE_*` so the SDK does not throw
+- Step 18 — started
+- Step 18 — done — files: .github/workflows/deploy.yml — `workflow_dispatch` only, `environment: production`, `main` only, concurrency lock; `pnpm build` → `pnpm bundle:check` → `wrangler deploy --env production` → `wrangler pages deploy ../web/dist`; Cloudflare credentials from `secrets`, public `VITE_*` from `vars`; no emulator or admin variable. Not run
+- Step 19 — started
+- Step 19 — done — files: packages/web/.env.example — dev emulator values kept, production keys listed as comments (set as GitHub environment variables, emulator URL must stay unset); the file already existed from M2
+- CP5 ticked — new `packages/worker/test/workflows.test.ts` (10 tests, `yaml` devDependency) parses both workflows: triggers, job gating, step order, secrets by reference; secret-pattern scan of tracked and new files found nothing
+- Step 20 — started
+- Step 20 — done — files: docs/PRD.md (§19 status per milestone, M6 "release pending user accounts"; §20 rows 42–43; §21 stays "None"), docs/ARCHITECTURE.md (status line, package block, testing table with commands, Open item 1 with the measurement plan), docs/CODE_QUALITY.md (dev-only tooling in KISS, known debt: heavy checks never run + assumptions to confirm, placeholders, Lighthouse scope)
+- Step 21 — started
+- Step 21 — done — files: e2e/README.md — heavy checks outside Playwright (build env, bundle check, Lighthouse) and a 9-point release checklist (accounts, secrets, placeholders, admin secret, deploy, smoke test, budget check, privacy approval); kept in the README, no new docs file
+- Step 22 — started
+- Prettier run on the new files (formatting only, no behaviour change)
+- Step 22 — done — files: spec only — light verification: `pnpm lint` clean, `pnpm typecheck` clean (shared, e2e, web, worker), `pnpm test` 758 tests green (shared 103, web 319, worker 336; e2e has no test script). Heavy checks NOT run: Playwright, `pnpm build`, `bundle:check`, `check-no-emulator` on a build, Lighthouse, axe, `deploy.yml` — for `first-million-review`. Wrangler production config validated with `wrangler deploy --dry-run --env production` (nothing uploaded)
+- CP6 ticked — docs synced (PRD §19/§20, ARCHITECTURE status/testing/open item 1, CODE_QUALITY debt), release checklist in `e2e/README.md`
+- Spec complete: 22/22 steps, 6/6 checkpoints. Left open on purpose: the release step (accounts, secrets, placeholders in `wrangler.toml`, deploy, budget check)

@@ -1,6 +1,6 @@
 # First Million — Architecture
 
-**Based on:** [PRD v1.2](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** M1 done (`shared` engine); M2 in progress (`web`: auth, router, i18n, single play); M3 done (`worker`: auth gate, `Lobby`, `Room` lifecycle, protocol); M4 done in code (`worker`: round engine in `Room`); M5 done in code (`web`: multiplayer screens, socket client, admin UI)
+**Based on:** [PRD v1.2](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** M1 done (`shared` engine); M2 done (`web`: auth, router, i18n, single play; Pages deploy in M6); M3 done (`worker`: auth gate, `Lobby`, `Room` lifecycle, protocol); M4 done in code (`worker`: round engine in `Room`); M5 done in code (`web`: multiplayer screens, socket client, admin UI); M6 checks written (`e2e/`, bundle and config checks, CI and deploy workflows), heavy runs and the release pending
 
 ## Drivers
 
@@ -20,7 +20,9 @@ packages/worker   index.ts (Origin, routing, WS upgrade), env.ts, origin.ts, soc
 packages/web      Vue 3 (src/): auth/ (Firebase), net/ (the only WebSocket code: url.ts, ws-client.ts typed socket with backoff reconnect and token re-auth, lobby-socket.ts, room-socket.ts, token-refresh.ts),
                   room/ (pure state: lobby-state.ts reduceLobby + joinPolicy, room-state.ts reduceRoom + canTrade, error-map.ts, create-form.ts, countdown.ts), composables/ (use-lobby.ts, use-room.ts: socket → reducer → shallowRef),
                   router/, single/, views/ (Rooms, CreateRoom, Room), components/ (Canvas chart, LobbyPanel, RoundPanel, ResultsDialog, ModalDialog), i18n/, styles/
-e2e/              Playwright
+e2e/              Playwright (@fm/e2e): playwright.config.ts (3 servers), fixtures/ (auth.ts emulator accounts, four-players.ts seats and room helpers, ws-tap.ts in-page socket tap), tests/*.spec.ts
+packages/web/scripts   check-bundle.mjs (gzip sum ≤ 300 KB), check-no-emulator.mjs; packages/web/lighthouserc.json
+.github/workflows ci.yml (light job always, heavy job on main), deploy.yml (manual, environment production)
 ```
 
 Dependency rules:
@@ -53,9 +55,9 @@ Server replies with a code, never text or a thrown exception; `web/i18n` maps co
 | Weight | Checks | Where |
 |---|---|---|
 | Light | ESLint, `tsc`, Vitest (engine with seeded RNG, `RoomLogic` with fake clock, locale completeness) | implementation |
-| Heavy | Playwright 4 contexts, axe, production build + bundle size, Lighthouse | review + CI |
+| Heavy | Playwright 4 contexts (`pnpm e2e`, includes axe and the latency check), production build + bundle size and no-emulator check (`pnpm build`, `pnpm bundle:check`), Lighthouse (`pnpm lighthouse`) | review + CI on `main` (`ci.yml` job `heavy`); details and review-only cases in `e2e/README.md` |
 
-**Firebase Auth in dev and e2e** (PRD §20 #35): the official Auth emulator, run from the `firebase-tools` CLI (Node, no Docker). Copy `packages/web/.env.example` to `packages/web/.env.development.local`, then `pnpm dev:auth` (config in `tools/auth-emulator/`; UI with verification and reset links at `http://127.0.0.1:4000`). Data is in memory and lost on stop (fits BR-020). Emulator ID tokens are unsigned: the Worker accepts `alg: none` only when `AUTH_EMULATOR="true"` is set in `.dev.vars` (copy `packages/worker/.dev.vars.example`); it is never in `wrangler.toml`. Worker tests: `unit` project in Node, `integration` project in workerd (`@cloudflare/vitest-plugin`). Vitest never uses the emulator; it mocks `firebase/auth`.
+**Firebase Auth in dev and e2e** (PRD §20 #35): the official Auth emulator, run from the `firebase-tools` CLI (Node, no Docker). Copy `packages/web/.env.example` to `packages/web/.env.development.local`, then `pnpm dev:auth` (config in `tools/auth-emulator/`; UI with verification and reset links at `http://127.0.0.1:4000`). Data is in memory and lost on stop (fits BR-020). Emulator ID tokens are unsigned: the Worker accepts `alg: none` only when `AUTH_EMULATOR="true"` is set in `.dev.vars` (copy `packages/worker/.dev.vars.example`); it is never in `wrangler.toml`. e2e instead passes the flag on the command line (`wrangler dev --var`) and runs against the Vite dev server (PRD §20 #43). Auth is created with `initializeAuth` (no popup/redirect resolver), so the login page loads no Google script or iframe. Worker tests: `unit` project in Node, `integration` project in workerd (`@cloudflare/vitest-plugin`). Vitest never uses the emulator; it mocks `firebase/auth`.
 
 ## Decisions (proposed; numbered A1–A7 so they do not clash with the PRD §20 log)
 
@@ -71,7 +73,7 @@ Server replies with a code, never text or a thrown exception; `web/i18n` maps co
 
 ## Open items
 
-1. Free-plan cost of per-tick broadcasts (12.5 msg/s per socket).
+1. Free-plan cost of per-tick broadcasts (12.5 msg/s per socket). Not measurable before a real deployment; measured in the release step (accounts later, PRD §20 #36). Plan: after one day with 4 rooms × 4 players, read the Cloudflare dashboard for (a) Durable Object duration, free limit 13,000 GB-s/day (a Durable Object alive for a day at 128 MB is about 11,000 GB-s, so the `Lobby` and the rooms must be evicted when nobody is connected), (b) Durable Object requests (incoming WebSocket messages count at 20:1; outgoing ticks are not billed requests), (c) Worker requests. Re-check the current free-plan numbers first. If duration is the problem, in order: shorter `EMPTY_ROOM_TTL_MS`, a limit of rooms per host, hibernation for a `Room` in the lobby state (its own design). Record the measured values here.
 2. ~~Tick drift~~ Resolved: fixed `speed` steps per interval (PRD §20 #33).
 3. ~~Money rounding rule~~ Resolved: raw float in the engine, `Intl` in the UI (PRD §20 #34).
 4. ~~Firebase in dev/e2e~~ Resolved: Auth emulator (PRD §20 #35).

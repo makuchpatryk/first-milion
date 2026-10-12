@@ -1,0 +1,45 @@
+name: Deploy
+
+# Manual only (spec 06, PRD §20 #36). The `production` environment holds the required reviewer
+# (manual approval) and the values below; nothing is deployed from a pull request or a branch
+# other than `main`.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    env:
+      # Repository secrets or environment secrets: the Cloudflare token needs Workers Scripts:Edit
+      # and Cloudflare Pages:Edit.
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Public web config (it ships in the JS anyway): environment variables, not secrets.
+      # `VITE_AUTH_EMULATOR_URL` is deliberately absent (PRD §20 #35).
+      VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+      VITE_WORKER_URL: ${{ vars.VITE_WORKER_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build the web app
+        run: pnpm build
+      - name: Bundle size and no emulator in the build (NFR-005, NFR-004)
+        run: pnpm bundle:check
+      # `ADMIN_UIDS` is a Worker secret set once with `wrangler secret put --env production`.
+      - name: Deploy the Worker
+        run: pnpm --filter @fm/worker exec wrangler deploy --env production
+      - name: Deploy the web app to Pages
+        run: pnpm --filter @fm/worker exec wrangler pages deploy ../web/dist --project-name first-million --branch main

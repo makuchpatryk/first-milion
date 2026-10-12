@@ -10,6 +10,10 @@
     "lint": "eslint .",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "build": "pnpm --filter @fm/web build",
+    "bundle:check": "pnpm --filter @fm/web check:dist",
+    "e2e": "pnpm --filter @fm/e2e e2e",
+    "lighthouse": "pnpm --filter @fm/web lighthouse",
     "dev:auth": "pnpm dlx firebase-tools@15.33.0 emulators:start --only auth --project demo-first-million --config tools/auth-emulator/firebase.json",
     "format": "prettier --write ."
   },

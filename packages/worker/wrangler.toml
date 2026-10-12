@@ -20,3 +20,27 @@ new_sqlite_classes = ["Room", "Lobby"]
 [vars]
 FIREBASE_PROJECT_ID = "first-million-dev"
 ALLOWED_ORIGINS = "http://localhost:5173"
+
+# Production (`wrangler deploy --env production`, spec 06). Wrangler does not inherit bindings,
+# migrations or vars into an environment, so each is stated again. Public values only:
+# `ADMIN_UIDS` is a secret (`wrangler secret put ADMIN_UIDS --env production`) and
+# `AUTH_EMULATOR` must never exist here (decision 35, NFR-004); `test/config.test.ts` guards both.
+# REPLACE the two values below with the real Firebase project id and Pages domain at release.
+[env.production]
+name = "first-million"
+
+[env.production.vars]
+FIREBASE_PROJECT_ID = "first-million-prod"
+ALLOWED_ORIGINS = "https://first-million.pages.dev"
+
+[[env.production.durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+[[env.production.durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
+[[env.production.migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room", "Lobby"]
