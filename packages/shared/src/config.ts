@@ -4,6 +4,9 @@
 export const TICK_MS = 80
 
 export const HALT_MS = 5_000
+// Longest elapsed time one tick interval may count (prototype cap): a stalled Durable Object
+// cannot end a halt early by more than this (decision 39).
+export const HALT_TICK_CAP_MS = 250
 
 export const FLASH_RECOVER = 0.7
 export const FLASH_TICKS = 20

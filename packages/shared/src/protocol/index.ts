@@ -6,5 +6,25 @@ export { ERROR_CODES } from './errors'
 export type { ErrorCode } from './errors'
 export { serverMessageSchema } from './server'
 export type { ServerMessage } from './server'
-export { memberViewSchema, roomSummarySchema, roomViewSchema } from './views'
-export type { MemberView, RoomSummary, RoomView } from './views'
+export {
+  lastRoundSchema,
+  memberStatusSchema,
+  memberViewSchema,
+  meRoundSchema,
+  newsViewSchema,
+  rankRowSchema,
+  roomSummarySchema,
+  roomViewSchema,
+  roundEndReasonSchema,
+} from './views'
+export type {
+  LastRound,
+  MemberStatus,
+  MemberView,
+  MeRound,
+  NewsView,
+  RankRow,
+  RoomSummary,
+  RoomView,
+  RoundEndReason,
+} from './views'

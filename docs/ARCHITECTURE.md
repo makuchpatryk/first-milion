@@ -1,6 +1,6 @@
 # First Million — Architecture
 
-**Based on:** [PRD v1.2](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** M1 done (`shared` engine); M2 in progress (`web`: auth, router, i18n, single play); M3 done in code (`worker`: auth gate, `Lobby`, `Room` lifecycle, protocol); round engine in `worker` is M4
+**Based on:** [PRD v1.2](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** M1 done (`shared` engine); M2 in progress (`web`: auth, router, i18n, single play); M3 done (`worker`: auth gate, `Lobby`, `Room` lifecycle, protocol); M4 done in code (`worker`: round engine in `Room`)
 
 ## Drivers
 
@@ -16,7 +16,7 @@
 ```
 packages/shared   pure TS: rules.ts (BR-003 values), config.ts (tunables), engine/, protocol/ (zod), validation.ts
 packages/worker   index.ts (Origin, routing, WS upgrade), env.ts, origin.ts, socket.ts (shared WS plumbing of both DO shells), internal.ts (Lobby↔Room request bodies), timers.ts,
-                  auth/ (verify-token.ts, jwks.ts, auth-gate.ts), lobby/ (lobby.ts DO shell + lobby-logic.ts), room/ (room.ts DO shell + room-logic.ts + roster.ts)
+                  auth/ (verify-token.ts, jwks.ts, auth-gate.ts), lobby/ (lobby.ts DO shell + lobby-logic.ts), room/ (room.ts DO shell + room-logic.ts + roster.ts + round.ts, ranking.ts, rate-limit.ts)
 packages/web      Vue 3 (src/): auth/ (Firebase), net/ (WebSocket, M5), router/, single/, views/, components/ (Canvas chart), i18n/, styles/
 e2e/              Playwright
 ```
@@ -32,12 +32,12 @@ Dependency rules:
 - **Engine** is pure: `rng` and elapsed ms passed in, never `Math.random()`/`Date.now()`. Tick = 80 ms, `speed` steps.
 - **Server authority**: orders are `{side, qty}` or `close`; fill at last tick's price ± half spread. Zod schemas are strict; unknown fields (e.g. `price`) → `INVALID_PAYLOAD`.
 - **Serialized**: a DO handles one event at a time; ticks and orders never interleave, no locks.
-- **Time**: round end is server wall clock (`roundEndsAt`); end checks after every tick and every order (BR-009).
+- **Time**: round end is server wall clock (`roundEndsAt`); end checks after every tick and every order (BR-009). The shell's 80 ms interval only calls `RoomLogic.tick()`; the logic reads the injected clock, caps one interval's elapsed time at 250 ms (halt countdown, PRD §20 #39) and runs `speed` price steps.
 - **Memory only**: ordinary WebSockets + in-memory timers in `Room` and `Lobby`; no hibernation, storage or alarms (guard test `worker/test/no-storage.test.ts`).
 - **Auth**: ID token in first `auth` message (never URL), within 5 s; RS256 via WebCrypto + cached JWKS, `email_verified`; `Origin` allowlist; admin UID checked on every admin action.
 - **Privacy**: broadcasts carry nickname and numbers only; no email, UID or token.
 
-States: room `lobby → running → lobby`, deleted after 5 min empty or admin close. Player `active → disconnected (≤ 30 s) → active | eliminated`; `active → eliminated` at equity ≤ 0; eliminated stays as observer.
+States: room `lobby → running → lobby`, deleted after 5 min empty or admin close. Player `active → disconnected (≤ 30 s) → active | eliminated`; `active → eliminated` at equity ≤ 0; an eliminated player keeps a watch-only seat until the next start (PRD §20 #38).
 
 ## Errors
 

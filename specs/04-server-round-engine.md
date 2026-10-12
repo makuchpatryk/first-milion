@@ -151,17 +151,17 @@ auth + room.join same UID within 30 s → seat restored (same position, equity)
 
 ## Implementation Steps
 
-1. [ ] `packages/shared/src/rules.ts`: add `ORDER_RATE_WINDOW_MS = 1_000` (BR-018). `config.ts`: add `HALT_TICK_CAP_MS = 250` (elapsed cap per interval).
-2. [ ] `packages/shared/src/protocol/views.ts`: `RankRow`, `MeRound`, `NewsView`, `RoomView.lastRound`, `MemberStatus` (`active|disconnected|eliminated`).
-3. [ ] `packages/shared/src/protocol/server.ts`: add `room.history`, `room.tick`, `order.ok`, `round.end` with zod schemas (server messages are validated in tests only) and types.
-4. [ ] `packages/worker/src/room/rate-limit.ts` (`OrderRateLimit`). Tests: 10 attempts in 1 000 ms accepted, 11th rejected (FR-012 AC); window slides (after 1 000 ms the 11th is accepted); rejected attempts count (planning default).
-5. [ ] `packages/worker/src/room/ranking.ts`: `rankSeats`, `reachedTarget`, `winnersAtTime`, `winnersAtTarget`. Tests (BR-009/BR-010 table): eliminated last with equity 0 and shared last place; higher equity wins; equal equity earlier `reachedEquityAt` wins; equal equity and equal time → shared place 1; target: two reach on same tick → higher equity wins, equal → shared (BR-009).
-6. [ ] `packages/worker/src/room/round.ts`: `startRound` (all seats active, portfolio empty, `reachedEquityAt = now`, observers untouched), `stepRound` (halt, speed steps, history cap 2 400, bankruptcy liquidation, equity change tracking). Tests: FR-011 AC (every seat gets the same price stream from one seed); FR-003 AC (equity ≤ 0 → liquidated, eliminated, equity shown 0) via seat; halt: `stepRound` with elapsed 250 ms ×20 = 5 s → halt ends (`tickHalt`); `reachedEquityAt` changes only when equity value changes.
-7. [ ] `packages/worker/src/room/room-logic.ts`: `start` (host, lobby, ≥1 seat), `tick` (broadcast per recipient with `you`), `order` / `close` (rate limit → role → state → halt → execute → `order.ok` → end checks), `endRound`, `onSocketClosed` (lobby → remove; running → disconnected + 30 s timer), `eliminateDisconnected`, `join` during running (restore vs observer), kick during round. Tests with fake clock/seed/send (see Test Strategy).
-8. [ ] `packages/worker/src/room/room-logic.ts`: `assignRole(…, 'running', …)` returns `observer` for new UIDs and the restore path is handled before `assignRole`.
-9. [ ] `packages/worker/src/room/room.ts` shell: `setInterval(TICK_MS)` on `start`, `elapsed = min(now − last, HALT_TICK_CAP_MS)`, `seed` from `crypto.getRandomValues`, stop on `round.end`, `closeRoom`, `dispose`; message switch handles `room.start`, `order`, `close`; `ctx.waitUntil` for `publish`.
-10. [ ] Test client `packages/worker/test/support/test-client.ts`: drives four `RoomLogic` seats with a scripted strategy (buy/sell/close with a seeded RNG, fake clock advancing 80 ms per tick, speed 8), collects messages per uid. Used by the round tests below.
-11. [ ] Round tests `packages/worker/test/room/round-engine.test.ts` (FR-011–FR-015 ACs):
+1. [x] `packages/shared/src/rules.ts`: add `ORDER_RATE_WINDOW_MS = 1_000` (BR-018). `config.ts`: add `HALT_TICK_CAP_MS = 250` (elapsed cap per interval).
+2. [x] `packages/shared/src/protocol/views.ts`: `RankRow`, `MeRound`, `NewsView`, `RoomView.lastRound`, `MemberStatus` (`active|disconnected|eliminated`).
+3. [x] `packages/shared/src/protocol/server.ts`: add `room.history`, `room.tick`, `order.ok`, `round.end` with zod schemas (server messages are validated in tests only) and types.
+4. [x] `packages/worker/src/room/rate-limit.ts` (`OrderRateLimit`). Tests: 10 attempts in 1 000 ms accepted, 11th rejected (FR-012 AC); window slides (after 1 000 ms the 11th is accepted); rejected attempts count (planning default).
+5. [x] `packages/worker/src/room/ranking.ts`: `rankSeats`, `reachedTarget`, `winnersAtTime`, `winnersAtTarget`. Tests (BR-009/BR-010 table): eliminated last with equity 0 and shared last place; higher equity wins; equal equity earlier `reachedEquityAt` wins; equal equity and equal time → shared place 1; target: two reach on same tick → higher equity wins, equal → shared (BR-009).
+6. [x] `packages/worker/src/room/round.ts`: `startRound` (all seats active, portfolio empty, `reachedEquityAt = now`, observers untouched), `stepRound` (halt, speed steps, history cap 2 400, bankruptcy liquidation, equity change tracking). Tests: FR-011 AC (every seat gets the same price stream from one seed); FR-003 AC (equity ≤ 0 → liquidated, eliminated, equity shown 0) via seat; halt: `stepRound` with elapsed 250 ms ×20 = 5 s → halt ends (`tickHalt`); `reachedEquityAt` changes only when equity value changes.
+7. [x] `packages/worker/src/room/room-logic.ts`: `start` (host, lobby, ≥1 seat), `tick` (broadcast per recipient with `you`), `order` / `close` (rate limit → role → state → halt → execute → `order.ok` → end checks), `endRound`, `onSocketClosed` (lobby → remove; running → disconnected + 30 s timer), `eliminateDisconnected`, `join` during running (restore vs observer), kick during round. Tests with fake clock/seed/send (see Test Strategy).
+8. [x] `packages/worker/src/room/room-logic.ts`: `assignRole(…, 'running', …)` returns `observer` for new UIDs and the restore path is handled before `assignRole`.
+9. [x] `packages/worker/src/room/room.ts` shell: `setInterval(TICK_MS)` on `start`, `elapsed = min(now − last, HALT_TICK_CAP_MS)`, `seed` from `crypto.getRandomValues`, stop on `round.end`, `closeRoom`, `dispose`; message switch handles `room.start`, `order`, `close`; `ctx.waitUntil` for `publish`.
+10. [x] Test client `packages/worker/test/support/test-client.ts`: drives four `RoomLogic` seats with a scripted strategy (buy/sell/close with a seeded RNG, fake clock advancing 80 ms per tick, speed 8), collects messages per uid. Used by the round tests below.
+11. [x] Round tests `packages/worker/test/room/round-engine.test.ts` (FR-011–FR-015 ACs):
     - FR-011: non-host `start` → `FORBIDDEN`; start during round → `INVALID_STATE`; start with no seats → `INVALID_STATE`.
     - FR-012: 11 orders within 1 000 ms → 11th `RATE_LIMITED`, connection not closed (no `close` call); observer order → `FORBIDDEN`; order in lobby → `INVALID_STATE`; `price` field → `INVALID_PAYLOAD` (schema, M3).
     - FR-012 execution: BUY 50 fills at `price + 0.03`; CLOSE with no position → `fill: null`, no state change.
@@ -175,21 +175,21 @@ auth + room.join same UID within 30 s → seat restored (same position, equity)
     - BR-017 in round: kick removes seat, kicked may rejoin (observer), `kicked` sent with close 4403.
     - Round end: room returns to `lobby`, `lastRound` shown; next `start` by host resets seats to `active` (seat-reset rule).
     - Explicit `room.leave` during round uses the 30 s grace (leave rule).
-12. [ ] Four-player seeded round test (M4 DoD): test client plays 4 players, speed 8, duration 3 min (fake clock), until `round.end`; asserts: no unexpected `error` messages, all four receive identical `prices` streams, `round.end` reason is one of TARGET/TIME/ALL_ELIMINATED, ranking sums are consistent. Runs in ≤ 2 s real time (fake clock, no sleeps).
-13. [ ] Disconnect and timer hygiene test: after `round.end` and after `dispose()`, no timers remain (fake timers count = 0). Disconnect timers cleared on round end.
-14. [ ] Determinism test: same seed + same scripted orders → identical message log for the four-player round (ARCH invariant, CODE_QUALITY tests rule).
-15. [ ] Protocol tests (`shared`): `room.tick`, `order.ok`, `round.end`, `room.history` schemas accept the documented shapes and reject extra fields (only validated in tests; server messages are not parsed by the server).
-16. [ ] Docs: `docs/PRD.md` §20 rows 38–40; `docs/PRD.md` §13 note on eliminated seats.
-17. [ ] Final light verification: `pnpm lint`, `pnpm typecheck`, `pnpm test` (shared + worker) green; steps ticked; Implementation Log filled.
+12. [x] Four-player seeded round test (M4 DoD): test client plays 4 players, speed 8, duration 3 min (fake clock), until `round.end`; asserts: no unexpected `error` messages, all four receive identical `prices` streams, `round.end` reason is one of TARGET/TIME/ALL_ELIMINATED, ranking sums are consistent. Runs in ≤ 2 s real time (fake clock, no sleeps).
+13. [x] Disconnect and timer hygiene test: after `round.end` and after `dispose()`, no timers remain (fake timers count = 0). Disconnect timers cleared on round end.
+14. [x] Determinism test: same seed + same scripted orders → identical message log for the four-player round (ARCH invariant, CODE_QUALITY tests rule).
+15. [x] Protocol tests (`shared`): `room.tick`, `order.ok`, `round.end`, `room.history` schemas accept the documented shapes and reject extra fields (only validated in tests; server messages are not parsed by the server).
+16. [x] Docs: `docs/PRD.md` §20 rows 38–40; `docs/PRD.md` §13 note on eliminated seats.
+17. [x] Final light verification: `pnpm lint`, `pnpm typecheck`, `pnpm test` (shared + worker) green; steps ticked; Implementation Log filled.
 
 ## Checkpoints (Todo List)
 
-- [ ] CP1 — Rules and protocol: steps 1–3, 15; `pnpm --filter @fm/shared test` green.
-- [ ] CP2 — Rate limit and ranking: steps 4–5; Vitest green (FR-012 AC, BR-009/BR-010 table).
-- [ ] CP3 — Round state: step 6; Vitest green (FR-011 same stream, FR-003 bankruptcy via seat, halt timing).
-- [ ] CP4 — RoomLogic round rules: steps 7–8; Vitest green for the FR-013–FR-015 ACs.
-- [ ] CP5 — Shell, test client and round tests: steps 9–14; four-player seeded round green; determinism green; no timers left.
-- [ ] CP6 — Docs and final light verification: steps 16–17; lint, typecheck and all Vitest green.
+- [x] CP1 — Rules and protocol: steps 1–3, 15; `pnpm --filter @fm/shared test` green. — 103 tests green
+- [x] CP2 — Rate limit and ranking: steps 4–5; Vitest green (FR-012 AC, BR-009/BR-010 table). — 23 tests green
+- [x] CP3 — Round state: step 6; Vitest green (FR-011 same stream, FR-003 bankruptcy via seat, halt timing). — 13 tests green
+- [x] CP4 — RoomLogic round rules: steps 7–8; Vitest green for the FR-013–FR-015 ACs. — FR-013 in round-engine.test.ts, FR-014/FR-015 in room-logic-round.test.ts and round-engine.test.ts; worker unit suite 264 tests green
+- [x] CP5 — Shell, test client and round tests: steps 9–14; four-player seeded round green; determinism green; no timers left. — shell over real sockets green in workerd (integration project)
+- [x] CP6 — Docs and final light verification: steps 16–17; lint, typecheck and all Vitest green. — lint clean, typecheck clean, 510 tests green (shared 103, web 143, worker 264)
 
 ## Risks & Mitigations
 
@@ -240,4 +240,38 @@ auth + room.join same UID within 30 s → seat restored (same position, equity)
 - [ ] None blocking. Decisions taken in planning (halt wall-clock, watch-only seats, rate-limit counting, leave = disconnect, observer host, lobby disconnect, kick semantics) are recorded in PRD §20 rows 38–40 and the trade-offs above.
 
 ## Implementation Log
-(Empty. first-million-implement appends one line per step event here.)
+- Base: `main` @ 19739e3 (M3 merged), worktree `.claude/worktrees/04-server-round-engine`
+- Step 1 — started
+- Step 1 — done — files: packages/shared/src/rules.ts, packages/shared/src/config.ts — added `ORDER_RATE_WINDOW_MS`, `HALT_TICK_CAP_MS`
+- Step 2 — started
+- Step 2 — done — files: packages/shared/src/protocol/views.ts, packages/shared/src/protocol/index.ts, packages/worker/src/room/room-logic.ts — `memberStatusSchema`, `rankRowSchema`, `meRoundSchema`, `newsViewSchema` (same shape as `NewsEvent`, incl. FLASH_CRASH `drop`), `lastRoundSchema`, `roundEndReasonSchema`; `RoomView.lastRound`; M3 `viewFor` returns `lastRound: null` until step 7
+- Step 3 — started
+- Step 3 — done — files: packages/shared/src/protocol/server.ts — `room.history`, `room.tick`, `order.ok`, `round.end` schemas; `room.tick.news` is set only on the interval the event was drawn
+- Step 15 — started (done early to close CP1)
+- Step 15 — done — files: packages/shared/test/protocol.test.ts — 6 tests: documented shapes, extra fields rejected, null fill, news types, round.end reasons, ranking privacy
+- Step 4 — started
+- Step 4 — done — files: packages/worker/src/room/rate-limit.ts, packages/worker/test/room/rate-limit.test.ts — `OrderRateLimit`, 4 tests (11th refused, window slides, refused attempts count, steady rate passes)
+- Step 5 — started
+- Step 5 — done — files: packages/worker/src/room/ranking.ts, packages/worker/test/room/ranking.test.ts — `rankSeats`, `reachedTarget`, `winnersAtTime`, `winnersAtTarget`, 19 tests. Deviations: functions take a consumer-declared `RankableSeat` (no import of `Seat`, CODE_QUALITY "pass what is used"); `winnersAtTarget(reachers, price)` receives the seats that reached the target (the caller filters with `reachedTarget`), so `target`/`reachedNow` params are gone; `winnersAtTime` skips eliminated rows (all eliminated → no winners); added `shownEquity`
+- Step 6 — started
+- Step 6 — done — files: packages/worker/src/room/round.ts, packages/worker/test/room/round.test.ts — `Seat`, `Round`, `startRound`, `stepRound`, plus exported `settleSeat` (bankruptcy + `reachedEquityAt`, reused after every order) and `eliminateSeat` (reused by the disconnect timeout). `Round.lastNews` = news drawn in the latest step (null otherwise), so `room.tick` sends it once. Round `history` starts with the $100 start price. 13 tests
+- Step 7 — started
+- Step 7 — done — files: packages/worker/src/room/room-logic.ts, packages/worker/src/room/round.ts, packages/worker/src/room/room.ts (only `now`/`seed` wiring so it typechecks; rest in step 9), packages/worker/test/room/room-logic.test.ts (deps), packages/worker/test/room/room-logic-round.test.ts, packages/worker/test/support/test-client.ts — `RoomLogic` extended with start/tick/order/close/endRound/disconnect/restore/kick-in-round. 36 new tests (start, orders, rate limit, halt, news, disconnect/return, observers, kick). Decisions inside the plan's lines: (a) `tick()` takes no argument: logic owns `lastTickAt` and the 250 ms cap through `deps.now()`, the shell only calls `tick()` (so a fake clock tests it); (b) `RoomDeps` gains `now()` and `seed()`; (c) a seat whose socket is gone keeps `disconnectedAt` (also once eliminated), so the UID can return and watch (FR-015 AC "returning, observer"); (d) host role passes at disconnect, not after the grace, to the next connected member (BR-013: a running round continues); (e) at round end, seats of players who are gone are dropped (they stay in `lastRound.ranking`), so a room with nobody left can arm the 5 min timer; (f) round tests live in `room-logic-round.test.ts` to keep M3 `room-logic.test.ts` unchanged; (g) gate order in `order`/`close`: stranger → FORBIDDEN, rate limit, observer → FORBIDDEN, lobby → INVALID_STATE, eliminated → ELIMINATED, halt → HALTED
+- Step 8 — started
+- Step 8 — done — files: packages/worker/src/room/room-logic.ts — `join` passes the room state to `assignRole` (existing `roster.test.ts` covers `running` → observer) and handles the returning UID before `assignRole`; tests in room-logic-round.test.ts ("BR-012 joiner during a round is an observer")
+- Step 10 — started (built with step 7, which needed it)
+- Step 10 — done — files: packages/worker/test/support/test-client.ts — `createHarness` (RoomLogic + fake clock + recorded messages, `tick`, `runToEnd`), `joinPlayers`, `scriptedPlayers` (seeded random orders)
+- Step 9 — started
+- Step 9 — done — files: packages/worker/src/room/room.ts, packages/worker/test/integration/round.test.ts — `setInterval(TICK_MS)` started after `room.start` while `logic.running`, cleared by the interval itself once the round is over and on room deletion (`publish(null)`); `room.start`/`order`/`close` routed; `seed` from `crypto.getRandomValues`; `publish` already used `ctx.waitUntil`. The elapsed cap lives in `RoomLogic.tick()` (see step 7 note a). 1 workerd test over real sockets (start, same stream, order.ok, FORBIDDEN/INVALID_STATE)
+- Step 11 — started
+- Step 11 — done — files: packages/worker/test/room/round-engine.test.ts, packages/worker/test/support/test-client.ts (`latestTick`, `leverage`, bots skip halt/eliminated) — 25 tests with the room-logic-round.test.ts ones: target, shared target, time end to the tick, ranking consistency, elimination by leverage (position size is unlimited in the rules), ALL_ELIMINATED, lobby return, seat reset, kick between rounds. Notes: (a) the plan's "order that pushes total result ≥ target" cannot happen with a real engine (every fill costs spread, so an order never raises equity), so "end checks after an order" is shown with the time running out between two ticks; (b) "equal equity, earlier `reachedEquityAt` wins" is not reachable through real trades either, so it is covered on seats (ranking.test.ts, round.test.ts); (c) target tests use $100 (the minimum), the ranking table covers $500
+- Step 12 — started
+- Step 12 — done — files: packages/worker/test/room/round-engine.test.ts — 4 scripted players, speed 8, 3 min, seed 42: no `error` messages, identical price streams (the interval that ends the round sends `round.end` instead of a tick), same `round.end` for all, consistent ranking; ~50 ms real time
+- Step 13 — started
+- Step 13 — done — files: packages/worker/test/room/round-engine.test.ts — no pending timer after round end (a disconnect timer pending at the end is cancelled) and after `dispose()`; no empty-room timer while a round runs
+- Step 14 — started
+- Step 14 — done — files: packages/worker/test/room/round-engine.test.ts — same seeds → identical message log, other seed → different log
+- Step 16 — started
+- Step 16 — done — files: docs/PRD.md, docs/ARCHITECTURE.md — PRD §20 rows 38–40 as planned, plus row 41 for the other planning defaults and the rules fixed during implementation (host handover at disconnect, dropped players leave the seats at round end); §13 notes on `disconnectedAt`, `reachedEquityAt` and watch-only seats. ARCHITECTURE: status line, `room/` file list, Time invariant (tick owned by `RoomLogic`), player states
+- Step 17 — started
+- Step 17 — done — `pnpm lint` clean, `pnpm typecheck` clean, `pnpm test` 510 passed (background subagents on the final tree); M3 no-storage guard test still green; heavy checks (e2e, build, Lighthouse, axe) not run, left to review

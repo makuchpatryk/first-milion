@@ -16,6 +16,8 @@ function setup(hostUid = 'uid-1') {
     {
       schedule: clock.schedule,
       cancel: clock.cancel,
+      now: clock.now,
+      seed: () => 1,
       send: (uid, msg) => sent.push({ uid, msg }),
       close: (uid, code) => closed.push({ uid, code }),
       publish: (summary) => published.push(summary),
