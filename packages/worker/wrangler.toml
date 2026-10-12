@@ -25,12 +25,12 @@ ALLOWED_ORIGINS = "http://localhost:5173"
 # migrations or vars into an environment, so each is stated again. Public values only:
 # `ADMIN_UIDS` is a secret (`wrangler secret put ADMIN_UIDS --env production`) and
 # `AUTH_EMULATOR` must never exist here (decision 35, NFR-004); `test/config.test.ts` guards both.
-# The two values below are the real Firebase project id and Pages domain (both spelled with one `l`).
+# The two values below are the real Firebase project id and Pages domain (spelled with one `l`).
 [env.production]
 name = "first-million"
 
 [env.production.vars]
-FIREBASE_PROJECT_ID = "first-milion"
+FIREBASE_PROJECT_ID = "first-milion-4203b"
 ALLOWED_ORIGINS = "https://first-milion.pages.dev"
 
 [[env.production.durable_objects.bindings]]
