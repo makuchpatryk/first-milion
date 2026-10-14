@@ -49,7 +49,7 @@ async function submit(): Promise<void> {
       : login(email.value, password.value),
   )
   // The router guard sends an unverified account on to /verify (FR-001).
-  if (ok) await router.replace('/menu')
+  if (ok) await router.replace('/')
 }
 
 async function submitReset(): Promise<void> {

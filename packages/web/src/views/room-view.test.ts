@@ -139,7 +139,7 @@ describe('RoomView', () => {
     it('a player in a running round is asked; "Cancel" keeps them in the room', async () => {
       fakeRoom({ view: view({ status: 'running' }), price: 100, endsInMs: 30_000, you: youActive })
       const { wrapper, router } = await mountRouted()
-      const navigation = router.push('/menu')
+      const navigation = router.push('/')
       await flushPromises()
       expect(wrapper.find('dialog').text()).toContain(pl.leaveGame.room)
       await buttonByText(wrapper, pl.common.cancel).trigger('click')

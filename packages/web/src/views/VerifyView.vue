@@ -28,7 +28,7 @@ async function resend(): Promise<void> {
 
 async function confirm(): Promise<void> {
   if (!(await run(checkVerified))) return
-  if (session.status === 'verified') await router.replace('/menu')
+  if (session.status === 'verified') await router.replace('/')
   else noticeKey.value = 'auth.verifyPending'
 }
 

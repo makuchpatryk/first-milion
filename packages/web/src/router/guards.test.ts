@@ -5,7 +5,7 @@ describe('routeFor', () => {
   it('FR-001 AC / BR-001: a logged-out user reaches only /login and /privacy', () => {
     expect(routeFor('out', '/login')).toBeNull()
     expect(routeFor('out', '/privacy')).toBeNull()
-    for (const path of ['/menu', '/single', '/verify', '/rooms', '/nope']) {
+    for (const path of ['/', '/single', '/verify', '/rooms', '/nope']) {
       expect(routeFor('out', path)).toBe('/login')
     }
   })
@@ -13,13 +13,13 @@ describe('routeFor', () => {
   it('FR-001 AC / BR-002: an unverified user reaches only /verify and /privacy', () => {
     expect(routeFor('unverified', '/verify')).toBeNull()
     expect(routeFor('unverified', '/privacy')).toBeNull()
-    for (const path of ['/login', '/menu', '/single', '/nope']) {
+    for (const path of ['/login', '/', '/single', '/nope']) {
       expect(routeFor('unverified', path)).toBe('/verify')
     }
   })
 
-  it('FR-006: a verified user reaches /menu, /single and /settings', () => {
-    expect(routeFor('verified', '/menu')).toBeNull()
+  it('FR-006: a verified user reaches /, /single and /settings', () => {
+    expect(routeFor('verified', '/')).toBeNull()
     expect(routeFor('verified', '/single')).toBeNull()
     expect(routeFor('verified', '/settings')).toBeNull()
   })
@@ -29,9 +29,9 @@ describe('routeFor', () => {
     expect(routeFor('unverified', '/settings')).toBe('/verify')
   })
 
-  it('FR-006: a verified user is redirected from /login and /verify to /menu', () => {
-    expect(routeFor('verified', '/login')).toBe('/menu')
-    expect(routeFor('verified', '/verify')).toBe('/menu')
+  it('FR-006: a verified user is redirected from /login and /verify to /', () => {
+    expect(routeFor('verified', '/login')).toBe('/')
+    expect(routeFor('verified', '/verify')).toBe('/')
   })
 
   it('UF-003: a verified user reaches the room list, the create form and a room', () => {
@@ -52,8 +52,8 @@ describe('routeFor', () => {
     expect(routeFor('verified', '/single', false)).toBeNull()
   })
 
-  it('an unknown path under /rooms/ with a trailing slash only falls back to /menu', () => {
-    expect(routeFor('verified', '/rooms/')).toBe('/menu')
+  it('an unknown path under /rooms/ with a trailing slash only falls back to /', () => {
+    expect(routeFor('verified', '/rooms/')).toBe('/')
   })
 
   it('FR-018: /privacy is allowed for every status', () => {

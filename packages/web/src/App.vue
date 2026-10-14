@@ -22,7 +22,7 @@ const verified = computed(() => session.status === 'verified')
   <div class="shell">
     <a href="#main" class="skip">{{ t('app.skipToContent') }}</a>
     <header class="bar">
-      <RouterLink to="/menu" class="logo">
+      <RouterLink to="/" class="logo">
         <svg class="logo-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
           <rect class="logo-bg" width="32" height="32" rx="8" />
           <path class="logo-line" d="M6 23l7-7 5 4 8-10" />

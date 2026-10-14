@@ -49,7 +49,7 @@ describe('SinglePlayView: leaving a running round', () => {
 
   it('a running round asks first; "Cancel" keeps the user in the game', async () => {
     const { wrapper, router } = await runningRound()
-    const navigation = router.push('/menu')
+    const navigation = router.push('/')
     await flushPromises()
 
     const dialog = wrapper.find('dialog')
@@ -65,7 +65,7 @@ describe('SinglePlayView: leaving a running round', () => {
     const { wrapper, router } = await runningRound()
     expect(buttonByText(wrapper, pl.single.pause).exists()).toBe(true)
 
-    const navigation = router.push('/menu')
+    const navigation = router.push('/')
     await flushPromises()
     expect(buttonByText(wrapper, pl.single.resume).exists()).toBe(true)
 
@@ -78,7 +78,7 @@ describe('SinglePlayView: leaving a running round', () => {
     const { wrapper, router } = await runningRound()
     await buttonByText(wrapper, pl.single.pause).trigger('click')
 
-    const navigation = router.push('/menu')
+    const navigation = router.push('/')
     await flushPromises()
     await buttonByText(wrapper, pl.common.cancel).trigger('click')
     await navigation

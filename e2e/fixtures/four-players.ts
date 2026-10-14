@@ -33,7 +33,7 @@ export interface OpenRoom {
   readonly guests: readonly Seat[]
 }
 
-/** Opens a signed-in seat on `/menu`; every context is closed after the test. */
+/** Opens a signed-in seat on `/` (the menu); every context is closed after the test. */
 export type NewSeat = (account?: Account | AccountOptions) => Promise<Seat>
 
 interface Fixtures {
@@ -54,7 +54,7 @@ export const test = base.extend<Fixtures>({
       await installTap(context)
       const page = await context.newPage()
       await signIn(page, account)
-      await expect(page).toHaveURL(/\/menu$/)
+      await expect(page).toHaveURL(/\/$/)
       return { context, page, account, nick: account.nick }
     })
     await Promise.all(contexts.map((context) => context.close()))
@@ -66,7 +66,7 @@ export { expect }
 /** Menu → room list, by clicking like a user (no reload, so the session and sockets stay). */
 export async function openRoomList(seat: Seat): Promise<void> {
   const { page } = seat
-  if (new URL(page.url()).pathname === '/menu') {
+  if (new URL(page.url()).pathname === '/') {
     await page.getByRole('link', { name: /^Rooms/ }).click()
   }
   await expect(page).toHaveURL(/\/rooms$/)

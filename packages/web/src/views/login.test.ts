@@ -63,20 +63,20 @@ describe('LoginView', () => {
 
   it('UF-001: wrong credentials show the translated error from the SDK code', async () => {
     sdk.signInWithEmailAndPassword.mockRejectedValue({ code: 'auth/invalid-credential' })
-    const { wrapper, router } = await mountWithApp(LoginView)
+    const { wrapper, router } = await mountWithApp(LoginView, 'pl', '/login')
     await fill(wrapper, 'secret-pass')
 
     expect(wrapper.find('[role="alert"]').text()).toBe(pl.auth.error.invalidCredential)
-    expect(router.currentRoute.value.path).toBe('/')
+    expect(router.currentRoute.value.path).toBe('/login')
   })
 
-  it('UF-001: a successful login leaves for /menu', async () => {
+  it('UF-001: a successful login leaves for the home screen', async () => {
     const user = { uid: 'u1', email: 'a@b.co', displayName: 'Jan_7', emailVerified: true }
     sdk.signInWithEmailAndPassword.mockResolvedValue({ user: user as unknown as User })
-    const { wrapper, router } = await mountWithApp(LoginView)
+    const { wrapper, router } = await mountWithApp(LoginView, 'pl', '/login')
     await fill(wrapper, 'secret-pass')
 
-    expect(router.currentRoute.value.path).toBe('/menu')
+    expect(router.currentRoute.value.path).toBe('/')
   })
 
   it('UF-001: "Forgot password" opens the reset form and shows the neutral confirmation', async () => {

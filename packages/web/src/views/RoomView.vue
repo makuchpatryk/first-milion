@@ -49,7 +49,7 @@ function leave(): void {
 // A kick, an admin close or a dead session: the socket is gone, so the only way on is out.
 // Auth failure (4401) sends the user to the menu, which the guard routes by session status.
 function leaveClosed(): void {
-  void router.replace(closeCode.value === 4401 ? '/menu' : '/rooms')
+  void router.replace(closeCode.value === 4401 ? '/' : '/rooms')
 }
 </script>
 
