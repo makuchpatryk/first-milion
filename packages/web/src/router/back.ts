@@ -12,11 +12,8 @@ export interface BackTarget {
  * `/verify`). The public `/privacy` page goes back to the visitor's home for their status.
  */
 export function backFor(path: string, status: SessionStatus): BackTarget | null {
-  if (path === '/rooms' || path === '/single' || path === '/settings') {
+  if (path === '/rooms') {
     return { to: '/menu', labelKey: 'nav.backToMenu' }
-  }
-  if (path.startsWith('/rooms/') && path.length > 7) {
-    return { to: '/rooms', labelKey: 'nav.backToRooms' }
   }
   if (path === '/privacy') {
     return { to: routeFor(status, '/menu') ?? '/menu', labelKey: 'nav.back' }

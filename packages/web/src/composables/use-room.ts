@@ -82,17 +82,14 @@ export function useRoom(roomId: string, nick: string, options: RoomOptions = {})
   }
   if (getCurrentScope()) onScopeDispose(dispose)
 
-  const halted = computed(() => state.value.halt !== null)
-
   return {
     state,
     status,
     reconnectLeftS,
     /** Kick (4403), admin room close (4410) or auth failure (4401); no more retries follow. */
     closeCode: computed(() => state.value.closeCode ?? socketCloseCode.value),
-    halted,
     /** Intents are disabled, not queued, while the socket is not ready (spec 05 trade-offs). */
-    canTrade: computed(() => status.value === 'ready' && canTrade(state.value.you, halted.value)),
+    canTrade: computed(() => status.value === 'ready' && canTrade(state.value.you)),
     start: () => socket.send({ type: 'room.start' }),
     order: (side: 'BUY' | 'SELL', qty: OrderQty) => socket.send({ type: 'order', side, qty }),
     closePosition: () => socket.send({ type: 'close' }),

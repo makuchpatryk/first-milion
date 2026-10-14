@@ -1,30 +1,45 @@
-import { HALT_MS, HISTORY_MAX } from '@fm/shared/config'
-import { createMarket, isTradingHalted, shownPrice, stepMarket } from '@fm/shared/engine/market'
-import { executeOrder, emptyPortfolio } from '@fm/shared/engine/portfolio'
+import { HISTORY_MAX } from '@fm/shared/config'
+import { createMarket, stepMarket } from '@fm/shared/engine/market'
+import { executeOrder, equity } from '@fm/shared/engine/portfolio'
 import { createRng } from '@fm/shared/rng'
-import { START_CASH, START_PRICE } from '@fm/shared/rules'
+import { DEFAULT_START_CASH, START_PRICE } from '@fm/shared/rules'
 import { describe, expect, it } from 'vitest'
 import {
   advanceSingle,
   closeOrder,
   createSingle,
+  DEFAULT_SINGLE_ROUND,
   placeOrder,
-  shownEquity,
-  shownPrices,
+  type SingleRound,
   type SingleSim,
 } from './loop'
 
 const SEED = 42
+/** A non-default capital, so a site that still assumes $10,000 fails (BR-003). */
+const START = 5_000
 
-/** A sim with a trading halt already running and the display frozen at `price`. */
-function haltedSim(rng: () => number, price = START_PRICE): SingleSim {
-  const sim = createSingle(rng)
-  return {
-    ...sim,
-    market: { ...sim.market, haltMsLeft: HALT_MS, frozenPrice: price },
-    frozenLen: 1,
-  }
-}
+const round = (over: Partial<SingleRound> = {}): SingleRound => ({
+  durationMs: 60_000,
+  startCash: START,
+  goal: 30_000,
+  ...over,
+})
+
+describe('createSingle: starting capital (BR-003)', () => {
+  it('the default round starts with the default capital and goal', () => {
+    const sim = createSingle(createRng(SEED))
+    expect(sim.round).toBe(DEFAULT_SINGLE_ROUND)
+    expect(sim.portfolio.startCash).toBe(DEFAULT_START_CASH)
+    expect(equity(sim.portfolio, sim.market.price)).toBe(DEFAULT_START_CASH)
+  })
+
+  it('the first equity and the equity record equal the chosen start', () => {
+    const sim = createSingle(createRng(SEED), round({ startCash: 1_000, goal: 2_000 }))
+    expect(sim.portfolio.startCash).toBe(1_000)
+    expect(equity(sim.portfolio, sim.market.price)).toBe(1_000)
+    expect(sim.peak).toBe(1_000)
+  })
+})
 
 describe('advanceSingle: timing (FR-004)', () => {
   it.each([1, 3, 8] as const)(
@@ -67,64 +82,14 @@ describe('advanceSingle: timing (FR-004)', () => {
   })
 })
 
-describe('advanceSingle: trading halt (BR-015, FR-005)', () => {
-  it('BR-015: the halt counts down only by elapsed wall-clock ms, not by steps', () => {
-    const rng = createRng(SEED)
-    const next = advanceSingle(haltedSim(rng), 80, 8, rng)
-    expect(next.market.haltMsLeft).toBe(HALT_MS - 80)
-
-    const same = advanceSingle(haltedSim(createRng(SEED)), 0, 8, createRng(SEED))
-    expect(same.market.haltMsLeft).toBe(HALT_MS)
-  })
-
-  it('FR-005: the shown price and chart slice stay frozen while the true price keeps moving', () => {
-    const rng = createRng(SEED)
-    const next = advanceSingle(haltedSim(rng, START_PRICE), 80, 8, rng)
-
-    expect(isTradingHalted(next.market)).toBe(true)
-    expect(shownPrice(next.market)).toBe(START_PRICE)
-    expect(next.prices).toHaveLength(9)
-    expect(shownPrices(next)).toEqual([START_PRICE])
-  })
-
-  it('BR-015: when the halt ends the display jumps to the current price', () => {
-    const rng = createRng(SEED)
-    const next = advanceSingle(haltedSim(rng), HALT_MS, 1, rng)
-
-    expect(isTradingHalted(next.market)).toBe(false)
-    expect(next.frozenLen).toBeNull()
-    expect(shownPrices(next)).toHaveLength(next.prices.length)
-  })
-
-  it('FR-005: a halt drawn by the engine freezes the chart at the price before that step', () => {
-    let checked = 0
-    for (let seed = 1; seed <= 300 && checked < 3; seed++) {
-      const rng = createRng(seed)
-      let sim = createSingle(rng)
-      for (let i = 0; i < 900; i++) {
-        const wasFrozen = sim.frozenLen !== null
-        sim = advanceSingle(sim, 80, 1, rng)
-        if (!wasFrozen && sim.frozenLen !== null) {
-          const frozen = shownPrices(sim)
-          expect(frozen.at(-1)).toBe(sim.market.frozenPrice)
-          expect(frozen.length).toBe(sim.prices.length - 1)
-          checked++
-          break
-        }
-      }
-    }
-    expect(checked).toBeGreaterThan(0)
-  })
-})
-
 describe('advanceSingle: margin call (FR-003, BR-005)', () => {
   /** Long 250 @ ~100 while the market sits at 55: equity is far below zero. */
   function bankruptSim(rng: () => number): SingleSim {
-    const sim = createSingle(rng)
+    const sim = createSingle(rng, round())
     return {
       ...sim,
       market: { ...sim.market, price: 55 },
-      portfolio: executeOrder(emptyPortfolio, 'BUY', 250, 100),
+      portfolio: executeOrder(sim.portfolio, 'BUY', 250, 100),
     }
   }
 
@@ -137,27 +102,13 @@ describe('advanceSingle: margin call (FR-003, BR-005)', () => {
     expect(next.portfolio.closedTrades).toBe(1)
     expect(next.history).toHaveLength(1)
     expect(next.history[0]?.pnl).toBeLessThan(0)
-    expect(shownEquity(next)).toBeLessThanOrEqual(0)
+    expect(equity(next.portfolio, next.market.price)).toBeLessThanOrEqual(0)
   })
 
   it('BR-005: stepping stops at the margin call even with steps left in the interval', () => {
     const rng = createRng(SEED)
     const next = advanceSingle(bankruptSim(rng), 80, 8, rng)
     expect(next.prices).toHaveLength(2)
-  })
-
-  it('BR-005: a margin call during a halt unfreezes the display', () => {
-    const rng = createRng(SEED)
-    const sim = bankruptSim(rng)
-    const halted: SingleSim = {
-      ...sim,
-      market: { ...sim.market, haltMsLeft: HALT_MS, frozenPrice: 100 },
-      frozenLen: 1,
-    }
-    const next = advanceSingle(halted, 80, 1, rng)
-    expect(next.end).toBe('MARGIN')
-    expect(next.frozenLen).toBeNull()
-    expect(isTradingHalted(next.market)).toBe(false)
   })
 
   it('BR-005: a flat portfolio is never bankrupt, however far the price falls', () => {
@@ -171,47 +122,51 @@ describe('advanceSingle: margin call (FR-003, BR-005)', () => {
 describe('advanceSingle: round time and goal (FR-004, BR-009)', () => {
   it('BR-009: the round time runs down by the elapsed ms and never below zero', () => {
     const rng = createRng(SEED)
-    const sim = createSingle(rng, { durationMs: 1000, goal: 20_000 })
+    const sim = createSingle(rng, round({ durationMs: 1000 }))
     expect(advanceSingle(sim, 300, 1, rng).timeLeftMs).toBe(700)
     expect(advanceSingle(sim, 5000, 1, rng).timeLeftMs).toBe(0)
   })
 
   it('BR-009: the time running out ends the game as TIME, and the next interval does nothing', () => {
     const rng = createRng(SEED)
-    const sim = createSingle(rng, { durationMs: 80, goal: 20_000 })
+    const sim = createSingle(rng, round({ durationMs: 80 }))
     const next = advanceSingle(sim, 80, 8, rng)
     expect(next.end).toBe('TIME')
     expect(next.timeLeftMs).toBe(0)
     expect(advanceSingle(next, 80, 8, rng)).toBe(next)
   })
 
-  it('BR-009: the goal reached on a step ends the game as TARGET', () => {
-    const rng = createRng(SEED)
-    // Long 250 at the true price 100; a market at 150 puts the total result far above a goal of 100.
-    const sim = createSingle(rng, { durationMs: 60_000, goal: 100 })
-    const winning: SingleSim = {
+  // Long 250 at the true price 100; a market at 150 lifts equity by about 12,500 above the start.
+  function aheadSim(goal: number, rng: () => number): SingleSim {
+    const sim = createSingle(rng, round({ goal }))
+    return {
       ...sim,
       market: { ...sim.market, price: 150 },
-      portfolio: executeOrder(emptyPortfolio, 'BUY', 250, 100),
+      portfolio: executeOrder(sim.portfolio, 'BUY', 250, 100),
     }
-    expect(advanceSingle(winning, 80, 1, rng).end).toBe('TARGET')
+  }
+
+  it('BR-009: equity reaching the goal on a step ends the game as TARGET', () => {
+    const rng = createRng(SEED)
+    expect(advanceSingle(aheadSim(START + 100, rng), 80, 1, rng).end).toBe('TARGET')
+  })
+
+  it('BR-009: equity below the goal keeps the game going, however high the profit', () => {
+    const rng = createRng(SEED)
+    // Equity is about 17,500 here, far below a goal of 1,000,000.
+    expect(advanceSingle(aheadSim(1_000_000, rng), 80, 1, rng).end).toBeNull()
   })
 
   it('BR-009: the goal is checked after every order, so an order that reaches it ends the game', () => {
     const rng = createRng(SEED)
-    const sim = createSingle(rng, { durationMs: 60_000, goal: 100 })
-    const ahead: SingleSim = {
-      ...sim,
-      market: { ...sim.market, price: 150 },
-      portfolio: executeOrder(emptyPortfolio, 'BUY', 250, 100),
-    }
+    const ahead = aheadSim(START + 100, rng)
     expect(placeOrder(ahead, 'SELL', 10).end).toBe('TARGET')
     expect(closeOrder(ahead).end).toBe('TARGET')
   })
 
   it('BR-009: an order below the goal does not end the game', () => {
     const rng = createRng(SEED)
-    const sim = createSingle(rng, { durationMs: 60_000, goal: 20_000 })
+    const sim = createSingle(rng, round({ goal: 20_000 }))
     expect(placeOrder(sim, 'BUY', 50).end).toBeNull()
   })
 })
@@ -223,15 +178,6 @@ describe('placeOrder and closeOrder', () => {
     const next = placeOrder(sim, 'BUY', 50)
     expect(next.portfolio.units).toBe(50)
     expect(next.portfolio.avg).toBeCloseTo(sim.market.price + 0.03, 9)
-  })
-
-  it('FR-005 AC: orders and close are no-ops during a trading halt', () => {
-    const rng = createRng(SEED)
-    const open = placeOrder(createSingle(rng), 'BUY', 50)
-    const halted: SingleSim = { ...open, market: { ...open.market, haltMsLeft: 3000 } }
-
-    expect(placeOrder(halted, 'SELL', 100)).toBe(halted)
-    expect(closeOrder(halted)).toBe(halted)
   })
 
   it('BR-005: orders and close are no-ops after the margin call', () => {
@@ -263,10 +209,10 @@ describe('placeOrder and closeOrder', () => {
 
   it('UF-002: the equity record follows displayed equity upwards only', () => {
     const rng = createRng(SEED)
-    const sim = placeOrder(createSingle(rng), 'BUY', 250)
-    expect(sim.peak).toBe(START_CASH)
+    const sim = placeOrder(createSingle(rng, round()), 'BUY', 250)
+    expect(sim.peak).toBe(START)
 
     const up: SingleSim = { ...sim, market: { ...sim.market, price: sim.market.price + 10 } }
-    expect(closeOrder(up).peak).toBeGreaterThan(START_CASH)
+    expect(closeOrder(up).peak).toBeGreaterThan(START)
   })
 })

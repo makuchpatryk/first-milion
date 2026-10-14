@@ -2,14 +2,15 @@ import { HISTORY_MAX, NEWS_FADE_TICKS } from '@fm/shared/config'
 import type { MeRound, RoomView, ServerMessage } from '@fm/shared/protocol'
 import { describe, expect, it } from 'vitest'
 import { newsTone } from '../components/newsTone'
-import { canTrade, initialRoomState, reduceRoom, shownHistory, type RoomState } from './room-state'
+import { canTrade, initialRoomState, reduceRoom, type RoomState } from './room-state'
 
 const view = (over: Partial<RoomView> = {}): RoomView => ({
   id: 'r1',
   name: 'Alpha',
   hostNick: 'Ann',
   durationMin: 5,
-  profitTarget: 20_000,
+  startCash: 10_000,
+  goal: 30_000,
   speed: 3,
   status: 'lobby',
   players: [{ nick: 'Ann', status: 'active' }],
@@ -37,7 +38,6 @@ const tick = (over: Partial<Tick> = {}): ServerMessage => ({
   type: 'room.tick',
   prices: [100, 101, 102],
   price: 102,
-  halt: null,
   news: null,
   endsInMs: 60_000,
   ranking: [{ nick: 'Ann', equity: 10_000, status: 'active', place: 1 }],
@@ -110,19 +110,6 @@ describe('reduceRoom', () => {
     expect(state.newsAgeTicks).toBe(0)
   })
 
-  it('BR-015: the chart stops at the halt start and resumes with the full history after it', () => {
-    let state = run([tick({ prices: [100, 101, 102] })])
-    state = reduceRoom(state, tick({ prices: [103, 104, 105], price: 102, halt: { msLeft: 5_000 } }))
-    expect(state.price).toBe(102)
-    expect(shownHistory(state)).toEqual([100, 101, 102])
-
-    state = reduceRoom(state, tick({ prices: [106, 107, 108], price: 102, halt: { msLeft: 4_000 } }))
-    expect(shownHistory(state)).toEqual([100, 101, 102])
-
-    state = reduceRoom(state, tick({ prices: [109, 110, 111], price: 111, halt: null }))
-    expect(shownHistory(state)).toHaveLength(12)
-  })
-
   it('order.ok updates the own numbers at once and clears an old error', () => {
     const failed = run([{ type: 'error', code: 'RATE_LIMITED' }])
     const state = reduceRoom(failed, { type: 'order.ok', fill: 100.03, you: me({ units: 50 }) })
@@ -137,10 +124,9 @@ describe('reduceRoom', () => {
       winners: ['Ann'],
       ranking: [{ nick: 'Ann', equity: 10_500, status: 'active', place: 1 }],
     }
-    const state = run([tick({ halt: { msLeft: 1_000 } }), end])
+    const state = run([tick(), end])
     expect(state.lastResult).toEqual({ reason: 'TIME', winners: ['Ann'], ranking: end.ranking })
     expect(state.endsInMs).toBeNull()
-    expect(state.halt).toBeNull()
   })
 
   it('BP-002: the next round starts clean but keeps the socket-level flags', () => {
@@ -172,27 +158,26 @@ describe('reduceRoom', () => {
     const closed = run([{ type: 'error', code: 'ROOM_CLOSED' }])
     expect(closed.closeCode).toBe(4410)
     expect(closed.error).toBe('ROOM_CLOSED')
-    const other = run([{ type: 'error', code: 'HALTED' }])
+    const other = run([{ type: 'error', code: 'FORBIDDEN' }])
     expect(other.closeCode).toBeNull()
-    expect(other.error).toBe('HALTED')
+    expect(other.error).toBe('FORBIDDEN')
   })
 })
 
-describe('canTrade (UF-004, UF-005, FR-014, FR-005)', () => {
-  it('an active player outside a halt can trade', () => {
-    expect(canTrade(me(), false)).toBe(true)
+describe('canTrade (UF-004, UF-005, FR-014)', () => {
+  it('an active player can trade', () => {
+    expect(canTrade(me())).toBe(true)
   })
 
   it('an observer cannot', () => {
-    expect(canTrade(me({ role: 'observer' }), false)).toBe(false)
+    expect(canTrade(me({ role: 'observer' }))).toBe(false)
   })
 
   it('an eliminated player cannot', () => {
-    expect(canTrade(me({ status: 'eliminated' }), false)).toBe(false)
+    expect(canTrade(me({ status: 'eliminated' }))).toBe(false)
   })
 
-  it('nobody can during a halt, or before the first tick', () => {
-    expect(canTrade(me(), true)).toBe(false)
-    expect(canTrade(null, false)).toBe(false)
+  it('nobody can before the first tick', () => {
+    expect(canTrade(null)).toBe(false)
   })
 })

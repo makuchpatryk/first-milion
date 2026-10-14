@@ -1,17 +1,20 @@
 import { roomFormSchema, type RoomForm } from '@fm/shared/validation'
-import { parseGoal } from './goal'
+import { parseWholeNumber } from './goal'
 
 export interface CreateFormInput {
   name: string
   durationMin: number
   speed: number
+  /** Raw text of the start capital field. */
+  startText: string
   /** Raw text of the required goal field. */
-  targetText: string
+  goalText: string
 }
 
 export interface CreateFormErrors {
   name: string | null
-  target: string | null
+  start: string | null
+  goal: string | null
 }
 
 export type CreateFormResult =
@@ -20,7 +23,7 @@ export type CreateFormResult =
 
 /**
  * Room form (FR-009) to the exact object `room.create` carries. The rules live in
- * `roomFormSchema`; this only turns the goal text into a number and the schema's issues into
+ * `roomFormSchema`; this only turns the money texts into numbers and the schema's issues into
  * i18n keys. The server validates again (NFR-004).
  */
 export function parseCreateForm(input: CreateFormInput): CreateFormResult {
@@ -28,8 +31,9 @@ export function parseCreateForm(input: CreateFormInput): CreateFormResult {
     name: input.name,
     durationMin: input.durationMin,
     speed: input.speed,
-    // Text that is not a goal stays text, so the schema reports `profitTarget` as the issue.
-    profitTarget: parseGoal(input.targetText) ?? input.targetText,
+    // Text that is not a whole number stays text, so the schema reports its field as the issue.
+    startCash: parseWholeNumber(input.startText) ?? input.startText,
+    goal: parseWholeNumber(input.goalText) ?? input.goalText,
   })
   if (parsed.success) return { ok: true, form: parsed.data }
 
@@ -38,7 +42,8 @@ export function parseCreateForm(input: CreateFormInput): CreateFormResult {
     ok: false,
     errors: {
       name: failed.has('name') ? 'create.error.name' : null,
-      target: failed.has('profitTarget') ? 'create.error.target' : null,
+      start: failed.has('startCash') ? 'create.error.start' : null,
+      goal: failed.has('goal') ? 'create.error.goal' : null,
     },
   }
 }

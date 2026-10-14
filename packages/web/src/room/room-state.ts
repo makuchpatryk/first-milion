@@ -16,11 +16,7 @@ export interface RoomState {
   view: RoomView | null
   /** True prices, newest last, at most `HISTORY_MAX` (`room.history`, then each `room.tick`). */
   history: readonly number[]
-  /** Displayed price; frozen while halted (BR-015). */
   price: number | null
-  halt: { msLeft: number } | null
-  /** How many leading entries of `history` the chart may show while halted; `null` otherwise. */
-  frozenLen: number | null
   news: NewsView | null
   /** Price steps since `news` was drawn (the engine's `newsAge`). */
   newsAgeTicks: number
@@ -39,8 +35,6 @@ export const initialRoomState: RoomState = {
   view: null,
   history: [],
   price: null,
-  halt: null,
-  frozenLen: null,
   news: null,
   newsAgeTicks: 0,
   endsInMs: null,
@@ -71,22 +65,15 @@ function appendPrices(history: readonly number[], prices: readonly number[]) {
   return { history: dropped > 0 ? all.slice(dropped) : all, dropped }
 }
 
-function applyTick(state: RoomState, msg: Extract<ServerMessage, { type: 'room.tick' }>): RoomState {
-  const { history, dropped } = appendPrices(state.history, msg.prices)
-  // The halt news arrives with prices the display must not show yet (BR-015): the chart stops at
-  // the history as it was before this interval, then keeps that length until the halt ends.
-  const frozenLen =
-    msg.halt === null
-      ? null
-      : state.frozenLen === null
-        ? Math.max(0, state.history.length - dropped)
-        : Math.max(0, state.frozenLen - dropped)
+function applyTick(
+  state: RoomState,
+  msg: Extract<ServerMessage, { type: 'room.tick' }>,
+): RoomState {
+  const { history } = appendPrices(state.history, msg.prices)
   return {
     ...state,
     history,
     price: msg.price,
-    halt: msg.halt,
-    frozenLen,
     // Same interval the event was drawn: age counts the steps since then (FR-005).
     news: msg.news ?? state.news,
     newsAgeTicks: msg.news === null ? state.newsAgeTicks + msg.prices.length : 0,
@@ -118,8 +105,6 @@ export function reduceRoom(state: RoomState, msg: ServerMessage): RoomState {
         lastResult: { reason: msg.reason, winners: msg.winners, ranking: msg.ranking },
         ranking: msg.ranking,
         endsInMs: null,
-        halt: null,
-        frozenLen: null,
       }
     case 'kicked':
       return { ...state, closeCode: CLOSE_CODES.KICKED }
@@ -137,12 +122,7 @@ export function reduceRoom(state: RoomState, msg: ServerMessage): RoomState {
   }
 }
 
-/** The chart's data: frozen at the halt start, so the real price is not shown early (BR-015). */
-export function shownHistory(state: RoomState): readonly number[] {
-  return state.frozenLen === null ? state.history : state.history.slice(0, state.frozenLen)
-}
-
-/** Order buttons are live for an active player outside a halt (UF-004, FR-014, FR-005). */
-export function canTrade(you: MeRound | null, halted: boolean): boolean {
-  return you !== null && you.role === 'player' && you.status === 'active' && !halted
+/** Order buttons are live for an active player (UF-004, FR-014). */
+export function canTrade(you: MeRound | null): boolean {
+  return you !== null && you.role === 'player' && you.status === 'active'
 }

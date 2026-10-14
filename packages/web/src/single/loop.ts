@@ -1,31 +1,23 @@
 import { HISTORY_MAX } from '@fm/shared/config'
-import {
-  createMarket,
-  isTradingHalted,
-  shownPrice,
-  stepMarket,
-  tickHalt,
-  type Market,
-} from '@fm/shared/engine/market'
+import { createMarket, stepMarket, type Market } from '@fm/shared/engine/market'
 import {
   bookedTrade,
   closedTradeOf,
   closePosition,
-  emptyPortfolio,
   equity,
   executeOrder,
   isBankrupt,
   liquidate,
-  totalResult,
+  newPortfolio,
   type BookedTrade,
   type Portfolio,
   type TradeSide,
 } from '@fm/shared/engine/portfolio'
 import type { Rng } from '@fm/shared/rng'
 import {
+  DEFAULT_GOAL,
   DEFAULT_ROUND_DURATION_MIN,
-  PROFIT_TARGET_MIN,
-  START_CASH,
+  DEFAULT_START_CASH,
   START_PRICE,
   type OrderQty,
   type Speed,
@@ -38,13 +30,16 @@ export type SingleEnd = 'MARGIN' | 'TARGET' | 'TIME'
 /** The settings of one single-play round, chosen on the setup screen. */
 export interface SingleRound {
   readonly durationMs: number
-  /** Total result (equity - start cash) that ends the round as a win (BR-009). */
+  /** Capital the round starts with (BR-003). */
+  readonly startCash: number
+  /** Target equity that ends the round as a win (BR-009). */
   readonly goal: number
 }
 
 export const DEFAULT_SINGLE_ROUND: SingleRound = {
   durationMs: DEFAULT_ROUND_DURATION_MIN * 60_000,
-  goal: PROFIT_TARGET_MIN,
+  startCash: DEFAULT_START_CASH,
+  goal: DEFAULT_GOAL,
 }
 
 /** Everything single play shows, as one immutable value (BR-006: never stored anywhere). */
@@ -53,12 +48,6 @@ export interface SingleSim {
   readonly portfolio: Portfolio
   /** True price per step, newest last, capped at `HISTORY_MAX`. */
   readonly prices: readonly number[]
-  /**
-   * While a trading halt freezes the display, how many leading entries of `prices` are shown;
-   * `null` when not halted (prototype `shownLen`). Not part of `shared`: the engine only knows
-   * the frozen price, the chart needs the matching history slice (FR-005).
-   */
-  readonly frozenLen: number | null
   /** Last closed trades, newest first. */
   readonly history: readonly BookedTrade[]
   /** Highest displayed equity seen (footer "equity record"). */
@@ -73,11 +62,10 @@ export interface SingleSim {
 export function createSingle(rng: Rng, round: SingleRound = DEFAULT_SINGLE_ROUND): SingleSim {
   return {
     market: createMarket(rng),
-    portfolio: emptyPortfolio,
+    portfolio: newPortfolio(round.startCash),
     prices: [START_PRICE],
-    frozenLen: null,
     history: [],
-    peak: START_CASH,
+    peak: round.startCash,
     round,
     timeLeftMs: round.durationMs,
     end: null,
@@ -85,27 +73,16 @@ export function createSingle(rng: Rng, round: SingleRound = DEFAULT_SINGLE_ROUND
 }
 
 const reachedGoal = (portfolio: Portfolio, price: number, goal: number): boolean =>
-  totalResult(portfolio, price) >= goal
-
-/** The part of the history the chart and the headline price show. */
-export function shownPrices(sim: SingleSim): readonly number[] {
-  return sim.frozenLen === null ? sim.prices : sim.prices.slice(0, sim.frozenLen)
-}
-
-/** Equity as displayed: open P&L at the (possibly frozen) shown price, like the prototype. */
-export function shownEquity(sim: SingleSim): number {
-  return equity(sim.portfolio, shownPrice(sim.market))
-}
+  equity(portfolio, price) >= goal
 
 const withPeak = (sim: SingleSim): SingleSim => {
-  const eq = shownEquity(sim)
+  const eq = equity(sim.portfolio, sim.market.price)
   return eq > sim.peak ? { ...sim, peak: eq } : sim
 }
 
 /**
- * One 80 ms interval: count the halt and the round time down by wall-clock ms (BR-015, BR-009),
- * then `speed` fixed price steps with no catch-up (PRD §20 #33, FR-004). Bankruptcy and the goal
- * use the true price, the display uses the shown one. Stops stepping at the end of the round
+ * One 80 ms interval: count the round time down by wall-clock ms (BR-009), then `speed` fixed
+ * price steps with no catch-up (PRD §20 #33, FR-004). Stops stepping at the end of the round
  * (the prototype kept stepping at a margin call; harmless change).
  */
 export function advanceSingle(
@@ -116,24 +93,17 @@ export function advanceSingle(
 ): SingleSim {
   if (sim.end !== null) return sim
 
-  let market = tickHalt(sim.market, elapsedMs)
+  let market = sim.market
   let portfolio = sim.portfolio
   let history = sim.history
-  let frozenLen = market.frozenPrice === null ? null : sim.frozenLen
   let end: SingleEnd | null = null
   const timeLeftMs = Math.max(0, sim.timeLeftMs - elapsedMs)
   const prices = sim.prices.slice()
 
   for (let i = 0; i < speed && end === null; i++) {
-    const before = market
     market = stepMarket(market, rng)
-    // A halt that starts on this step freezes the display at the price before the step moved it.
-    if (before.frozenPrice === null && market.frozenPrice !== null) frozenLen = prices.length
     prices.push(market.price)
-    if (prices.length > HISTORY_MAX) {
-      prices.shift()
-      if (frozenLen !== null) frozenLen = Math.max(1, frozenLen - 1)
-    }
+    if (prices.length > HISTORY_MAX) prices.shift()
 
     if (isBankrupt(portfolio, market.price)) {
       const trade = closedTradeOf(portfolio, market.price)
@@ -146,17 +116,11 @@ export function advanceSingle(
   }
   if (end === null && timeLeftMs === 0) end = 'TIME'
 
-  if (end !== null) {
-    // The end unfreezes the display so the final price is visible (BR-005).
-    market = { ...market, haltMsLeft: 0, frozenPrice: null }
-    frozenLen = null
-  }
-
-  return withPeak({ ...sim, market, portfolio, prices, frozenLen, history, timeLeftMs, end })
+  return withPeak({ ...sim, market, portfolio, prices, history, timeLeftMs, end })
 }
 
-/** Orders are blocked after the end of the round and during a trading halt (BR-015, FR-005). */
-const canTrade = (sim: SingleSim): boolean => sim.end === null && !isTradingHalted(sim.market)
+/** Orders are blocked only after the end of the round. */
+const canTrade = (sim: SingleSim): boolean => sim.end === null
 
 /** Buy or sell `qty` at the true price; the spread is applied inside `executeOrder` (BR-003). */
 export function placeOrder(sim: SingleSim, side: TradeSide, qty: OrderQty): SingleSim {
