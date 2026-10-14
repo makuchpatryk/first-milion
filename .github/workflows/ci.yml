@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    # Branches only: a version tag runs the Deploy workflow, which repeats the light checks.
+    branches: ['**']
   pull_request:
   workflow_dispatch:
     inputs:

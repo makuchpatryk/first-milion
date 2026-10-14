@@ -1,18 +1,50 @@
 name: Deploy
 
-# Manual only (spec 06, PRD §20 #36). The `production` environment holds the required reviewer
-# (manual approval) and the values below; nothing is deployed from a pull request or a branch
-# other than `main`.
+# Tags only (PRD §20 #36): pushing a version tag `vX.Y.Z` on a commit of `main` deploys. Nothing is
+# deployed from a pull request, a branch or a manual run. The `production` environment holds the
+# required reviewer (manual approval) and the values below; restrict it to the tag pattern
+# `v*.*.*` under Settings > Environments > Deployment branches and tags.
+#
+#   git tag v1.0.0 && git push origin v1.0.0
 on:
-  workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*'
 
 concurrency:
   group: deploy-production
   cancel-in-progress: false
 
 jobs:
+  # The tag must sit on `main`, and the light checks must pass on exactly that commit
+  # (ARCHITECTURE A7). The heavy checks already ran on the push to `main` (ci.yml).
+  verify:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: The tagged commit is on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag $GITHUB_REF_NAME is not on main; only commits of main are deployed."
+            exit 1
+          fi
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
   deploy:
-    if: github.ref == 'refs/heads/main'
+    needs: verify
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 20

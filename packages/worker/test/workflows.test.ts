@@ -62,17 +62,42 @@ describe('ci.yml (ARCHITECTURE A7)', () => {
   })
 })
 
+const pushFilters = z.object({
+  push: z.object({
+    branches: z.array(z.string()).optional(),
+    tags: z.array(z.string()).optional(),
+  }),
+})
+
 describe('deploy.yml (PRD §20 #36)', () => {
   const deploy = load('deploy.yml')
   const job_ = deploy.jobs.deploy
+  const verify = deploy.jobs.verify
 
-  it('starts by hand only', () => {
-    expect(Object.keys(deploy.on)).toEqual(['workflow_dispatch'])
+  it('runs only when a version tag is pushed: no manual run, branch or pull request', () => {
+    expect(Object.keys(deploy.on)).toEqual(['push'])
+    const { push } = pushFilters.parse(deploy.on)
+    expect(push.tags).toEqual(['v*.*.*'])
+    expect(push.branches).toBeUndefined()
   })
 
-  it('needs the production environment (manual approval) and the main branch', () => {
+  it('ci.yml does not run on tags, so a release is not checked twice', () => {
+    const { push } = pushFilters.parse(load('ci.yml').on)
+    expect(push.branches).toEqual(['**'])
+    expect(push.tags).toBeUndefined()
+  })
+
+  it('verify: the tag must be on main, then the light checks pass on that commit', () => {
+    expect(verify?.if).toContain("github.ref_type == 'tag'")
+    const run = commands(verify?.steps ?? [])
+    expect(run).toContain('merge-base --is-ancestor')
+    expect(run).toContain('origin/main')
+    for (const cmd of ['pnpm lint', 'pnpm typecheck', 'pnpm test']) expect(run).toContain(cmd)
+  })
+
+  it('deploy waits for verify and needs the production environment (manual approval)', () => {
+    expect(job_?.needs).toBe('verify')
     expect(job_?.environment).toBe('production')
-    expect(job_?.if).toContain("github.ref == 'refs/heads/main'")
   })
 
   it('checks the build, then deploys the Worker to production and the web app to Pages', () => {
