@@ -3,8 +3,10 @@ import type { Page } from '@playwright/test'
 import {
   createRoom,
   expect,
+  goalField,
   joinRoom,
   openRoomList,
+  startField,
   startRound,
   test,
   uniqueRoomName,
@@ -30,7 +32,7 @@ async function audit(page: Page, screen: string): Promise<void> {
 
 /**
  * The round ends at once when every player is bankrupt (BR-009): each seat buys until its equity
- * is gone. Ten orders per second is the rate limit (BR-018); a halt only delays the wipe-out.
+ * is gone. Ten orders per second is the rate limit (BR-018).
  */
 async function endRoundByBankruptcy(seats: readonly Seat[]): Promise<void> {
   const [first] = seats
@@ -66,12 +68,20 @@ test.describe('NFR-003 signed-in screens', () => {
     await expect(page.getByLabel('Password to confirm')).toBeVisible()
     await audit(page, 'settings: delete account')
 
-    await page.getByRole('link', { name: /Menu$/ }).click()
+    // Settings has no back link; the logo leads to the menu.
+    await page.getByRole('link', { name: /First\s*Million/ }).click()
     await page.getByRole('link', { name: /^Single play/ }).click()
     await expect(page.getByRole('heading', { name: 'New round' })).toBeVisible()
     await audit(page, 'single play setup')
 
-    await page.getByLabel('Goal ($)').fill('20000')
+    // The goal field with its error showing (a goal not above the start).
+    await goalField(page).fill('10000')
+    await page.getByRole('button', { name: 'Start' }).click()
+    await expect(page.getByRole('alert')).toBeVisible()
+    await audit(page, 'single play setup with an error')
+
+    await startField(page).fill('5000')
+    await goalField(page).fill('20000')
     await page.getByRole('button', { name: 'Start' }).click()
     await expect(page.getByRole('heading', { name: 'Recent trades' })).toBeVisible()
     await audit(page, 'single play')
@@ -92,8 +102,10 @@ test.describe('NFR-003 signed-in screens', () => {
     // Create form with its validation errors showing.
     await page.getByRole('link', { name: 'Create room' }).click()
     await expect(page.getByRole('heading', { name: 'New room' })).toBeVisible()
+    await goalField(page).fill('10000')
     await page.getByRole('button', { name: 'Create room' }).click()
     await expect(page.getByText('The name must be 3 to 30 characters.')).toBeVisible()
+    await expect(page.getByText('The goal must be a whole number above the starting capital.')).toBeVisible()
     await audit(page, 'create room')
     await page.getByRole('link', { name: /Rooms$/ }).click()
 

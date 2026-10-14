@@ -26,7 +26,7 @@ test.describe('FR-015 disconnection and return', () => {
     const guest = await newSeat({ prefix: 'guest' })
     const gate: RoomSocketGate = await gateRoomSocket(guest.page)
     const name = uniqueRoomName('Reconnect')
-    // Speed 1: no halt in the first 16 s, and the round (3 min) outlasts both outages.
+    // Speed 1: the round (3 min) outlasts both outages.
     await createRoom(host, { name, durationMin: 3, speed: 1 })
     await joinRoom(guest, name, 'player')
     await startRound(host, guest)

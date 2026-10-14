@@ -16,7 +16,7 @@ function percentile(sorted: readonly number[], p: number): number {
 test(`NFR-001: ${ORDERS} orders in a 4-player room confirm within ${P95_LIMIT_MS} ms at p95`, async ({
   newSeat,
 }, testInfo) => {
-  // Speed 1: the first news (and so the first possible halt) is ~16 s away, longer than this run.
+  // Speed 1: the first news is ~16 s away, longer than this run.
   const room = await openFourPlayers(newSeat, {
     name: uniqueRoomName('Latency'),
     durationMin: 3,
@@ -55,7 +55,7 @@ test(`NFR-001: ${ORDERS} orders in a 4-player room confirm within ${P95_LIMIT_MS
     contentType: 'application/json',
   })
 
-  // No halt and no rate limit can occur here, so every order must be confirmed.
+  // No rate limit can occur here, so every order must be confirmed.
   expect(confirmed.length).toBe(ORDERS)
   expect(stats.p95Ms).toBeLessThanOrEqual(P95_LIMIT_MS)
 })

@@ -15,9 +15,15 @@ export interface RoomForm {
   readonly name: string
   readonly durationMin?: 3 | 5 | 10
   readonly speed?: 1 | 3 | 8
-  /** Whole dollars, at least 20,000 (BR-009); left out means the minimum goal. */
-  readonly target?: number
+  /** Starting capital in whole dollars, 1,000 to 100,000 in steps of 1,000 (BR-003); left out keeps the form default. */
+  readonly startCash?: number
+  /** Target equity in whole dollars, above the start (BR-009); left out keeps the form default. */
+  readonly goal?: number
 }
+
+/** The money fields are a slider and a text field with one name; the text field is the one to fill. */
+export const startField = (page: Page) => page.getByRole('textbox', { name: 'Starting capital ($)' })
+export const goalField = (page: Page) => page.getByRole('textbox', { name: 'Goal: target capital ($)' })
 
 export interface OpenRoom {
   readonly id: string
@@ -92,7 +98,9 @@ export async function createRoom(host: Seat, form: RoomForm): Promise<string> {
       .getByRole('button', { name: `${form.speed}×` })
       .click()
   }
-  await page.getByLabel('Goal ($)', { exact: true }).fill(String(form.target ?? 20_000))
+  // Start first: a start above the goal moves the goal, which `goal` may then set again.
+  if (form.startCash !== undefined) await startField(page).fill(String(form.startCash))
+  if (form.goal !== undefined) await goalField(page).fill(String(form.goal))
   await page.getByRole('button', { name: 'Create room' }).click()
   await expect(page).toHaveURL(ROOM_URL)
   return roomIdOf(page)
