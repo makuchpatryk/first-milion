@@ -107,7 +107,8 @@ test.describe('NFR-003 signed-in screens', () => {
     await expect(page.getByText('The name must be 3 to 30 characters.')).toBeVisible()
     await expect(page.getByText('The goal must be a whole number above the starting capital.')).toBeVisible()
     await audit(page, 'create room')
-    await page.getByRole('link', { name: /Rooms$/ }).click()
+    // The create form has no back link; the logo leads to the menu, `createRoom` goes on from there.
+    await page.getByRole('link', { name: /First\s*Million/ }).click()
 
     await createRoom(host, { name, durationMin: 3, speed: 8 })
     await expect(page.getByRole('heading', { name: 'Players (1/4)' })).toBeVisible()
