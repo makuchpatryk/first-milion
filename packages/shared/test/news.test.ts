@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { FLASH_RECOVER, FLASH_TICKS, HALT_MS, TREND_DRIFT, TREND_TICKS } from '../src/config'
-import { createMarket, stepMarket, tickHalt } from '../src/engine/market'
+import { FLASH_RECOVER, FLASH_TICKS, TREND_DRIFT, TREND_TICKS } from '../src/config'
+import { createMarket, stepMarket } from '../src/engine/market'
 import { drawNews, drawNewsGap, type NewsEvent } from '../src/engine/news'
 import { createRng } from '../src/rng'
 import { MIN_PRICE } from '../src/rules'
 import { quietMarket, sequence } from './helpers'
 
-// rng() values that select a news type: floor(v * 5)
-const TYPE = { SHOCK: 0.1, FLASH_CRASH: 0.3, VOL_SPIKE: 0.5, TRADING_HALT: 0.7, TREND: 0.9 }
+// rng() values that select a news type: floor(v * 4)
+const TYPE = { SHOCK: 0.1, FLASH_CRASH: 0.3, VOL_SPIKE: 0.5, TREND: 0.9 }
 const UP = 0.2 // rng() < 0.5 → dir +1
 const DOWN = 0.8
 
@@ -28,7 +28,7 @@ describe('drawNewsGap', () => {
 })
 
 describe('drawNews', () => {
-  it('FR-005: 10000 seeded draws put every type within 18-22%', () => {
+  it('FR-005: 10000 seeded draws put every type within 23-27%', () => {
     const rng = createRng(31337)
     const counts = new Map<NewsEvent['type'], number>()
     for (let i = 0; i < 10_000; i++) {
@@ -36,10 +36,10 @@ describe('drawNews', () => {
       if (!type) throw new Error('drawNews returned no news')
       counts.set(type, (counts.get(type) ?? 0) + 1)
     }
-    expect(counts.size).toBe(5)
+    expect(counts.size).toBe(4)
     for (const n of counts.values()) {
-      expect(n / 10_000).toBeGreaterThanOrEqual(0.18)
-      expect(n / 10_000).toBeLessThanOrEqual(0.22)
+      expect(n / 10_000).toBeGreaterThanOrEqual(0.23)
+      expect(n / 10_000).toBeLessThanOrEqual(0.27)
     }
   })
 
@@ -102,52 +102,5 @@ describe('drawNews', () => {
     const running = { ...base(), trend: { left: 10, drift: -TREND_DRIFT } }
     const m = drawNews(sequence([TYPE.TREND, UP, 0.5]), running)
     expect(m.trend).toEqual({ left: TREND_TICKS, drift: TREND_DRIFT })
-  })
-
-  it('BR-015: TRADING_HALT sets 5000 ms and freezes the displayed price at the current one', () => {
-    const m = drawNews(sequence([TYPE.TRADING_HALT, UP, 0.5]), { ...base(), price: 123 })
-    expect(m.haltMsLeft).toBe(HALT_MS)
-    expect(m.frozenPrice).toBe(123)
-    expect(m.news).toEqual({ type: 'TRADING_HALT' })
-  })
-
-  it('BR-015: the true price keeps moving during a halt while the shown one stays frozen', () => {
-    const rng = createRng(8)
-    let m = drawNews(sequence([TYPE.TRADING_HALT, UP, 0.5]), { ...base(), vol: 0.002 })
-    for (let i = 0; i < 10; i++) m = stepMarket(m, rng)
-    expect(m.frozenPrice).toBe(100)
-    expect(m.price).not.toBe(100)
-  })
-
-  it('BR-015: a second TRADING_HALT restarts the timer but keeps the price already frozen', () => {
-    const rng = createRng(8)
-    let m = drawNews(sequence([TYPE.TRADING_HALT, UP, 0.5]), { ...base(), vol: 0.002 })
-    for (let i = 0; i < 10; i++) m = stepMarket(m, rng)
-    m = tickHalt(m, 3000)
-    const again = drawNews(sequence([TYPE.TRADING_HALT, UP, 0.5]), m)
-    expect(again.haltMsLeft).toBe(HALT_MS)
-    expect(again.frozenPrice).toBe(100)
-  })
-})
-
-describe('tickHalt', () => {
-  const halted = () => drawNews(sequence([TYPE.TRADING_HALT, UP, 0.5]), base())
-
-  it('BR-015: counts wall ms down and clears halt and frozen price at 0', () => {
-    const mid = tickHalt(halted(), 2000)
-    expect(mid.haltMsLeft).toBe(3000)
-    expect(mid.frozenPrice).toBe(100)
-    const done = tickHalt(halted(), HALT_MS)
-    expect(done.haltMsLeft).toBe(0)
-    expect(done.frozenPrice).toBeNull()
-  })
-
-  it('BR-015: never goes negative', () => {
-    expect(tickHalt(halted(), 60_000).haltMsLeft).toBe(0)
-  })
-
-  it('is a no-op when not halted', () => {
-    const m = base()
-    expect(tickHalt(m, 80)).toBe(m)
   })
 })

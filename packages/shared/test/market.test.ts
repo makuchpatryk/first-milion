@@ -7,14 +7,7 @@ import {
   VOL_MULT,
   VOL_RANGE,
 } from '../src/config'
-import {
-  createMarket,
-  type Market,
-  isTradingHalted,
-  shownPrice,
-  stepMarket,
-  tickHalt,
-} from '../src/engine/market'
+import { createMarket, type Market, stepMarket } from '../src/engine/market'
 import { createRng, randn } from '../src/rng'
 import { MIN_PRICE, START_PRICE } from '../src/rules'
 import { quietMarket } from './helpers'
@@ -27,7 +20,6 @@ describe('createMarket', () => {
     expect(m.newsLeft).toBeLessThanOrEqual(400)
     expect(m.regimeLeft).toBeGreaterThanOrEqual(REGIME_TICKS[0])
     expect(m.regimeLeft).toBeLessThanOrEqual(REGIME_TICKS[1])
-    expect(isTradingHalted(m)).toBe(false)
     expect(m.news).toBeNull()
   })
 })
@@ -102,17 +94,5 @@ describe('stepMarket', () => {
     const copy = structuredClone(m)
     stepMarket(m, rng)
     expect(m).toEqual(copy)
-  })
-})
-
-describe('halt helpers', () => {
-  it('BR-015: shownPrice is the frozen price while halted, the true price otherwise', () => {
-    const m = quietMarket(createMarket(createRng(1)))
-    expect(shownPrice(m)).toBe(m.price)
-    const halted = { ...m, price: 110, haltMsLeft: 5000, frozenPrice: 100 }
-    expect(isTradingHalted(halted)).toBe(true)
-    expect(shownPrice(halted)).toBe(100)
-    expect(tickHalt(halted, 5000).frozenPrice).toBeNull()
-    expect(shownPrice(tickHalt(halted, 5000))).toBe(110)
   })
 })

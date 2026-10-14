@@ -2,7 +2,6 @@ import {
   FLASH_DROP,
   FLASH_RECOVER,
   FLASH_TICKS,
-  HALT_MS,
   NEWS_FIRST_TICKS,
   NEWS_GAP_TICKS,
   SHOCK_MAG,
@@ -19,10 +18,9 @@ export type NewsEvent =
   | { type: 'SHOCK'; dir: 1 | -1; mag: number; idx: number }
   | { type: 'FLASH_CRASH'; drop: number }
   | { type: 'VOL_SPIKE' }
-  | { type: 'TRADING_HALT' }
   | { type: 'TREND'; dir: 1 | -1 }
 
-const NEWS_TYPES = ['SHOCK', 'FLASH_CRASH', 'VOL_SPIKE', 'TRADING_HALT', 'TREND'] as const
+const NEWS_TYPES = ['SHOCK', 'FLASH_CRASH', 'VOL_SPIKE', 'TREND'] as const
 
 /** Ticks until the next draw: 200-400 for the first, 250-650 after (BR-015). */
 export function drawNewsGap(rng: Rng, first: boolean): number {
@@ -31,10 +29,9 @@ export function drawNewsGap(rng: Rng, first: boolean): number {
 }
 
 /**
- * Draws one event (20% per type) and applies its effect; mirrors prototype news() L285-313.
+ * Draws one event (25% per type) and applies its effect; mirrors prototype news() L285-313.
  * Effects of the same kind restart; the tick-based effects are shorter than the minimum gap, so
- * only a repeated TRADING_HALT can overlap (FR-005 edge case); it restarts the timer and keeps the
- * frozen price.
+ * they never overlap.
  */
 export function drawNews(rng: Rng, m: Market): Market {
   const type = pick(rng, NEWS_TYPES)
@@ -61,15 +58,6 @@ export function drawNews(rng: Rng, m: Market): Market {
     }
     case 'VOL_SPIKE':
       return { ...base, volLeft: VOL_TICKS, news: { type: 'VOL_SPIKE' } }
-    case 'TRADING_HALT':
-      // Display freezes at the current price while the true price keeps moving (BR-015). A halt
-      // already running keeps its frozen price; only the timer restarts.
-      return {
-        ...base,
-        haltMsLeft: HALT_MS,
-        frozenPrice: m.frozenPrice ?? m.price,
-        news: { type: 'TRADING_HALT' },
-      }
     case 'TREND':
       return {
         ...base,

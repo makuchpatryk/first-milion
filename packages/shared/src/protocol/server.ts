@@ -20,15 +20,13 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('room.state'), view: roomViewSchema }).strict(),
   /** On join or return while a round runs: every price so far, at most `HISTORY_MAX` (FR-015). */
   z.object({ type: z.literal('room.history'), prices: z.array(z.number()) }).strict(),
-  /** One per recipient every tick interval; prices, halt, news and ranking are the same for all. */
+  /** One per recipient every tick interval; prices, news and ranking are the same for all. */
   z
     .object({
       type: z.literal('room.tick'),
       /** Prices of this interval, one per simulation step (length = speed). */
       prices: z.array(z.number()),
-      /** Displayed price; frozen while halted (BR-015). */
       price: z.number(),
-      halt: z.object({ msLeft: z.number() }).strict().nullable(),
       /** Set only on the interval the event was drawn. */
       news: newsViewSchema.nullable(),
       endsInMs: z.number(),

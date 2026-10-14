@@ -19,7 +19,8 @@ export const roomSummarySchema = z
     observers: z.number().int().min(0),
     maxPlayers: z.literal(4),
     durationMin: durationSchema,
-    profitTarget: z.number().int(),
+    startCash: z.number().int(),
+    goal: z.number().int(),
     speed: speedSchema,
     status: statusSchema,
   })
@@ -79,7 +80,6 @@ export const newsViewSchema = z.discriminatedUnion('type', [
     .strict(),
   z.object({ type: z.literal('FLASH_CRASH'), drop: z.number() }).strict(),
   z.object({ type: z.literal('VOL_SPIKE') }).strict(),
-  z.object({ type: z.literal('TRADING_HALT') }).strict(),
   z.object({ type: z.literal('TREND'), dir: z.union([z.literal(1), z.literal(-1)]) }).strict(),
 ])
 export type NewsView = z.infer<typeof newsViewSchema>
@@ -102,7 +102,8 @@ export const roomViewSchema = z
     name: z.string(),
     hostNick: z.string().nullable(),
     durationMin: durationSchema,
-    profitTarget: z.number().int(),
+    startCash: z.number().int(),
+    goal: z.number().int(),
     speed: speedSchema,
     status: statusSchema,
     /** Join order (FR-010, BR-013). */

@@ -19,14 +19,10 @@ export interface Market {
   readonly trend: { readonly left: number; readonly drift: number } | null
   /** FLASH_CRASH recovery still to apply. */
   readonly flash: { readonly left: number; readonly perTick: number } | null
-  /** Wall ms of trading halt left; > 0 means orders are rejected (BR-015). */
-  readonly haltMsLeft: number
   /** Last news drawn (kept after it happens so the UI can fade it, FR-005); null before the first. */
   readonly news: NewsEvent | null
   /** Ticks since `news`. */
   readonly newsAge: number
-  /** Price shown while halted; null otherwise. */
-  readonly frozenPrice: number | null
 }
 
 function drawRegime(rng: Rng): Pick<Market, 'drift' | 'vol' | 'regimeLeft'> {
@@ -46,10 +42,8 @@ export function createMarket(rng: Rng): Market {
     volLeft: 0,
     trend: null,
     flash: null,
-    haltMsLeft: 0,
     news: null,
     newsAge: 0,
-    frozenPrice: null,
   }
 }
 
@@ -76,19 +70,4 @@ export function stepMarket(m: Market, rng: Rng): Market {
     flash: next.flash && next.flash.left > 1 ? { ...next.flash, left: next.flash.left - 1 } : null,
     newsAge: next.newsAge + 1,
   }
-}
-
-/** Counts the halt down in wall-clock ms, never below 0; clears the frozen price at 0 (BR-015). */
-export function tickHalt(m: Market, elapsedMs: number): Market {
-  if (m.haltMsLeft <= 0) return m
-  const haltMsLeft = Math.max(0, m.haltMsLeft - elapsedMs)
-  return haltMsLeft === 0 ? { ...m, haltMsLeft, frozenPrice: null } : { ...m, haltMsLeft }
-}
-
-export function isTradingHalted(m: Market): boolean {
-  return m.haltMsLeft > 0
-}
-
-export function shownPrice(m: Market): number {
-  return m.frozenPrice ?? m.price
 }
