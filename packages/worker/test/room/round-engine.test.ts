@@ -1,6 +1,6 @@
 import { TICK_MS } from '@fm/shared/config'
 import type { RankRow } from '@fm/shared/protocol'
-import { START_CASH } from '@fm/shared/rules'
+import { DEFAULT_START_CASH } from '@fm/shared/rules'
 import { describe, expect, it } from 'vitest'
 import {
   ADMIN,
@@ -45,21 +45,21 @@ function expectConsistentRanking(ranking: readonly RankRow[]): void {
 /** Sort key: eliminated behind everyone, then by equity; ties are the tie-break's job. */
 const rank = (row: RankRow): number => (row.status === 'eliminated' ? Infinity : -row.equity)
 
-describe('profit target (FR-013 AC, BR-009)', () => {
-  it('FR-013 AC: a player at the target ends the round and wins', () => {
-    const h = started(3, { profitTarget: 100, seed: 1 })
+describe('goal (FR-013 AC, BR-009)', () => {
+  it('FR-013 AC, BR-009: a player whose equity reaches the goal ends the round and wins', () => {
+    const h = started(3, { startCash: 5_000, goal: 5_100, seed: 1 })
     h.tick(2)
     h.room.order('uid-1', 'BUY', 250)
     const used = h.runToEnd(ROUND_TICKS)
     expect(used).toBeLessThan(ROUND_TICKS) // well before the time is up
     expect(roundEnd(h)).toMatchObject({ reason: 'TARGET', winners: ['Nick1'] })
     const winnerRow = roundEnd(h)?.ranking.find((row) => row.nick === 'Nick1')
-    expect(winnerRow?.equity).toBeGreaterThanOrEqual(START_CASH + 100)
+    expect(winnerRow?.equity).toBeGreaterThanOrEqual(5_100)
     expect(winnerRow?.place).toBe(1)
   })
 
   it('BR-009: every member, observers too, gets the same round.end', () => {
-    const h = createHarness({ profitTarget: 100, seed: 1 })
+    const h = createHarness({ goal: DEFAULT_START_CASH + 100, seed: 1 })
     joinPlayers(h, 5) // uid-5 observes
     h.room.start('uid-1')
     h.tick(2)
@@ -71,7 +71,7 @@ describe('profit target (FR-013 AC, BR-009)', () => {
   })
 
   it('BR-009: two players reaching the target on the same tick with equal equity share the first place', () => {
-    const h = started(3, { profitTarget: 100, seed: 1 })
+    const h = started(3, { goal: DEFAULT_START_CASH + 100, seed: 1 })
     h.tick(2)
     h.room.order('uid-1', 'BUY', 250)
     h.room.order('uid-2', 'BUY', 250)
@@ -225,8 +225,8 @@ describe('round end and the next round (BR-014, decision 38)', () => {
     expect(h.errorsTo('uid-1')).toEqual(['INVALID_STATE'])
   })
 
-  it('decision 38: the next start resets every seat to active with an empty portfolio', () => {
-    const h = started(2, { seed: 2 }) // uid-1 is wiped out, uid-2 stays flat
+  it('decision 38, BR-003: the next start resets every seat to active with an empty portfolio of the room capital', () => {
+    const h = started(2, { seed: 2, startCash: 5_000 }) // uid-1 is wiped out, uid-2 stays flat
     h.tick(2)
     leverage(h, 'uid-1', 'BUY', 100)
     h.runToEnd(ROUND_TICKS)
@@ -242,7 +242,7 @@ describe('round end and the next round (BR-014, decision 38)', () => {
         units: 0,
         realized: 0,
         closedTrades: 0,
-        equity: START_CASH,
+        equity: 5_000,
       })
     }
     expect(h.latestTick('uid-1')?.endsInMs).toBe(3 * 60_000 - TICK_MS)

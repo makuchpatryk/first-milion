@@ -12,7 +12,7 @@ function setup(hostUid = 'uid-1') {
   const closed: { uid: string; code: number }[] = []
   const published: (RoomSummary | null)[] = []
   const room = new RoomLogic(
-    { id: 'room-1', name: 'Friday round', durationMin: 5, speed: 3, profitTarget: 500, hostUid },
+    { id: 'room-1', name: 'Friday round', durationMin: 5, speed: 3, startCash: 5_000, goal: 5_500, hostUid },
     {
       schedule: clock.schedule,
       cancel: clock.cancel,
@@ -63,10 +63,17 @@ describe('RoomLogic join', () => {
       observers: 0,
       maxPlayers: 4,
       durationMin: 5,
-      profitTarget: 500,
+      startCash: 5_000,
+      goal: 5_500,
       speed: 3,
       status: 'lobby',
     })
+  })
+
+  it('FR-004 / FR-011: the room view carries the chosen start capital and goal', () => {
+    const { room, lastView } = setup()
+    room.join('uid-1', 'Jan')
+    expect(lastView('uid-1')).toMatchObject({ startCash: 5_000, goal: 5_500 })
   })
 
   it('FR-010 AC: 4 players fit, the 5th joiner becomes an observer', () => {

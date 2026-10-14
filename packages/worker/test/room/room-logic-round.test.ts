@@ -1,10 +1,10 @@
-import { HALT_MS, TICK_MS } from '@fm/shared/config'
+import { TICK_MS } from '@fm/shared/config'
 import { CLOSE_CODES } from '@fm/shared/protocol'
 import { DISCONNECT_GRACE_MS, EMPTY_ROOM_TTL_MS, SPREAD } from '@fm/shared/rules'
 import { describe, expect, it } from 'vitest'
 import { ADMIN, createHarness, joinPlayers, type Harness } from '../support/test-client'
 
-/** A started round of `players` players, seed 1 (a halt comes at interval 41). */
+/** A started round of `players` players, seed 1. */
 function running(players = 3, options: Parameters<typeof createHarness>[0] = {}) {
   const h = createHarness(options)
   joinPlayers(h, players)
@@ -191,39 +191,6 @@ describe('RoomLogic orders (FR-012, BR-007, BR-018)', () => {
     h.room.order('uid-1', 'BUY', 10)
     h.room.close('uid-1')
     expect(h.errorsTo('uid-1')).toEqual(['INVALID_STATE', 'INVALID_STATE'])
-  })
-
-  it('FR-005 AC, BR-015: orders and close during a trading halt get HALTED; trading resumes after 5 s wall time', () => {
-    const h = running(2)
-    let guard = 0
-    while (lastTick(h, 'uid-1')?.halt == null && guard++ < 200) h.tick()
-    expect(lastTick(h, 'uid-1')?.halt).not.toBeNull()
-    h.room.order('uid-1', 'BUY', 10)
-    h.room.close('uid-1')
-    expect(h.errorsTo('uid-1')).toEqual(['HALTED', 'HALTED'])
-
-    let haltTicks = 0
-    while (lastTick(h, 'uid-1')?.halt != null) {
-      h.tick()
-      haltTicks++
-    }
-    // 5 000 ms in 80 ms ticks, at speed 8: wall time, not game ticks (decision 39).
-    expect(haltTicks).toBeGreaterThanOrEqual(HALT_MS / TICK_MS - 1)
-    expect(haltTicks).toBeLessThanOrEqual(HALT_MS / TICK_MS + 1)
-    h.room.order('uid-1', 'BUY', 10)
-    expect(h.errorsTo('uid-1')).toEqual(['HALTED', 'HALTED'])
-  })
-
-  it('BR-015: during a halt the displayed price is frozen while the price stream keeps moving', () => {
-    const h = running(2)
-    let guard = 0
-    while (lastTick(h, 'uid-1')?.halt == null && guard++ < 200) h.tick()
-    const first = lastTick(h, 'uid-1')
-    h.tick(10)
-    const later = lastTick(h, 'uid-1')
-    expect(later?.price).toBe(first?.price)
-    expect(later?.prices.at(-1)).not.toBe(first?.prices.at(-1))
-    expect(later?.halt?.msLeft).toBeLessThan(first?.halt?.msLeft ?? 0)
   })
 
   it('BR-015: every recipient gets the same news on the interval it is drawn', () => {

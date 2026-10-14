@@ -1,11 +1,9 @@
-import { HALT_TICK_CAP_MS } from '@fm/shared/config'
-import { isTradingHalted, shownPrice } from '@fm/shared/engine/market'
 import {
   closePosition,
   closedTradeOf,
-  emptyPortfolio,
   executeOrder,
   fillPrice,
+  newPortfolio,
   type TradeSide,
 } from '@fm/shared/engine/portfolio'
 import {
@@ -31,7 +29,7 @@ import {
 } from '@fm/shared/rules'
 import type { Handle, Timers } from '../timers'
 import { OrderRateLimit } from './rate-limit'
-import { rankSeats, reachedTarget, shownEquity, winnersAtTarget, winnersAtTime } from './ranking'
+import { rankSeats, reachedGoal, shownEquity, winnersAtTarget, winnersAtTime } from './ranking'
 import { assignRole, nextHost, uniqueNick, type Member } from './roster'
 import { eliminateSeat, settleSeat, startRound, stepRound, type Round, type Seat } from './round'
 
@@ -40,7 +38,10 @@ export interface RoomInit {
   name: string
   durationMin: RoundDuration
   speed: Speed
-  profitTarget: number
+  /** Capital every player starts with (BR-003). */
+  startCash: number
+  /** Target equity that wins the round (BR-009). */
+  goal: number
   /** The creator (BR-013). */
   hostUid: string
 }
@@ -84,7 +85,6 @@ export class RoomLogic {
   private emptyTimer: Handle | null = null
   private readonly disconnectTimers = new Map<string, Handle>()
   private readonly rateLimits = new Map<string, OrderRateLimit>()
-  private lastTickAt = 0
   private disposed = false
   private creatorJoined = false
 
@@ -111,7 +111,8 @@ export class RoomLogic {
       observers: this.observers.length,
       maxPlayers: MAX_PLAYERS,
       durationMin: this.init.durationMin,
-      profitTarget: this.init.profitTarget,
+      startCash: this.init.startCash,
+      goal: this.init.goal,
       speed: this.init.speed,
       status: this.round === null ? 'lobby' : 'running',
     }
@@ -126,7 +127,8 @@ export class RoomLogic {
       name: this.init.name,
       hostNick: this.hostMember()?.nick ?? null,
       durationMin: this.init.durationMin,
-      profitTarget: this.init.profitTarget,
+      startCash: this.init.startCash,
+      goal: this.init.goal,
       speed: this.init.speed,
       status: this.round === null ? 'lobby' : 'running',
       players: this.seats.map((seat) => ({ nick: seat.nick, status: seat.status })),
@@ -161,7 +163,7 @@ export class RoomLogic {
 
     const taken = [...this.seats, ...this.observers].map((member) => member.nick)
     const member = { uid, nick: uniqueNick(taken, nick) }
-    if (role === 'player') this.seats.push(newSeat(member))
+    if (role === 'player') this.seats.push(newSeat(member, this.init.startCash))
     else this.observers.push(member)
     if (uid === this.init.hostUid) this.creatorJoined = true
     // The creator is host (BR-013). Once they have gone and the room is empty, the next joiner
@@ -191,11 +193,11 @@ export class RoomLogic {
     if (uid !== this.hostUid) return this.fail(uid, 'FORBIDDEN')
     if (this.round !== null || this.seats.length === 0) return this.fail(uid, 'INVALID_STATE')
     const now = this.deps.now()
-    const started = startRound(this.seats, now, this.init.durationMin, this.deps.seed())
+    const { durationMin, startCash } = this.init
+    const started = startRound(this.seats, now, durationMin, this.deps.seed(), startCash)
     this.round = started.round
     this.seats = started.seats
     this.lastRound = null
-    this.lastTickAt = now
     this.rateLimits.clear()
     this.changed()
   }
@@ -204,10 +206,7 @@ export class RoomLogic {
   tick(): void {
     if (this.round === null) return
     const now = this.deps.now()
-    // Capped so a stalled interval cannot jump the halt countdown (decision 39).
-    const elapsed = Math.min(Math.max(now - this.lastTickAt, 0), HALT_TICK_CAP_MS)
-    this.lastTickAt = now
-    const step = stepRound(this.round, this.seats, elapsed, now, this.init.speed)
+    const step = stepRound(this.round, this.seats, now, this.init.speed)
     this.round = step.round
     this.seats = step.seats
     if (this.checkEnd(now)) return
@@ -370,7 +369,7 @@ export class RoomLogic {
     this.checkEnd(this.deps.now())
   }
 
-  /** Gate shared by `order` and `close`: membership, rate limit, role, state, halt (FR-012). */
+  /** Gate shared by `order` and `close`: membership, rate limit, role, state (FR-012). */
   private admitTrade(uid: string): { seat: Seat; round: Round } | null {
     const member = this.find(uid)
     if (member === null) return this.deny(uid, 'FORBIDDEN')
@@ -381,7 +380,6 @@ export class RoomLogic {
     const round = this.round
     if (round === null) return this.deny(uid, 'INVALID_STATE')
     if (seat.status === 'eliminated') return this.deny(uid, 'ELIMINATED')
-    if (isTradingHalted(round.market)) return this.deny(uid, 'HALTED')
     return { seat, round }
   }
 
@@ -395,16 +393,24 @@ export class RoomLogic {
   }
 
   /** Applies a trade, confirms it in the same call, then checks the end (BR-009: after every order). */
-  private book(trade: { seat: Seat; round: Round }, portfolio: Seat['portfolio'], fill: number): void {
+  private book(
+    trade: { seat: Seat; round: Round },
+    portfolio: Seat['portfolio'],
+    fill: number,
+  ): void {
     const now = this.deps.now()
     const price = trade.round.market.price
     this.replaceSeat(settleSeat({ ...trade.seat, portfolio }, price, now))
-    this.deps.send(trade.seat.uid, { type: 'order.ok', fill, you: this.meRound(trade.seat.uid, price) })
+    this.deps.send(trade.seat.uid, {
+      type: 'order.ok',
+      fill,
+      you: this.meRound(trade.seat.uid, price),
+    })
     this.checkEnd(now)
   }
 
   /**
-   * End conditions, in the order of BR-009: everybody eliminated, a player at the profit target,
+   * End conditions, in the order of BR-009: everybody eliminated, a player at the goal equity,
    * then the round time. True when the round ended.
    */
   private checkEnd(now: number): boolean {
@@ -415,7 +421,7 @@ export class RoomLogic {
       this.endRound('ALL_ELIMINATED', [])
       return true
     }
-    const reachers = this.seats.filter((seat) => reachedTarget(seat, price, this.init.profitTarget))
+    const reachers = this.seats.filter((seat) => reachedGoal(seat, price, this.init.goal))
     if (reachers.length > 0) {
       this.endRound('TARGET', winnersAtTarget(reachers, price))
       return true
@@ -449,13 +455,11 @@ export class RoomLogic {
   private broadcastTick(round: Round, newPrices: number[], now: number): void {
     const { market } = round
     const ranking = rankSeats(this.seats, market.price)
-    const halt = isTradingHalted(market) ? { msLeft: market.haltMsLeft } : null
     for (const member of this.connected()) {
       this.deps.send(member.uid, {
         type: 'room.tick',
         prices: newPrices,
-        price: shownPrice(market),
-        halt,
+        price: market.price,
         news: round.lastNews,
         endsInMs: Math.max(0, round.endsAt - now),
         ranking,
@@ -526,11 +530,11 @@ export class RoomLogic {
   }
 }
 
-function newSeat(member: Member): Seat {
+function newSeat(member: Member, startCash: number): Seat {
   return {
     ...member,
     status: 'active',
-    portfolio: emptyPortfolio,
+    portfolio: newPortfolio(startCash),
     reachedEquityAt: 0,
     lastEquity: null,
     disconnectedAt: null,

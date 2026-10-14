@@ -141,7 +141,13 @@ export class TestSocket {
   }
 }
 
-export const validForm = { name: 'Friday round', durationMin: 5, speed: 1, profitTarget: 20_000 } as const
+export const validForm = {
+  name: 'Friday round',
+  durationMin: 5,
+  speed: 1,
+  startCash: 10_000,
+  goal: 30_000,
+} as const
 
 /** Creates a room through the lobby socket and returns its id. */
 export async function createRoom(lobby: TestSocket): Promise<string> {

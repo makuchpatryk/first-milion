@@ -1,4 +1,4 @@
-import { equity, totalResult, type Portfolio } from '@fm/shared/engine/portfolio'
+import { equity, type Portfolio } from '@fm/shared/engine/portfolio'
 import type { MemberStatus, RankRow } from '@fm/shared/protocol'
 
 /** What ranking reads of a seat; `Seat` (round.ts) satisfies it. */
@@ -47,9 +47,9 @@ export function rankSeats(seats: readonly RankableSeat[], price: number): RankRo
     }))
 }
 
-/** Has the seat's total result reached the profit target (BR-009)? Eliminated seats cannot. */
-export function reachedTarget(seat: RankableSeat, price: number, target: number): boolean {
-  return seat.status !== 'eliminated' && totalResult(seat.portfolio, price) >= target
+/** Has the seat's equity reached the goal (BR-009)? Eliminated seats cannot. */
+export function reachedGoal(seat: RankableSeat, price: number, goal: number): boolean {
+  return seat.status !== 'eliminated' && equity(seat.portfolio, price) >= goal
 }
 
 /** Winners at round time: everyone sharing the first place among the not eliminated (BR-009). */

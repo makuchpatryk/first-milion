@@ -1,14 +1,15 @@
-import { emptyPortfolio, type Portfolio } from '@fm/shared/engine/portfolio'
+import { newPortfolio, type Portfolio } from '@fm/shared/engine/portfolio'
 import { describe, expect, it } from 'vitest'
 import {
   rankSeats,
-  reachedTarget,
+  reachedGoal,
   winnersAtTarget,
   winnersAtTime,
   type RankableSeat,
 } from '../../src/room/ranking'
 
 const PRICE = 100
+const emptyPortfolio = newPortfolio(10_000)
 
 /** A seat whose equity at PRICE is 10 000 + `result` (realized P&L, flat). */
 function seat(nick: string, result: number, over: Partial<RankableSeat> = {}): RankableSeat {
@@ -84,28 +85,31 @@ describe('rankSeats (BR-009, BR-010)', () => {
   })
 })
 
-describe('reachedTarget (BR-009)', () => {
-  it('FR-013 AC: a total result of exactly the target counts, one cent below does not', () => {
-    expect(reachedTarget(seat('A', 500), PRICE, 500)).toBe(true)
-    expect(reachedTarget(seat('A', 499.99), PRICE, 500)).toBe(false)
+describe('reachedGoal (BR-009)', () => {
+  it('BR-009: equity of exactly the goal counts, one cent below does not', () => {
+    expect(reachedGoal(seat('A', 500), PRICE, 10_500)).toBe(true)
+    expect(reachedGoal(seat('A', 499.99), PRICE, 10_500)).toBe(false)
+    expect(reachedGoal(seat('A', 20_000), PRICE, 30_000)).toBe(true)
   })
 
-  it('BR-009: a goal is reached at exactly the goal', () => {
-    expect(reachedTarget(seat('A', 20_000), PRICE, 20_000)).toBe(true)
+  it('BR-009: the goal is measured on equity, so it follows the chosen start capital', () => {
+    const small: RankableSeat = { ...seat('A', 0), portfolio: { ...newPortfolio(5_000), realized: 400 } }
+    expect(reachedGoal(small, PRICE, 5_400)).toBe(true)
+    expect(reachedGoal(small, PRICE, 5_401)).toBe(false)
   })
 
   it('an eliminated player cannot reach the target', () => {
-    expect(reachedTarget(seat('A', 900, { status: 'eliminated' }), PRICE, 500)).toBe(false)
+    expect(reachedGoal(seat('A', 900, { status: 'eliminated' }), PRICE, 10_500)).toBe(false)
   })
 
   it('a disconnected player still can (BR-019: equity keeps moving)', () => {
-    expect(reachedTarget(seat('A', 900, { status: 'disconnected' }), PRICE, 500)).toBe(true)
+    expect(reachedGoal(seat('A', 900, { status: 'disconnected' }), PRICE, 10_500)).toBe(true)
   })
 
   it('the open profit counts, not only the realized one', () => {
     const long: RankableSeat = { ...seat('A', 0), portfolio: { ...emptyPortfolio, units: 100, avg: 100 } }
-    expect(reachedTarget(long, 105, 500)).toBe(true)
-    expect(reachedTarget(long, 104.99, 500)).toBe(false)
+    expect(reachedGoal(long, 105, 10_500)).toBe(true)
+    expect(reachedGoal(long, 104.99, 10_500)).toBe(false)
   })
 })
 
