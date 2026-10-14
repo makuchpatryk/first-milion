@@ -2,12 +2,12 @@ import { expect, test, type Page } from '@playwright/test'
 import { createAccount, signIn } from '../fixtures/auth'
 import { goalField, startField } from '../fixtures/four-players'
 
-async function openSinglePlay(page: Page): Promise<void> {
+async function openSinglePlay(page: Page, goal = 20_000): Promise<void> {
   await signIn(page, await createAccount({ prefix: 'solo' }))
   await page.getByRole('link', { name: /^Single play/ }).click()
   await expect(page).toHaveURL(/\/single$/)
   await startField(page).fill('5000')
-  await goalField(page).fill('20000')
+  await goalField(page).fill(String(goal))
   await page.getByRole('button', { name: 'Start' }).click()
   await expect(page.getByRole('heading', { name: 'Recent trades' })).toBeVisible()
 }
@@ -67,7 +67,8 @@ test.describe('FR-004 single play', () => {
     page,
   }) => {
     test.setTimeout(150_000)
-    await openSinglePlay(page)
+    // A goal out of reach: a lucky first rise would otherwise end the round as "Goal reached".
+    await openSinglePlay(page, 50_000_000)
     await page
       .getByRole('group', { name: 'Size' })
       .getByRole('button', { name: '250 units' })
