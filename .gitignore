@@ -49,3 +49,6 @@ Thumbs.db
 # Claude Code
 CLAUDE.md
 .claude/
+.screencaster/
+.mcp.json
+tools/demo/

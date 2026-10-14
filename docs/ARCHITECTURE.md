@@ -22,7 +22,7 @@ packages/web      Vue 3 (src/): auth/ (Firebase), net/ (the only WebSocket code:
                   router/, single/, views/ (Rooms, CreateRoom, Room), components/ (Canvas chart, LobbyPanel, RoundPanel, ResultsDialog, ModalDialog), i18n/, styles/
 e2e/              Playwright (@fm/e2e): playwright.config.ts (3 servers), fixtures/ (auth.ts emulator accounts, four-players.ts seats and room helpers, ws-tap.ts in-page socket tap), tests/*.spec.ts
 packages/web/scripts   check-bundle.mjs (gzip sum ≤ 300 KB), check-no-emulator.mjs; packages/web/lighthouserc.json
-.github/workflows ci.yml (light job always, heavy job on main), deploy.yml (manual, environment production)
+.github/workflows ci.yml (light job always, heavy job on main), deploy.yml (only on a `vX.Y.Z` tag on main: verify job, then deploy job in environment production)
 ```
 
 Dependency rules:

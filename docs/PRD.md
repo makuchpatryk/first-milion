@@ -575,7 +575,7 @@ There is no database (BR-020). The entities below exist only in memory.
 - **Includes:** NFR-001–NFR-006
 - **Depends on:** M5
 - **Definition of done:** Playwright e2e (4 players, full round), axe audit with no AA violations, Lighthouse within budget, production deployment, free-limit usage checked. The production Firebase project sets the Auth password policy to a minimum of 8 characters, because the client check alone (BR-002) can be bypassed.
-- **Status:** release pending user accounts. Written and checked in the light run: Playwright specs (4-player round, latency, rate limit, reconnect, observer, admin, single play, auth), the axe spec, bundle and no-emulator checks, `lighthouserc.json`, Worker config and security tests, `ci.yml` (heavy job on `main`) and `deploy.yml` (manual, gated). Run in review: the Playwright, axe, build, bundle and Lighthouse checks. Left for the release step (decision 36): Firebase and Cloudflare projects, secrets, the production deploy, the free-plan usage check (NFR-002) and the Firebase password policy.
+- **Status:** release pending user accounts. Written and checked in the light run: Playwright specs (4-player round, latency, rate limit, reconnect, observer, admin, single play, auth), the axe spec, bundle and no-emulator checks, `lighthouserc.json`, Worker config and security tests, `ci.yml` (heavy job on `main`) and `deploy.yml` (only on a `vX.Y.Z` tag on `main`, gated). Run in review: the Playwright, axe, build, bundle and Lighthouse checks. Left for the release step (decision 36): Firebase and Cloudflare projects, secrets, the production deploy, the free-plan usage check (NFR-002) and the Firebase password policy.
 
 # Appendix
 
