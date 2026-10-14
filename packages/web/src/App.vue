@@ -70,10 +70,10 @@ const verified = computed(() => session.status === 'verified')
 .shell {
   max-width: 720px;
   margin-inline: auto;
-  padding: 16px 16px 32px;
+  padding: 8px 16px 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .bar {
@@ -86,15 +86,15 @@ const verified = computed(() => session.status === 'verified')
 .logo {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-height: 44px;
+  gap: 8px;
+  min-height: 40px;
   color: var(--text);
   text-decoration: none;
 }
 
 .logo-icon {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   flex: none;
 }
 
@@ -111,7 +111,7 @@ const verified = computed(() => session.status === 'verified')
 }
 
 .logo-text {
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -137,8 +137,8 @@ const verified = computed(() => session.status === 'verified')
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
@@ -147,8 +147,8 @@ const verified = computed(() => session.status === 'verified')
 }
 
 .settings-link .icon {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
 }
 
 .settings-link[aria-current='page'] {
@@ -157,14 +157,14 @@ const verified = computed(() => session.status === 'verified')
 }
 
 .crumbs {
-  margin-top: -8px;
+  margin-top: -4px;
 }
 
 .back {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 44px;
+  min-height: 36px;
   padding: 0 14px 0 8px;
   border-radius: 6px;
   color: var(--muted);

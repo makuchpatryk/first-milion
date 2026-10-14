@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { session } from '../auth/session'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import LobbyPanel from '../components/LobbyPanel.vue'
 import ModalDialog from '../components/ModalDialog.vue'
 import ResultsDialog from '../components/ResultsDialog.vue'
 import RoundPanel from '../components/RoundPanel.vue'
+import { useLeaveGuard } from '../composables/use-leave-guard'
 import { useRoom } from '../composables/use-room'
 import { closeKey, errorKey } from '../room/error-map'
 
@@ -28,6 +30,17 @@ watch(
   },
 )
 
+// A player still in a running round is asked before leaving (menu, settings, back). Observers,
+// eliminated players and a closed room (kick, admin close) leave without a question.
+const playing = computed(
+  () =>
+    closeCode.value === null &&
+    state.value.view?.status === 'running' &&
+    state.value.view.you.role === 'player' &&
+    state.value.you?.status !== 'eliminated',
+)
+const leaveGuard = useLeaveGuard(() => playing.value)
+
 function leave(): void {
   room.leave()
   void router.push('/rooms')
@@ -42,13 +55,10 @@ function leaveClosed(): void {
 
 <template>
   <section class="room" aria-labelledby="room-title">
-    <div v-if="state.view?.status === 'running'" class="top">
-      <button type="button" class="link link-muted" @click="leave">
-        {{ t('lobby.leave') }}
-      </button>
-    </div>
-
-    <h1 id="room-title">{{ state.view?.name ?? t('rooms.title') }}</h1>
+    <!-- While a round runs the name sits in the round panel's footer; the heading stays for screen readers. -->
+    <h1 id="room-title" :class="{ 'sr-only': state.view?.status === 'running' }">
+      {{ state.view?.name ?? t('rooms.title') }}
+    </h1>
 
     <p v-if="status === 'reconnecting'" class="banner" role="status">
       {{
@@ -98,6 +108,16 @@ function leaveClosed(): void {
       />
     </template>
 
+    <ConfirmDialog
+      v-if="leaveGuard.asking.value"
+      open
+      :title="t('leaveGame.title')"
+      :body="t('leaveGame.room')"
+      :confirm-label="t('leaveGame.confirm')"
+      @confirm="leaveGuard.confirm"
+      @cancel="leaveGuard.cancel"
+    />
+
     <ModalDialog :open="closeCode !== null" :title="t('round.closedTitle')" @close="leaveClosed">
       <p class="text">{{ closeCode === null ? '' : t(closeKey(closeCode)) }}</p>
       <template #actions>
@@ -112,13 +132,6 @@ function leaveClosed(): void {
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-.top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
 }
 
 h1 {

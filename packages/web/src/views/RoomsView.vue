@@ -25,8 +25,10 @@ const nickOk = computed(() => isValidNick(session.user?.nick ?? ''))
 
 const closing = ref<RoomSummary | null>(null)
 
-const targetText = (room: RoomSummary): string =>
-  t('rooms.target', { n: formatDecimal(room.profitTarget, 0, locale.value) })
+const startText = (room: RoomSummary): string =>
+  t('rooms.startCash', { n: formatDecimal(room.startCash, 0, locale.value) })
+const goalText = (room: RoomSummary): string =>
+  t('rooms.goal', { n: formatDecimal(room.goal, 0, locale.value) })
 
 function join(room: RoomSummary): void {
   void router.push(`/rooms/${encodeURIComponent(room.id)}`)
@@ -84,7 +86,8 @@ function confirmClose(): void {
           <span>{{ t('rooms.host') }}: {{ room.hostNick ?? t('rooms.noHost') }}</span>
           <span class="num">{{ t('rooms.players', { n: room.players, max: MAX_PLAYERS }) }}</span>
           <span class="num">{{ t('rooms.duration', { n: room.durationMin }) }}</span>
-          <span class="num">{{ targetText(room) }}</span>
+          <span class="num">{{ startText(room) }}</span>
+          <span class="num">{{ goalText(room) }}</span>
           <span class="num">{{ t('rooms.speed', { n: room.speed }) }}</span>
           <span v-if="room.observers > 0" class="num">
             {{ t('rooms.observers', { n: room.observers, max: MAX_OBSERVERS }) }}

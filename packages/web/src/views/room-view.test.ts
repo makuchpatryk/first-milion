@@ -22,7 +22,7 @@ vi.mock('../composables/use-room', () => ({
 
 import { session } from '../auth/session'
 import pl from '../i18n/pl.json'
-import { buttonByText, mountWithApp } from '../test-support'
+import { buttonByText, mountAsRoute, mountWithApp } from '../test-support'
 import RoomView from './RoomView.vue'
 
 const view = (over: Partial<RoomViewData> = {}): RoomViewData => ({
@@ -30,7 +30,8 @@ const view = (over: Partial<RoomViewData> = {}): RoomViewData => ({
   name: 'Alpha',
   hostNick: 'Ann',
   durationMin: 5,
-  profitTarget: 20_000,
+  startCash: 10_000,
+  goal: 30_000,
   speed: 3,
   status: 'lobby',
   players: [{ nick: 'Ann', status: 'active' }],
@@ -50,7 +51,6 @@ function fakeRoom(init: Partial<RoomState> = {}, status: SocketStatus = 'ready')
     status: statusRef,
     reconnectLeftS,
     closeCode,
-    halted: computed(() => state.value.halt !== null),
     canTrade: computed(() => true),
     start: vi.fn(),
     order: vi.fn(),
@@ -121,6 +121,58 @@ describe('RoomView', () => {
     await flushPromises()
     expect(room.leave).toHaveBeenCalledTimes(1)
     expect(router.currentRoute.value.path).toBe('/rooms')
+  })
+
+  describe('leaving a running round', () => {
+    const youActive = {
+      role: 'player',
+      status: 'active',
+      units: 0,
+      avg: 0,
+      realized: 0,
+      equity: 10_000,
+      closedTrades: 0,
+      wins: 0,
+    } as const
+    const mountRouted = () => mountAsRoute(RoomView, '/rooms/:id')
+
+    it('a player in a running round is asked; "Cancel" keeps them in the room', async () => {
+      fakeRoom({ view: view({ status: 'running' }), price: 100, endsInMs: 30_000, you: youActive })
+      const { wrapper, router } = await mountRouted()
+      const navigation = router.push('/menu')
+      await flushPromises()
+      expect(wrapper.find('dialog').text()).toContain(pl.leaveGame.room)
+      await buttonByText(wrapper, pl.common.cancel).trigger('click')
+      await navigation
+      expect(router.currentRoute.value.path).toBe('/rooms/:id')
+    })
+
+    it('"Leave the game" lets the navigation go on', async () => {
+      fakeRoom({ view: view({ status: 'running' }), price: 100, endsInMs: 30_000, you: youActive })
+      const { wrapper, router } = await mountRouted()
+      const navigation = router.push('/settings')
+      await flushPromises()
+      await buttonByText(wrapper, pl.leaveGame.confirm).trigger('click')
+      await navigation
+      expect(router.currentRoute.value.path).toBe('/settings')
+    })
+
+    it('the lobby, an observer and an eliminated player leave without a question', async () => {
+      const cases: Partial<RoomState>[] = [
+        {},
+        {
+          view: view({ status: 'running', you: { role: 'observer', nick: 'Cy', isHost: false } }),
+          you: { ...youActive, role: 'observer' },
+        },
+        { view: view({ status: 'running' }), you: { ...youActive, status: 'eliminated' } },
+      ]
+      for (const init of cases) {
+        fakeRoom(init)
+        const { router } = await mountRouted()
+        await router.push('/settings')
+        expect(router.currentRoute.value.path).toBe('/settings')
+      }
+    })
   })
 
   it('FR-017: an admin kicks through the lobby panel confirmation', async () => {

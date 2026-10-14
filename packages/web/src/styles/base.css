@@ -39,6 +39,16 @@ a {
   color: var(--muted);
 }
 
+/* Read by screen readers only, for a heading that is shown elsewhere on screen. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .btn {
   display: flex;
   align-items: center;

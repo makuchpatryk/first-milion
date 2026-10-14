@@ -3,10 +3,12 @@ import { ORDER_QTYS, SPEEDS, type OrderQty, type Speed } from '@fm/shared/rules'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ChipGroup from '../components/ChipGroup.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import NewsBar from '../components/NewsBar.vue'
 import PriceChart from '../components/PriceChart.vue'
 import SingleSetup from '../components/SingleSetup.vue'
-import { formatCountdown, targetProgress } from '../room/countdown'
+import { useLeaveGuard } from '../composables/use-leave-guard'
+import { formatCountdown, goalProgress } from '../room/countdown'
 import { useLocale } from '../i18n'
 import { formatDecimal, formatMoney, formatSigned } from '../i18n/format'
 import type { SingleEnd } from '../single/loop'
@@ -29,7 +31,6 @@ const {
   open,
   total,
   winRate,
-  halted,
   buy,
   sell,
   close,
@@ -39,12 +40,41 @@ const {
   togglePause,
 } = useSinglePlay()
 
+// Leaving a running round (menu, settings, back) asks first; the setup screen and an ended round do not.
+const leaveGuard = useLeaveGuard(() => started.value && sim.value.end === null)
+
+// The round stands still while the question is open; a pause the player set stays as it was.
+let pausedByGuard = false
+watch(leaveGuard.asking, (asking) => {
+  if (asking && !paused.value) {
+    pausedByGuard = true
+    togglePause()
+  } else if (!asking && pausedByGuard) {
+    pausedByGuard = false
+    togglePause()
+  }
+})
+
 const tone = (n: number): string => (n > 0 ? 'up' : n < 0 ? 'down' : '')
+
+// Recent trades: a short list by default, the rest behind "show more" (history is newest first).
+const HIST_PREVIEW = 3
+const histOpen = ref(false)
+const shownTrades = computed(() =>
+  histOpen.value ? sim.value.history : sim.value.history.slice(0, HIST_PREVIEW),
+)
 
 const formatQty = (n: OrderQty): string => `${n} ${t('single.units')}`
 const formatSpeed = (s: Speed): string => `${s}×`
 
-const progress = computed(() => targetProgress(total.value, sim.value.round.goal))
+const progress = computed(() =>
+  goalProgress(equity.value, sim.value.round.startCash, sim.value.round.goal),
+)
+// ARIA wants the value inside the range; equity can sit below the start or above the goal.
+const progressNow = computed(() => {
+  const { startCash, goal } = sim.value.round
+  return Math.round(Math.min(goal, Math.max(startCash, equity.value)))
+})
 
 const END_TITLE: Record<SingleEnd, string> = {
   MARGIN: 'single.marginCall',
@@ -62,8 +92,8 @@ const endMessage = computed(() => {
     })
   }
   return t('single.resultMsg', {
-    r: formatSigned(total.value, locale.value),
-    g: formatMoney(sim.value.round.goal, locale.value),
+    r: formatMoney(equity.value, locale.value),
+    g: formatDecimal(sim.value.round.goal, 0, locale.value),
   })
 })
 
@@ -91,49 +121,32 @@ watch(
 </script>
 
 <template>
-  <section class="single" aria-labelledby="single-title">
-    <div class="top">
-      <span class="mode"><b>●</b> {{ t('single.mode') }}</span>
-    </div>
-
-    <header>
-      <div>
-        <h1 id="single-title">
-          {{ t('app.brandFirst') }} <span>{{ t('app.brandSecond') }}</span>
-        </h1>
-        <p class="sub">{{ t('single.sub') }}</p>
-      </div>
-      <div v-if="started" class="quote">
-        <div class="price num">{{ formatMoney(price, locale) }}</div>
-        <div class="chg num" :class="tone(change)">{{ formatSigned(change, locale) }}%</div>
-      </div>
-    </header>
+  <section class="single" :aria-label="t('single.mode')">
+    <ConfirmDialog
+      v-if="leaveGuard.asking.value"
+      open
+      :title="t('leaveGame.title')"
+      :body="t('leaveGame.single')"
+      :confirm-label="t('leaveGame.confirm')"
+      @confirm="leaveGuard.confirm"
+      @cancel="leaveGuard.cancel"
+    />
 
     <SingleSetup v-if="!started" @start="start" />
 
     <template v-else>
-      <div class="round-bar">
-        <div class="round-row">
-          <span class="label">{{ t('single.timeLeft') }}</span>
-          <span class="num clock">{{ formatCountdown(sim.timeLeftMs) }}</span>
-          <span class="label">{{ t('single.goal') }}</span>
-          <span class="num">
-            {{ formatSigned(total, locale) }} / {{ formatDecimal(sim.round.goal, 0, locale) }}
-          </span>
+      <div class="ticker">
+        <div class="quote">
+          <div class="price num">{{ formatMoney(price, locale) }}</div>
+          <div class="chg num" :class="tone(change)">{{ formatSigned(change, locale) }}%</div>
         </div>
-        <div
-          class="bar"
-          role="progressbar"
-          :aria-label="t('single.goalProgress')"
-          aria-valuemin="0"
-          :aria-valuemax="sim.round.goal"
-          :aria-valuenow="Math.round(progress * sim.round.goal)"
-        >
-          <div class="fill" :style="{ width: `${progress * 100}%` }" />
-        </div>
+        <NewsBar
+          class="ticker-news"
+          :news="sim.market.news"
+          :age="sim.market.newsAge"
+          :locale="locale"
+        />
       </div>
-
-      <NewsBar :news="sim.market.news" :age="sim.market.newsAge" :locale="locale" />
 
       <div class="chart-wrap">
         <PriceChart
@@ -142,12 +155,6 @@ watch(
           :locale="locale"
           :entry-label="t('single.entry')"
         />
-        <div v-if="halted" class="halt" role="status">
-          <span>{{ t('single.haltBar') }}</span>
-          <span class="num" aria-hidden="true">
-            {{ formatDecimal(sim.market.haltMsLeft / 1000, 1, locale) }} s
-          </span>
-        </div>
         <div v-if="sim.end !== null" class="over" role="alertdialog" aria-labelledby="over-title">
           <h2 id="over-title" :class="{ win: sim.end !== 'MARGIN' }">{{ endTitle }}</h2>
           <p class="sub">{{ endMessage }}</p>
@@ -159,6 +166,32 @@ watch(
               {{ t('single.changeSettings') }}
             </button>
           </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="actions">
+          <button type="button" class="big buy" :disabled="sim.end !== null" @click="buy">
+            <span>{{ t('single.buy') }}</span>
+            <small>{{ t('single.key') }} B</small>
+          </button>
+          <button type="button" class="big flat" :disabled="sim.end !== null" @click="close">
+            <span>{{ t('single.close') }}</span>
+            <small>{{ t('single.key') }} C</small>
+          </button>
+          <button type="button" class="big sell" :disabled="sim.end !== null" @click="sell">
+            <span>{{ t('single.sell') }}</span>
+            <small>{{ t('single.key') }} S</small>
+          </button>
+        </div>
+        <div class="row">
+          <span class="label lbl">{{ t('single.size') }}</span>
+          <ChipGroup
+            v-model="qty"
+            :label="t('single.size')"
+            :items="ORDER_QTYS"
+            :format="formatQty"
+          />
         </div>
       </div>
 
@@ -187,63 +220,6 @@ watch(
         </div>
       </div>
 
-      <div class="controls">
-        <div class="row">
-          <span class="label lbl">{{ t('single.size') }}</span>
-          <ChipGroup
-            v-model="qty"
-            :label="t('single.size')"
-            :items="ORDER_QTYS"
-            :format="formatQty"
-          />
-        </div>
-        <div class="row">
-          <span class="label lbl">{{ t('single.speed') }}</span>
-          <ChipGroup
-            v-model="speed"
-            :label="t('single.speed')"
-            :items="SPEEDS"
-            :format="formatSpeed"
-          />
-          <button type="button" class="chip" @click="togglePause">
-            {{ paused ? t('single.resume') : t('single.pause') }}
-          </button>
-        </div>
-
-        <div class="actions">
-          <button type="button" class="big buy" :disabled="halted || sim.end !== null" @click="buy">
-            <span>{{ t('single.buy') }}</span>
-            <small>{{ t('single.key') }} B</small>
-          </button>
-          <button type="button" class="big flat" :disabled="halted || sim.end !== null" @click="close">
-            <span>{{ t('single.close') }}</span>
-            <small>{{ t('single.key') }} C</small>
-          </button>
-          <button type="button" class="big sell" :disabled="halted || sim.end !== null" @click="sell">
-            <span>{{ t('single.sell') }}</span>
-            <small>{{ t('single.key') }} S</small>
-          </button>
-        </div>
-        <p class="hint">{{ t('single.hint') }}</p>
-      </div>
-
-      <div>
-        <h2 class="label hist-title">{{ t('single.hist') }}</h2>
-        <p v-if="sim.history.length === 0" class="empty">{{ t('single.histEmpty') }}</p>
-        <ul v-else class="hist">
-          <li v-for="(trade, i) in sim.history" :key="i" class="item">
-            <span class="side" :class="trade.dir > 0 ? 'up' : 'down'">
-              {{ trade.dir > 0 ? t('single.long') : t('single.short') }}
-            </span>
-            <span class="det num">
-              {{ trade.units }} {{ t('single.units') }} {{ formatMoney(trade.entry, locale) }} →
-              {{ formatMoney(trade.exit, locale) }}
-            </span>
-            <span class="num" :class="tone(trade.pnl)">{{ formatSigned(trade.pnl, locale) }}</span>
-          </li>
-        </ul>
-      </div>
-
       <div class="foot">
         <span>
           {{ t('single.trades') }}: <b class="num">{{ sim.portfolio.closedTrades }}</b>
@@ -255,6 +231,66 @@ watch(
           {{ t('single.peak') }}: <b class="num">{{ formatMoney(sim.peak, locale) }}</b>
         </span>
       </div>
+
+      <div class="round-bar">
+        <div class="round-row">
+          <span class="label">{{ t('single.timeLeft') }}</span>
+          <span class="num clock">{{ formatCountdown(sim.timeLeftMs) }}</span>
+          <span class="label">{{ t('single.goal') }}</span>
+          <span class="num">
+            {{ formatDecimal(equity, 0, locale) }} / {{ formatDecimal(sim.round.goal, 0, locale) }}
+          </span>
+        </div>
+        <div
+          class="bar"
+          role="progressbar"
+          :aria-label="t('single.goalProgress')"
+          :aria-valuemin="sim.round.startCash"
+          :aria-valuemax="sim.round.goal"
+          :aria-valuenow="progressNow"
+        >
+          <div class="fill" :style="{ width: `${progress * 100}%` }" />
+        </div>
+      </div>
+
+      <div class="speed">
+        <span class="label">{{ t('single.speed') }}</span>
+        <ChipGroup
+          v-model="speed"
+          :label="t('single.speed')"
+          :items="SPEEDS"
+          :format="formatSpeed"
+        />
+        <button type="button" class="chip" @click="togglePause">
+          {{ paused ? t('single.resume') : t('single.pause') }}
+        </button>
+      </div>
+
+      <div class="history">
+        <h2 class="label hist-title">{{ t('single.hist') }}</h2>
+        <p v-if="sim.history.length === 0" class="empty">{{ t('single.histEmpty') }}</p>
+        <ul v-else class="hist">
+          <li v-for="(trade, i) in shownTrades" :key="i" class="item">
+            <span class="side-tag" :class="trade.dir > 0 ? 'up' : 'down'">
+              {{ trade.dir > 0 ? t('single.long') : t('single.short') }}
+            </span>
+            <span class="det num">
+              {{ trade.units }} {{ t('single.units') }} {{ formatMoney(trade.entry, locale) }} →
+              {{ formatMoney(trade.exit, locale) }}
+            </span>
+            <span class="num" :class="tone(trade.pnl)">{{ formatSigned(trade.pnl, locale) }}</span>
+          </li>
+        </ul>
+        <button
+          v-if="sim.history.length > HIST_PREVIEW"
+          type="button"
+          class="chip more"
+          :aria-expanded="histOpen"
+          @click="histOpen = !histOpen"
+        >
+          {{ histOpen ? t('single.histLess') : t('single.histMore', { n: sim.history.length }) }}
+        </button>
+      </div>
     </template>
   </section>
 </template>
@@ -263,45 +299,7 @@ watch(
 .single {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   gap: 10px;
-}
-
-.mode {
-  font: 500 0.72rem var(--font-data);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.mode b {
-  color: var(--gold);
-  font-weight: 500;
-}
-
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-h1 {
-  font-size: 1.7rem;
-  margin: 0;
-  letter-spacing: -0.03em;
-  font-weight: 700;
-}
-
-h1 span {
-  color: var(--gold);
 }
 
 .sub {
@@ -312,19 +310,30 @@ h1 span {
   line-height: 1.4;
 }
 
+.ticker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ticker .ticker-news {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
 .quote {
-  text-align: right;
+  flex: none;
+  line-height: 1.1;
 }
 
 .price {
-  font-size: 2.1rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  line-height: 1;
 }
 
 .chg {
-  font-size: 0.85rem;
-  margin-top: 4px;
+  font-size: 0.75rem;
 }
 
 .chart-wrap {
@@ -335,19 +344,16 @@ h1 span {
   overflow: hidden;
 }
 
-.halt {
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
+.speed {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
   gap: 8px;
-  background: var(--gold);
-  color: var(--on-gold);
-  padding: 8px 12px;
-  font: 700 0.75rem var(--font-data);
-  letter-spacing: 0.06em;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.speed .label {
+  font-size: 0.7rem;
+  min-width: 64px;
 }
 
 .over {
@@ -432,18 +438,18 @@ h1 span {
 
 .stat {
   background: var(--surface);
-  padding: 10px 12px;
+  padding: 6px 10px;
   min-width: 0;
 }
 
 .stat .label {
   display: block;
-  font-size: 0.68rem;
-  margin-bottom: 4px;
+  font-size: 0.64rem;
+  margin-bottom: 2px;
 }
 
 .stat .num {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 500;
   overflow-wrap: anywhere;
 }
@@ -451,7 +457,7 @@ h1 span {
 .controls {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .row {
@@ -476,8 +482,8 @@ h1 span {
   font: 700 1.05rem var(--font-ui);
   border: 0;
   border-radius: 6px;
-  min-height: 52px;
-  padding: 18px 8px;
+  min-height: 44px;
+  padding: 8px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -515,15 +521,8 @@ h1 span {
   border: 1px solid var(--border);
 }
 
-.hint {
-  font-size: 0.72rem;
-  color: var(--muted);
-  margin: 0;
-  line-height: 1.45;
-}
-
 .hist-title {
-  margin: 8px 0 6px;
+  margin: 0;
   font-size: 0.72rem;
   font-weight: 500;
 }
@@ -547,7 +546,7 @@ h1 span {
   font-size: 0.82rem;
 }
 
-.side {
+.side-tag {
   font-weight: 700;
 }
 

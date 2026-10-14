@@ -5,6 +5,12 @@
     "loading": "Ładowanie…",
     "language": "Język"
   },
+  "leaveGame": {
+    "title": "Opuścić grę?",
+    "single": "Runda trwa. Jeśli wyjdziesz teraz, przestajesz grać, a runda przepada. Wyniki nie są zapisywane.",
+    "room": "Runda trwa. Jeśli wyjdziesz teraz, przestajesz grać; po 30 sekundach tracisz miejsce i możesz tylko oglądać.",
+    "confirm": "Opuść grę"
+  },
   "app": {
     "brandFirst": "First",
     "brandSecond": "Million",
@@ -53,7 +59,6 @@
     "label": "Nawigacja",
     "back": "Wróć",
     "backToMenu": "Menu",
-    "backToRooms": "Pokoje",
     "settings": "Ustawienia"
   },
   "settings": {
@@ -86,15 +91,15 @@
   },
   "single": {
     "mode": "Single play",
-    "sub": "SYNTH/USD, symulowany rynek. Losowe ceny i newsy. Wyniki nie są zapisywane.",
     "chartLabel": "SYNTH/USD",
     "setup": {
       "title": "Nowa runda",
-      "intro": "Wybierz czas i cel. Osiągnij cel, zanim skończy się czas, aby wygrać. Wyniki nie są zapisywane.",
+      "intro": "Wybierz czas, kapitał początkowy i cel. Osiągnij cel, zanim skończy się czas, aby wygrać. Wyniki nie są zapisywane.",
       "time": "Czas rundy",
-      "goal": "Cel ($)",
-      "goalHint": "Wymagane: liczba całkowita, minimum 20 000.",
-      "goalError": "Cel musi być liczbą całkowitą od 20 000.",
+      "startCash": "Kapitał początkowy ($)",
+      "startCashHint": "Liczba całkowita od 1 000 do 100 000, co 1 000.",
+      "goal": "Cel: docelowy kapitał ($)",
+      "goalHint": "Liczba całkowita większa od kapitału początkowego. Bez górnego limitu.",
       "start": "Start"
     },
     "timeLeft": "Czas",
@@ -102,7 +107,7 @@
     "goalProgress": "Postęp do celu",
     "goalReached": "Cel osiągnięty",
     "timeUp": "Koniec czasu",
-    "resultMsg": "Wynik łączny {r} z celu {g}.",
+    "resultMsg": "Kapitał {r} z celu {g}.",
     "changeSettings": "Zmień ustawienia",
     "capital": "Kapitał",
     "open": "Wynik otwarty",
@@ -117,16 +122,16 @@
     "sell": "Sprzedaj",
     "close": "Zamknij",
     "key": "klawisz",
-    "hint": "Kup i sprzedaj działają na jednej pozycji: sprzedaż przy długiej pozycji ją zmniejsza, a nadwyżka otwiera krótką. Spread 0,06 $ na każdej transakcji. Podczas zawieszenia notowań zlecenia są zablokowane.",
     "hist": "Ostatnie transakcje",
     "histEmpty": "Jeszcze nic nie zamknąłeś.",
+    "histMore": "Pokaż wszystkie ({n})",
+    "histLess": "Pokaż mniej",
     "trades": "Transakcje",
     "win": "Trafność",
     "peak": "Rekord kapitału",
     "marginCall": "Margin call",
     "marginCallMsg": "Kapitał spadł do zera po {n} transakcjach. Rekord: {p} $.",
     "again": "Zagraj od nowa",
-    "haltBar": "ZAWIESZENIE NOTOWAŃ",
     "units": "szt.",
     "long": "LONG",
     "short": "SHORT",
@@ -142,7 +147,8 @@
     "players": "Gracze {n}/{max}",
     "observers": "Obserwatorzy {n}/{max}",
     "duration": "{n} min",
-    "target": "Cel {n} $",
+    "startCash": "Start {n} $",
+    "goal": "Cel {n} $",
     "speed": "{n}×",
     "lobby": "Lobby",
     "running": "W trakcie",
@@ -162,19 +168,23 @@
     "durationValue": "{n} min",
     "speed": "Tempo",
     "speedValue": "{n}×",
-    "target": "Cel ($)",
-    "targetHint": "Wymagane: liczba całkowita, minimum 20 000.",
+    "start": "Kapitał początkowy ($)",
+    "startHint": "Liczba całkowita od 1 000 do 100 000, co 1 000.",
+    "goal": "Cel: docelowy kapitał ($)",
+    "goalHint": "Liczba całkowita większa od kapitału początkowego. Bez górnego limitu.",
     "submit": "Utwórz pokój",
     "error": {
       "name": "Nazwa musi mieć od 3 do 30 znaków.",
-      "target": "Cel musi być liczbą całkowitą od 20 000."
+      "start": "Kapitał początkowy musi być liczbą całkowitą od 1 000 do 100 000, co 1 000.",
+      "goal": "Cel musi być liczbą całkowitą większą od kapitału początkowego."
     }
   },
   "lobby": {
     "params": "Ustawienia rundy",
     "duration": "Czas rundy",
     "speed": "Tempo",
-    "target": "Cel",
+    "startCash": "Kapitał początkowy",
+    "goal": "Cel",
     "players":"Gracze ({n}/{max})",
     "observers": "Obserwatorzy ({n}/{max})",
     "noObservers": "Brak obserwatorów.",
@@ -200,7 +210,6 @@
     "observerHint": "Obserwujesz rundę. Przyciski handlu są ukryte.",
     "eliminated": "Jesteś wyeliminowany. Obserwujesz ranking do końca rundy.",
     "reconnecting": "Łączenie ponownie… zostało {s} s",
-    "haltSeconds": "{s} s",
     "position": "{units} × {avg}",
     "reconnectLost": "Nie udało się wrócić na czas. Straciłeś miejsce gracza i możesz tylko obserwować.",
     "dismissError": "Zamknij komunikat",
@@ -231,7 +240,6 @@
   },
   "error": {
     "rateLimited": "Za dużo zleceń naraz. Zwolnij na chwilę.",
-    "halted": "Zawieszenie notowań: zlecenia są wstrzymane.",
     "eliminated": "Jesteś wyeliminowany. Możesz tylko obserwować.",
     "forbidden": "Nie masz uprawnień do tej akcji.",
     "invalidState": "Tej akcji nie można teraz wykonać.",
@@ -264,7 +272,6 @@
     },
     "flash": "Flash crash: gwałtowna wyprzedaż ({x}). Rynek zaczyna odrabiać straty.",
     "vol": "Skok zmienności: ceny szaleją w obie strony.",
-    "halt": "Zawieszenie notowań. Handel wstrzymany na 5 s.",
     "trend": {
       "up": "Trend wzrostowy: kupujący przejmują rynek.",
       "down": "Trend spadkowy: sprzedający przejmują rynek."

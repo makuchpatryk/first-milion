@@ -6,8 +6,8 @@ import type { Locale } from '../i18n/locale'
 export type NewsTone = 'up' | 'down' | 'warn' | 'none'
 
 /**
- * Highlight of the news bar (FR-005): green/red by direction, neutral gold for VOL_SPIKE and
- * TRADING_HALT, none once the news is older than `NEWS_FADE_TICKS` (prototype: age <= 90 is hot).
+ * Highlight of the news bar (FR-005): green/red by direction, neutral gold for VOL_SPIKE,
+ * none once the news is older than `NEWS_FADE_TICKS` (prototype: age <= 90 is hot).
  */
 export function newsTone(news: NewsEvent | null, newsAge: number): NewsTone {
   if (news === null || newsAge > NEWS_FADE_TICKS) return 'none'
@@ -18,7 +18,6 @@ export function newsTone(news: NewsEvent | null, newsAge: number): NewsTone {
     case 'FLASH_CRASH':
       return 'down'
     case 'VOL_SPIKE':
-    case 'TRADING_HALT':
       return 'warn'
   }
 }
@@ -45,8 +44,6 @@ export function newsMessage(news: NewsEvent | null, locale: Locale): NewsMessage
       return { key: 'news.flash', params: { x: signed(-1, news.drop, locale) } }
     case 'VOL_SPIKE':
       return { key: 'news.vol', params: {} }
-    case 'TRADING_HALT':
-      return { key: 'news.halt', params: {} }
     case 'TREND':
       return { key: news.dir > 0 ? 'news.trend.up' : 'news.trend.down', params: {} }
   }

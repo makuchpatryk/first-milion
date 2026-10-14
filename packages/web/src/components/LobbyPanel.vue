@@ -21,8 +21,8 @@ const { locale } = useLocale()
 
 const kicking = ref<string | null>(null)
 
-const target = () =>
-  t('rooms.target', { n: formatDecimal(props.view.profitTarget, 0, locale.value) })
+const money = (key: 'rooms.startCash' | 'rooms.goal', amount: number): string =>
+  t(key, { n: formatDecimal(amount, 0, locale.value) })
 
 const isMe = (nick: string): boolean => nick === props.view.you.nick
 
@@ -46,8 +46,12 @@ function confirmKick(): void {
           <dd class="num">{{ t('rooms.speed', { n: view.speed }) }}</dd>
         </div>
         <div>
-          <dt>{{ t('lobby.target') }}</dt>
-          <dd class="num">{{ target() }}</dd>
+          <dt>{{ t('lobby.startCash') }}</dt>
+          <dd class="num">{{ money('rooms.startCash', view.startCash) }}</dd>
+        </div>
+        <div>
+          <dt>{{ t('lobby.goal') }}</dt>
+          <dd class="num">{{ money('rooms.goal', view.goal) }}</dd>
         </div>
       </dl>
     </section>
