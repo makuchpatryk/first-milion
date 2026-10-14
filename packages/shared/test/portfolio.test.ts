@@ -3,16 +3,18 @@ import {
   bookedTrade,
   closedTradeOf,
   closePosition,
-  emptyPortfolio,
   equity,
   executeOrder,
   fillPrice,
   isBankrupt,
   liquidate,
+  newPortfolio,
   totalResult,
   unrealized,
 } from '../src/engine/portfolio'
-import { START_CASH } from '../src/rules'
+import { DEFAULT_START_CASH } from '../src/rules'
+
+const emptyPortfolio = newPortfolio(DEFAULT_START_CASH)
 
 describe('fillPrice', () => {
   it('BR-003: buys pay half the spread above, sells receive half below', () => {
@@ -173,14 +175,42 @@ describe('equity and bankruptcy', () => {
   it('BR-005: equity = start cash + realized + open P&L', () => {
     const a = executeOrder(emptyPortfolio, 'BUY', 50, 100)
     expect(unrealized(a, 102)).toBeCloseTo((102 - 100.03) * 50, 9)
-    expect(equity(a, 102)).toBeCloseTo(START_CASH + (102 - 100.03) * 50, 9)
+    expect(equity(a, 102)).toBeCloseTo(DEFAULT_START_CASH + (102 - 100.03) * 50, 9)
     expect(totalResult(a, 102)).toBeCloseTo((102 - 100.03) * 50, 9)
+  })
+
+  it('BR-003 / BR-005: equity starts at the chosen capital and the result is measured from it', () => {
+    for (const start of [1_000, 5_000, 100_000]) {
+      const flat = newPortfolio(start)
+      expect(flat.startCash).toBe(start)
+      expect(equity(flat, 100)).toBe(start)
+      expect(totalResult(flat, 100)).toBe(0)
+      const a = executeOrder(flat, 'BUY', 50, 100)
+      expect(a.startCash).toBe(start)
+      expect(equity(a, 102)).toBeCloseTo(start + (102 - 100.03) * 50, 9)
+      expect(totalResult(a, 102)).toBeCloseTo((102 - 100.03) * 50, 9)
+    }
+  })
+
+  it('BR-005: a smaller capital goes bankrupt on a smaller move', () => {
+    const small = executeOrder(newPortfolio(1_000), 'BUY', 250, 100)
+    expect(isBankrupt(small, 100)).toBe(false)
+    expect(isBankrupt(small, 95)).toBe(true) // -5.03 * 250 = -1257.5 <= -1000
+    const big = executeOrder(newPortfolio(100_000), 'BUY', 250, 100)
+    expect(isBankrupt(big, 60)).toBe(false)
   })
 
   it('BR-005: equity <= 0 is bankrupt, above 0 is not', () => {
     const a = executeOrder(emptyPortfolio, 'BUY', 250, 100)
     expect(isBankrupt(a, 100)).toBe(false)
     expect(isBankrupt(a, 60)).toBe(true) // -40 * 250 = -10000 (+ spread) <= 0
+  })
+
+  it('BR-005: the capital survives netting, close and liquidation', () => {
+    const a = executeOrder(newPortfolio(5_000), 'BUY', 50, 100)
+    expect(executeOrder(a, 'SELL', 100, 101).startCash).toBe(5_000)
+    expect(closePosition(a, 101).startCash).toBe(5_000)
+    expect(liquidate(a, 50).startCash).toBe(5_000)
   })
 
   it('BR-005: liquidate returns flat and books the loss including spread', () => {

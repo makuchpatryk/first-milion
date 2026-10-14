@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { unrealized } from '@fm/shared/engine/portfolio'
 import type { RoomView } from '@fm/shared/protocol'
-import { ORDER_QTYS, START_CASH, START_PRICE, type OrderQty } from '@fm/shared/rules'
+import { ORDER_QTYS, START_PRICE, type OrderQty } from '@fm/shared/rules'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useLocale } from '../i18n'
 import { formatDecimal, formatMoney, formatSigned } from '../i18n/format'
-import { formatCountdown, targetProgress } from '../room/countdown'
-import { shownHistory, type RoomState } from '../room/room-state'
+import { formatCountdown, goalProgress } from '../room/countdown'
+import type { RoomState } from '../room/room-state'
 import { isTypingTarget, orderKey } from '../views/keys'
 import ChipGroup from './ChipGroup.vue'
 import NewsBar from './NewsBar.vue'
@@ -16,7 +16,7 @@ import PriceChart from './PriceChart.vue'
 const props = defineProps<{
   view: RoomView
   state: RoomState
-  /** Socket ready, active player, no halt (`canTrade`); the server still decides (BR-007). */
+  /** Socket ready and an active player (`canTrade`); the server still decides (BR-007). */
   canTrade: boolean
 }>()
 
@@ -31,7 +31,6 @@ const you = computed(() => props.state.you)
 // Role from the room view, which arrives before the first tick, so controls do not flicker in.
 const isPlayer = computed(() => props.view.you.role === 'player')
 const eliminated = computed(() => you.value?.status === 'eliminated')
-const halted = computed(() => props.state.halt !== null)
 const price = computed(() => props.state.price)
 
 /** Percent since the starting price, like the single-play header. */
@@ -39,14 +38,23 @@ const change = computed(() => (price.value === null ? 0 : (price.value / START_P
 const open = computed(() =>
   you.value === null || price.value === null ? 0 : unrealized(you.value, price.value),
 )
-// Target and ranking count the total result: equity - start cash (decision 30).
-const total = computed(() => (you.value === null ? 0 : you.value.equity - START_CASH))
+const startCash = computed(() => props.view.startCash)
+const goal = computed(() => props.view.goal)
+// Before the first tick, and for an observer (who has no equity), the progress rests at the start.
+const equity = computed(() =>
+  isPlayer.value && you.value !== null ? you.value.equity : startCash.value,
+)
+// Total result: equity - starting capital (BR-005); the goal itself is an equity (BR-009).
+const total = computed(() => equity.value - startCash.value)
 
 const tone = (n: number): string => (n > 0 ? 'up' : n < 0 ? 'down' : '')
 const arrow = (n: number): string => (n > 0 ? '▲ ' : n < 0 ? '▼ ' : '')
 
-const target = computed(() => props.view.profitTarget)
-const progress = computed(() => targetProgress(total.value, target.value))
+const progress = computed(() => goalProgress(equity.value, startCash.value, goal.value))
+// ARIA wants the value inside the range; equity can sit below the start or above the goal.
+const progressNow = computed(() =>
+  Math.round(Math.min(goal.value, Math.max(startCash.value, equity.value))),
+)
 
 const formatQty = (n: OrderQty): string => `${n} ${t('single.units')}`
 
@@ -71,65 +79,55 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   <section class="round" aria-labelledby="round-title">
     <h2 id="round-title" class="sr-only">{{ view.name }}</h2>
 
-    <header>
-      <div class="timer">
-        <span class="label">{{ t('round.countdown') }}</span>
-        <div class="clock num">
-          {{ state.endsInMs === null ? '–:––' : formatCountdown(state.endsInMs) }}
-        </div>
-      </div>
+    <div class="ticker">
       <div class="quote">
         <div class="price num">{{ price === null ? '—' : formatMoney(price, locale) }}</div>
         <div class="chg num" :class="tone(change)">
           {{ arrow(change) }}{{ formatSigned(change, locale) }}%
         </div>
       </div>
-    </header>
-
-    <div class="target">
-      <div class="target-row">
-        <span class="label">{{ t('round.target') }}</span>
-        <span class="num">
-          {{ formatSigned(total, locale) }} / {{ formatDecimal(target, 0, locale) }}
-        </span>
-      </div>
-      <div
-        class="bar"
-        role="progressbar"
-        :aria-label="t('round.targetProgress')"
-        aria-valuemin="0"
-        :aria-valuemax="target"
-        :aria-valuenow="Math.round(progress * target)"
-      >
-        <div class="fill" :style="{ width: `${progress * 100}%` }" />
-      </div>
+      <NewsBar class="ticker-news" :news="state.news" :age="state.newsAgeTicks" :locale="locale" />
     </div>
-
-    <NewsBar :news="state.news" :age="state.newsAgeTicks" :locale="locale" />
 
     <div class="chart-wrap">
       <PriceChart
-        :prices="shownHistory(state)"
+        :prices="state.history"
         :avg="you !== null && you.units !== 0 ? you.avg : null"
         :locale="locale"
         :entry-label="t('single.entry')"
       />
-      <div v-if="halted" class="halt" role="alert" aria-live="assertive">
-        <span>{{ t('single.haltBar') }}</span>
-        <span class="num" aria-hidden="true">
-          {{
-            t('round.haltSeconds', {
-              s: formatDecimal((state.halt?.msLeft ?? 0) / 1000, 1, locale),
-            })
-          }}
-        </span>
-      </div>
     </div>
 
     <p v-if="eliminated" class="banner down-banner" role="status">{{ t('round.eliminated') }}</p>
     <p v-else-if="!isPlayer" class="banner" role="status">
       {{ t('round.observerHint') }}
     </p>
+
+    <div v-if="isPlayer" class="controls">
+      <div class="actions">
+        <button type="button" class="big buy" :disabled="!canTrade" @click="ACTIONS.buy()">
+          <span>{{ t('single.buy') }}</span>
+          <small>{{ t('single.key') }} B</small>
+        </button>
+        <button type="button" class="big flat" :disabled="!canTrade" @click="ACTIONS.close()">
+          <span>{{ t('single.close') }}</span>
+          <small>{{ t('single.key') }} C</small>
+        </button>
+        <button type="button" class="big sell" :disabled="!canTrade" @click="ACTIONS.sell()">
+          <span>{{ t('single.sell') }}</span>
+          <small>{{ t('single.key') }} S</small>
+        </button>
+      </div>
+      <div class="row">
+        <span class="label lbl">{{ t('single.size') }}</span>
+        <ChipGroup
+          v-model="qty"
+          :label="t('single.size')"
+          :items="ORDER_QTYS"
+          :format="formatQty"
+        />
+      </div>
+    </div>
 
     <div v-if="isPlayer && you" class="stats">
       <div class="stat">
@@ -162,29 +160,31 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
       </div>
     </div>
 
-    <div v-if="isPlayer" class="controls">
-      <div class="row">
-        <span class="label lbl">{{ t('single.size') }}</span>
-        <ChipGroup
-          v-model="qty"
-          :label="t('single.size')"
-          :items="ORDER_QTYS"
-          :format="formatQty"
-        />
+    <div class="target">
+      <p class="round-name">{{ view.name }}</p>
+      <div class="target-row">
+        <span class="timer">
+          <span class="label">{{ t('round.countdown') }}</span>
+          <span class="clock num">
+            {{ state.endsInMs === null ? '–:––' : formatCountdown(state.endsInMs) }}
+          </span>
+        </span>
+        <span class="goal">
+          <span class="label">{{ t('round.target') }}</span>
+          <span class="num">
+            {{ formatDecimal(equity, 0, locale) }} / {{ formatDecimal(goal, 0, locale) }}
+          </span>
+        </span>
       </div>
-      <div class="actions">
-        <button type="button" class="big buy" :disabled="!canTrade" @click="ACTIONS.buy()">
-          <span>{{ t('single.buy') }}</span>
-          <small>{{ t('single.key') }} B</small>
-        </button>
-        <button type="button" class="big flat" :disabled="!canTrade" @click="ACTIONS.close()">
-          <span>{{ t('single.close') }}</span>
-          <small>{{ t('single.key') }} C</small>
-        </button>
-        <button type="button" class="big sell" :disabled="!canTrade" @click="ACTIONS.sell()">
-          <span>{{ t('single.sell') }}</span>
-          <small>{{ t('single.key') }} S</small>
-        </button>
+      <div
+        class="bar"
+        role="progressbar"
+        :aria-label="t('round.targetProgress')"
+        :aria-valuemin="startCash"
+        :aria-valuemax="goal"
+        :aria-valuenow="progressNow"
+      >
+        <div class="fill" :style="{ width: `${progress * 100}%` }" />
       </div>
     </div>
 
@@ -216,44 +216,39 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 .round {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
+  gap: 10px;
 }
 
 .clock {
-  font-size: 1.6rem;
+  font-size: 1.2rem;
   font-weight: 700;
   line-height: 1.1;
 }
 
+.ticker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ticker .ticker-news {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
 .quote {
-  text-align: right;
+  flex: none;
+  line-height: 1.1;
 }
 
 .price {
-  font-size: 2.1rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  line-height: 1;
 }
 
 .chg {
-  font-size: 0.85rem;
-  margin-top: 4px;
+  font-size: 0.75rem;
 }
 
 .target {
@@ -265,8 +260,24 @@ header {
 .target-row {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
   font-size: 0.85rem;
+}
+
+.round-name {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.timer,
+.goal {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .bar {
@@ -293,21 +304,6 @@ header {
   border: 1px solid var(--border);
   border-radius: 6px;
   overflow: hidden;
-}
-
-.halt {
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  background: var(--gold);
-  color: var(--on-gold);
-  padding: 8px 12px;
-  font: 700 0.75rem var(--font-data);
-  letter-spacing: 0.06em;
 }
 
 .banner {
@@ -343,18 +339,18 @@ header {
 
 .stat {
   background: var(--surface);
-  padding: 10px 12px;
+  padding: 6px 10px;
   min-width: 0;
 }
 
 .stat .label {
   display: block;
-  font-size: 0.68rem;
-  margin-bottom: 4px;
+  font-size: 0.64rem;
+  margin-bottom: 2px;
 }
 
 .stat .num {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 500;
   overflow-wrap: anywhere;
 }
@@ -387,8 +383,8 @@ header {
   font: 700 1.05rem var(--font-ui);
   border: 0;
   border-radius: 6px;
-  min-height: 52px;
-  padding: 18px 8px;
+  min-height: 44px;
+  padding: 8px;
   cursor: pointer;
   display: flex;
   flex-direction: column;

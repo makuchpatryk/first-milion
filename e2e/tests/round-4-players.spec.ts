@@ -16,9 +16,6 @@ const DURATION_MIN = FULL_ROUND ? 10 : 3
 const SPEED = 8
 const TICK_MS = 80
 
-/** Orders by a player are allowed to meet a trading halt (BR-015); nothing else may fail. */
-const EXPECTED_ERRORS: readonly string[] = ['HALTED']
-
 const priceStream = (frames: readonly ServerFrame[]): number[] =>
   frames.flatMap(({ msg }) => (msg.type === 'room.tick' ? msg.prices : []))
 
@@ -62,10 +59,10 @@ test(`NFR-006: four players play a ${DURATION_MIN}-minute round at ${SPEED}× to
 
   const received = await Promise.all(seats.map((seat) => serverFrames(seat.page)))
 
-  // No error beyond a halt, on any of the four sockets.
+  // No error on any of the four sockets.
   for (const frames of received) {
     const errors = frames.flatMap(({ msg }) => (msg.type === 'error' ? [msg.code] : []))
-    expect(errors.filter((code) => !EXPECTED_ERRORS.includes(code))).toEqual([])
+    expect(errors).toEqual([])
   }
 
   // One shared price per room (BR-007): all four saw the same prices, in the same order.

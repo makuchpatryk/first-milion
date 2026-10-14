@@ -1,6 +1,8 @@
-import { SPREAD, START_CASH, type OrderQty } from '../rules'
+import { SPREAD, type OrderQty } from '../rules'
 
 export interface Portfolio {
+  /** Capital the round started with (BR-003); equity and total result are measured from it. */
+  readonly startCash: number
   /** Signed net position: > 0 long, < 0 short, 0 flat. */
   readonly units: number
   /** Average entry price, 0 when flat. */
@@ -10,13 +12,14 @@ export interface Portfolio {
   readonly wins: number
 }
 
-export const emptyPortfolio: Portfolio = {
+export const newPortfolio = (startCash: number): Portfolio => ({
+  startCash,
   units: 0,
   avg: 0,
   realized: 0,
   closedTrades: 0,
   wins: 0,
-}
+})
 
 export type TradeSide = 'BUY' | 'SELL'
 
@@ -115,12 +118,13 @@ export function closedTradeOf(p: Portfolio, price: number): BookedTrade | null {
   return reduction(p, Math.abs(p.units), closeFill(p, price))
 }
 
-export function unrealized(p: Portfolio, price: number): number {
+/** Open P&L; reads only the position, so a wire `MeRound` fits too. */
+export function unrealized(p: Pick<Portfolio, 'units' | 'avg'>, price: number): number {
   return p.units === 0 ? 0 : (price - p.avg) * p.units
 }
 
 export function equity(p: Portfolio, price: number): number {
-  return START_CASH + p.realized + unrealized(p, price)
+  return p.startCash + p.realized + unrealized(p, price)
 }
 
 export function isBankrupt(p: Portfolio, price: number): boolean {
@@ -132,7 +136,7 @@ export function liquidate(p: Portfolio, price: number): Portfolio {
   return closePosition(p, price)
 }
 
-/** Total result = equity - starting cash (profit-target metric, BR-009). */
+/** Total result = equity - starting cash (ranking metric, BR-005, BR-006). */
 export function totalResult(p: Portfolio, price: number): number {
-  return equity(p, price) - START_CASH
+  return equity(p, price) - p.startCash
 }

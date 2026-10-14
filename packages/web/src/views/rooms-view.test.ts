@@ -25,7 +25,8 @@ const room = (over: Partial<RoomSummary> = {}): RoomSummary => ({
   observers: 0,
   maxPlayers: 4,
   durationMin: 5,
-  profitTarget: 20_000,
+  startCash: 10_000,
+  goal: 30_000,
   speed: 3,
   status: 'lobby',
   ...over,
@@ -64,15 +65,16 @@ describe('RoomsView', () => {
     expect(wrapper.find('a[href="/rooms/new"]').text()).toBe(pl.rooms.create)
   })
 
-  it('BP-003: each row shows name, host, players x/4, duration, target and speed', async () => {
-    fakeLobby([room({ profitTarget: 5_000, players: 2 })])
+  it('BP-003: each row shows name, host, players x/4, duration, start capital, goal and speed', async () => {
+    fakeLobby([room({ startCash: 5_000, goal: 9_000, players: 2 })])
     const { wrapper } = await mountWithApp(RoomsView)
     const text = wrapper.find('li').text()
     expect(text).toContain('Alpha')
     expect(text).toContain('Ann')
     expect(text).toContain('2/4')
     expect(text).toContain('5 min')
-    expect(text).toContain('5000')
+    expect(text).toContain(pl.rooms.startCash.replace('{n}', '5000'))
+    expect(text).toContain(pl.rooms.goal.replace('{n}', '9000'))
     expect(text).toContain('3×')
   })
 

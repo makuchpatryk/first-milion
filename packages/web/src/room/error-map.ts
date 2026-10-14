@@ -8,8 +8,6 @@ export function errorKey(code: ErrorCode): string {
   switch (code) {
     case 'RATE_LIMITED':
       return 'error.rateLimited'
-    case 'HALTED':
-      return 'error.halted'
     case 'ELIMINATED':
       return 'error.eliminated'
     case 'FORBIDDEN':

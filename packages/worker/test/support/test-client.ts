@@ -1,7 +1,7 @@
 import { TICK_MS } from '@fm/shared/config'
 import type { ErrorCode, RoomSummary, ServerMessage } from '@fm/shared/protocol'
 import { createRng, pick, type Rng } from '@fm/shared/rng'
-import { ORDER_QTYS } from '@fm/shared/rules'
+import { DEFAULT_START_CASH, ORDER_QTYS } from '@fm/shared/rules'
 import { RoomLogic, type RoomInit } from '../../src/room/room-logic'
 import { FakeClock } from '../fake-clock'
 
@@ -48,7 +48,8 @@ export function createHarness(options: HarnessOptions = {}): Harness {
       durationMin: 3,
       speed: 8,
       // Out of reach: only time or elimination ends a test round unless a test sets a goal.
-      profitTarget: 1_000_000_000,
+      startCash: DEFAULT_START_CASH,
+      goal: 1_000_000_000,
       hostUid: 'uid-1',
       ...init,
     },
@@ -117,7 +118,7 @@ export function leverage(harness: Harness, uid: string, side: 'BUY' | 'SELL', or
 /**
  * Scripted players: every call may place one random order or close for each given user, from a
  * seeded generator, so a whole round replays exactly (M4 DoD, determinism). Like a client with
- * its buttons disabled, they do not trade during a halt or once eliminated.
+ * its buttons disabled, they do not trade once eliminated.
  */
 export function scriptedPlayers(harness: Harness, uids: readonly string[], seed: number): () => void {
   const rng: Rng = createRng(seed)
@@ -125,7 +126,7 @@ export function scriptedPlayers(harness: Harness, uids: readonly string[], seed:
     for (const uid of uids) {
       const roll = rng()
       const tick = harness.latestTick(uid)
-      if (tick === undefined || tick.halt !== null || tick.you.status === 'eliminated') continue
+      if (tick === undefined || tick.you.status === 'eliminated') continue
       if (roll < 0.04) harness.room.order(uid, 'BUY', pick(rng, ORDER_QTYS))
       else if (roll < 0.08) harness.room.order(uid, 'SELL', pick(rng, ORDER_QTYS))
       else if (roll < 0.1) harness.room.close(uid)

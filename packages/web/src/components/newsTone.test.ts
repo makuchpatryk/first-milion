@@ -14,9 +14,8 @@ function lookup(messages: unknown, key: string): unknown {
 }
 
 describe('newsTone', () => {
-  it('FR-005: VOL_SPIKE and TRADING_HALT are neutral (warn)', () => {
+  it('FR-005: VOL_SPIKE is neutral (warn)', () => {
     expect(newsTone({ type: 'VOL_SPIKE' }, 0)).toBe('warn')
-    expect(newsTone({ type: 'TRADING_HALT' }, 0)).toBe('warn')
   })
 
   it('FR-005: SHOCK and TREND are green/red by direction', () => {
@@ -64,7 +63,6 @@ describe('newsMessage', () => {
     const events: NewsEvent[] = [
       { type: 'FLASH_CRASH', drop: 0.04 },
       { type: 'VOL_SPIKE' },
-      { type: 'TRADING_HALT' },
       { type: 'TREND', dir: 1 },
       { type: 'TREND', dir: -1 },
     ]

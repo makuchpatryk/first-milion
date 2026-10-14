@@ -2,7 +2,6 @@
 // `web/i18n` maps every code to a PL and EN message.
 export const ERROR_CODES = [
   'RATE_LIMITED',
-  'HALTED',
   'ELIMINATED',
   'FORBIDDEN',
   'INVALID_STATE',

@@ -48,11 +48,10 @@ const me = (over: Partial<MeRound> = {}): MeRound => ({
   ...over,
 })
 
-const tick = (halt: { msLeft: number } | null = null, you: MeRound = me()): ServerMessage => ({
+const tick = (you: MeRound = me()): ServerMessage => ({
   type: 'room.tick',
   prices: [100],
   price: 100,
-  halt,
   news: null,
   endsInMs: 1_000,
   ranking: [],
@@ -76,7 +75,7 @@ describe('useLobby', () => {
   it('UF-003: createRoom and closeRoom send intents only', () => {
     const t = fakeOpen<LobbyHandlers>()
     const lobby = useLobby(t.open)
-    const form = { name: 'Alpha', durationMin: 5, speed: 3, profitTarget: 20_000 } as const
+    const form = { name: 'Alpha', durationMin: 5, speed: 3, startCash: 10_000, goal: 30_000 } as const
     lobby.createRoom(form)
     lobby.closeRoom('r1')
     expect(t.handle.sent).toEqual([
@@ -113,7 +112,7 @@ describe('useRoom', () => {
     room.dispose()
   })
 
-  it('UF-005, FR-014, FR-005: canTrade needs a ready socket, an active player and no halt', () => {
+  it('UF-005, FR-014: canTrade needs a ready socket and an active player', () => {
     const t = fakeOpen<RoomHandlers>()
     const room = useRoom('r1', 'Ann', { open: t.open })
     t.message(tick())
@@ -122,10 +121,7 @@ describe('useRoom', () => {
     t.status('ready')
     expect(room.canTrade.value).toBe(true)
 
-    t.message(tick({ msLeft: 3_000 }))
-    expect(room.canTrade.value).toBe(false)
-
-    t.message(tick(null, me({ role: 'observer' })))
+    t.message(tick(me({ role: 'observer' })))
     expect(room.canTrade.value).toBe(false)
     room.dispose()
   })

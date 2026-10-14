@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatCountdown, targetProgress } from './countdown'
+import { formatCountdown, goalProgress } from './countdown'
 
 describe('formatCountdown (UF-004)', () => {
   it.each([
@@ -14,14 +14,26 @@ describe('formatCountdown (UF-004)', () => {
   })
 })
 
-describe('targetProgress (BR-009)', () => {
-  it('is the share of the target, clamped to 0..1', () => {
-    expect(targetProgress(250, 500)).toBe(0.5)
-    expect(targetProgress(-100, 500)).toBe(0)
-    expect(targetProgress(900, 500)).toBe(1)
+describe('goalProgress (BR-009)', () => {
+  it('is the share of the way from the start capital to the goal, clamped to 0..1', () => {
+    expect(goalProgress(10_000, 10_000, 30_000)).toBe(0)
+    expect(goalProgress(15_000, 10_000, 20_000)).toBe(0.5)
+    expect(goalProgress(9_000, 10_000, 20_000)).toBe(0)
+    expect(goalProgress(25_000, 10_000, 20_000)).toBe(1)
   })
 
-  it('a missing target gives 0', () => {
-    expect(targetProgress(100, 0)).toBe(0)
+  it('follows a non-default start capital', () => {
+    expect(goalProgress(3_000, 1_000, 5_000)).toBe(0.5)
+  })
+
+  it('a goal that is not above the start gives 0', () => {
+    expect(goalProgress(100, 10_000, 10_000)).toBe(0)
+    expect(goalProgress(100, 10_000, 5_000)).toBe(0)
+  })
+
+  it('a huge goal stays inside 0..1', () => {
+    const progress = goalProgress(20_000, 10_000, Number.MAX_SAFE_INTEGER)
+    expect(progress).toBeGreaterThan(0)
+    expect(progress).toBeLessThan(1)
   })
 })

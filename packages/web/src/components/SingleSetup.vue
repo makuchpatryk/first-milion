@@ -1,26 +1,65 @@
 <script setup lang="ts">
-import { DEFAULT_ROUND_DURATION_MIN, ROUND_DURATIONS_MIN, type RoundDuration } from '@fm/shared/rules'
-import { computed, ref } from 'vue'
+import {
+  DEFAULT_GOAL,
+  DEFAULT_ROUND_DURATION_MIN,
+  DEFAULT_START_CASH,
+  ROUND_DURATIONS_MIN,
+  START_CASH_MAX,
+  START_CASH_MIN,
+  START_CASH_STEP,
+  type RoundDuration,
+} from '@fm/shared/rules'
+import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { parseGoal } from '../room/goal'
+import {
+  bumpGoal,
+  GOAL_SLIDER_MAX,
+  GOAL_SLIDER_STEP,
+  goalSliderMin,
+  parseStakes,
+  parseWholeNumber,
+} from '../room/goal'
 import type { SingleRound } from '../single/loop'
 import ChipGroup from './ChipGroup.vue'
+import MoneyRange from './MoneyRange.vue'
 
 const emit = defineEmits<{ start: [round: SingleRound] }>()
 
 const { t } = useI18n()
 
 const durationMin = ref<RoundDuration>(DEFAULT_ROUND_DURATION_MIN)
-const goalText = ref('')
-// The error shows once the user has touched the goal or tried to start (as in the room form).
-const touched = ref(false)
-const goal = computed(() => parseGoal(goalText.value))
-const showError = computed(() => touched.value && goal.value === null)
+const startText = ref(String(DEFAULT_START_CASH))
+const goalText = ref(String(DEFAULT_GOAL))
+
+// Raising the start above the goal moves the goal one step above it (FR-004).
+watch(startText, (text) => {
+  const start = parseWholeNumber(text)
+  if (start !== null) goalText.value = bumpGoal(start, goalText.value)
+})
+const goalMin = computed(() => goalSliderMin(parseWholeNumber(startText.value)))
+
+// An error shows once the user has touched the field or tried to start (as in the room form).
+const touched = reactive({ start: false, goal: false })
+const submitted = ref(false)
+const parsed = computed(() => parseStakes(startText.value, goalText.value))
+const startError = computed(() => {
+  const { value } = parsed
+  return (touched.start || submitted.value) && !value.ok && value.errors.start !== null
+    ? t(value.errors.start)
+    : null
+})
+const goalError = computed(() => {
+  const { value } = parsed
+  return (touched.goal || submitted.value) && !value.ok && value.errors.goal !== null
+    ? t(value.errors.goal)
+    : null
+})
 
 function start(): void {
-  touched.value = true
-  if (goal.value === null) return
-  emit('start', { durationMs: durationMin.value * 60_000, goal: goal.value })
+  submitted.value = true
+  if (!parsed.value.ok) return
+  const { startCash, goal } = parsed.value.stakes
+  emit('start', { durationMs: durationMin.value * 60_000, startCash, goal })
 }
 </script>
 
@@ -40,24 +79,29 @@ function start(): void {
       />
     </div>
 
-    <div class="field">
-      <label for="single-goal">{{ t('single.setup.goal') }}</label>
-      <input
-        id="single-goal"
-        v-model="goalText"
-        class="input num"
-        type="text"
-        inputmode="numeric"
-        autocomplete="off"
-        :aria-invalid="showError"
-        :aria-describedby="showError ? 'single-goal-error' : 'single-goal-hint'"
-        @input="touched = true"
-      />
-      <p id="single-goal-hint" class="notice">{{ t('single.setup.goalHint') }}</p>
-      <p v-if="showError" id="single-goal-error" class="error" role="alert">
-        {{ t('single.setup.goalError') }}
-      </p>
-    </div>
+    <MoneyRange
+      id="single-start"
+      v-model="startText"
+      :label="t('single.setup.startCash')"
+      :min="START_CASH_MIN"
+      :max="START_CASH_MAX"
+      :step="START_CASH_STEP"
+      :hint="t('single.setup.startCashHint')"
+      :error="startError"
+      @input="touched.start = true"
+    />
+
+    <MoneyRange
+      id="single-goal"
+      v-model="goalText"
+      :label="t('single.setup.goal')"
+      :min="goalMin"
+      :max="GOAL_SLIDER_MAX"
+      :step="GOAL_SLIDER_STEP"
+      :hint="t('single.setup.goalHint')"
+      :error="goalError"
+      @input="touched.goal = true"
+    />
 
     <button type="submit" class="btn">{{ t('single.setup.start') }}</button>
   </form>

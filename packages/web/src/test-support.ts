@@ -1,6 +1,6 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
-import { defineComponent, type Component } from 'vue'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { defineComponent, h, type Component } from 'vue'
+import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-router'
 import { createAppI18n } from './i18n'
 import type { Locale } from './i18n/locale'
 
@@ -36,6 +36,29 @@ export async function mountWithApp(
   const wrapper = mount(component, {
     global: { plugins: [createAppI18n(locale), router] },
   }) as VueWrapper
+  return { wrapper, router }
+}
+
+/**
+ * Like `mountWithApp`, but the component is the route at `path` and renders through a
+ * `RouterView`, so route guards (`onBeforeRouteLeave`) see it. Other paths are blank.
+ */
+export async function mountAsRoute(
+  component: Component,
+  path: string,
+  locale: Locale = 'pl',
+): Promise<{ wrapper: VueWrapper; router: Router }> {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      ...PATHS.filter((p) => p !== path).map((p) => ({ path: p, component: Blank })),
+      { path, component },
+    ],
+  })
+  await router.push(path)
+  await router.isReady()
+  const host = defineComponent({ render: () => h(RouterView) })
+  const wrapper = mount(host, { global: { plugins: [createAppI18n(locale), router] } }) as VueWrapper
   return { wrapper, router }
 }
 

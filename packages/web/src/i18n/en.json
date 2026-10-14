@@ -5,6 +5,12 @@
     "loading": "Loading…",
     "language": "Language"
   },
+  "leaveGame": {
+    "title": "Leave the game?",
+    "single": "A round is running. If you leave now, you stop playing and the round is lost. Results are not saved.",
+    "room": "A round is running. If you leave now, you stop playing; after 30 seconds you lose your seat and can only watch.",
+    "confirm": "Leave the game"
+  },
   "app": {
     "brandFirst": "First",
     "brandSecond": "Million",
@@ -53,7 +59,6 @@
     "label": "Navigation",
     "back": "Back",
     "backToMenu": "Menu",
-    "backToRooms": "Rooms",
     "settings": "Settings"
   },
   "settings": {
@@ -86,15 +91,15 @@
   },
   "single": {
     "mode": "Single play",
-    "sub": "SYNTH/USD, simulated market. Random prices and news. Results are not saved.",
     "chartLabel": "SYNTH/USD",
     "setup": {
       "title": "New round",
-      "intro": "Pick the time and the goal. Reach the goal before the time runs out to win. Results are not saved.",
+      "intro": "Pick the time, the starting capital and the goal. Reach the goal before the time runs out to win. Results are not saved.",
       "time": "Round length",
-      "goal": "Goal ($)",
-      "goalHint": "Required: a whole number, at least 20,000.",
-      "goalError": "The goal must be a whole number from 20,000.",
+      "startCash": "Starting capital ($)",
+      "startCashHint": "A whole number from 1,000 to 100,000, in steps of 1,000.",
+      "goal": "Goal: target capital ($)",
+      "goalHint": "A whole number above the starting capital. There is no upper limit.",
       "start": "Start"
     },
     "timeLeft": "Time left",
@@ -102,7 +107,7 @@
     "goalProgress": "Progress to the goal",
     "goalReached": "Goal reached",
     "timeUp": "Time is up",
-    "resultMsg": "Total result {r} of the goal {g}.",
+    "resultMsg": "Equity {r} of the goal {g}.",
     "changeSettings": "Change settings",
     "capital": "Equity",
     "open": "Open P&L",
@@ -117,16 +122,16 @@
     "sell": "Sell",
     "close": "Close",
     "key": "key",
-    "hint": "Buy and sell work on one net position: selling while long reduces it, and any excess opens a short. Spread is $0.06 on every trade. Orders are blocked during a trading halt.",
     "hist": "Recent trades",
     "histEmpty": "You haven't closed anything yet.",
+    "histMore": "Show all ({n})",
+    "histLess": "Show less",
     "trades": "Trades",
     "win": "Win rate",
     "peak": "Equity record",
     "marginCall": "Margin call",
     "marginCallMsg": "Equity fell to zero after {n} trades. Record: ${p}.",
     "again": "Play again",
-    "haltBar": "TRADING HALT",
     "units": "units",
     "long": "LONG",
     "short": "SHORT",
@@ -142,7 +147,8 @@
     "players": "Players {n}/{max}",
     "observers": "Observers {n}/{max}",
     "duration": "{n} min",
-    "target": "Goal ${n}",
+    "startCash": "Start ${n}",
+    "goal": "Goal ${n}",
     "speed": "{n}×",
     "lobby": "Lobby",
     "running": "Running",
@@ -162,19 +168,23 @@
     "durationValue": "{n} min",
     "speed": "Speed",
     "speedValue": "{n}×",
-    "target": "Goal ($)",
-    "targetHint": "Required: a whole number, at least 20,000.",
+    "start": "Starting capital ($)",
+    "startHint": "A whole number from 1,000 to 100,000, in steps of 1,000.",
+    "goal": "Goal: target capital ($)",
+    "goalHint": "A whole number above the starting capital. There is no upper limit.",
     "submit": "Create room",
     "error": {
       "name": "The name must be 3 to 30 characters.",
-      "target": "The goal must be a whole number from 20,000."
+      "start": "The starting capital must be a whole number from 1,000 to 100,000, in steps of 1,000.",
+      "goal": "The goal must be a whole number above the starting capital."
     }
   },
   "lobby": {
     "params": "Round settings",
     "duration": "Round length",
     "speed": "Speed",
-    "target": "Goal",
+    "startCash": "Starting capital",
+    "goal": "Goal",
     "players": "Players ({n}/{max})",
     "observers": "Observers ({n}/{max})",
     "noObservers": "No observers.",
@@ -200,7 +210,6 @@
     "observerHint": "You are watching the round. Trade buttons are hidden.",
     "eliminated": "You are eliminated. You can watch the ranking until the round ends.",
     "reconnecting": "Reconnecting… {s} s left",
-    "haltSeconds": "{s} s",
     "position": "{units} × {avg}",
     "reconnectLost": "Could not return in time. You lost your player seat and can only watch.",
     "dismissError": "Dismiss message",
@@ -231,7 +240,6 @@
   },
   "error": {
     "rateLimited": "Too many orders at once. Slow down for a moment.",
-    "halted": "Trading halt: orders are paused.",
     "eliminated": "You are eliminated. You can only watch.",
     "forbidden": "You are not allowed to do that.",
     "invalidState": "That action is not possible right now.",
@@ -264,7 +272,6 @@
     },
     "flash": "Flash crash: sharp sell-off ({x}). The market starts to recover.",
     "vol": "Volatility spike: prices swing both ways.",
-    "halt": "Trading halt. Orders are paused for 5 s.",
     "trend": {
       "up": "Uptrend: buyers take over the market.",
       "down": "Downtrend: sellers take over the market."

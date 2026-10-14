@@ -1,20 +1,14 @@
 import { HISTORY_MAX } from '@fm/shared/config'
-import {
-  createMarket,
-  stepMarket,
-  tickHalt,
-  type Market,
-} from '@fm/shared/engine/market'
+import { createMarket, stepMarket, type Market } from '@fm/shared/engine/market'
 import type { NewsEvent } from '@fm/shared/engine/news'
 import {
-  emptyPortfolio,
   equity,
   isBankrupt,
   liquidate,
+  newPortfolio,
   type Portfolio,
 } from '@fm/shared/engine/portfolio'
 import type { MemberStatus } from '@fm/shared/protocol'
-import { START_CASH } from '@fm/shared/rules'
 import { createRng, type Rng } from '@fm/shared/rng'
 
 export interface Seat {
@@ -50,14 +44,16 @@ export interface Round {
 const MS_PER_MIN = 60_000
 
 /**
- * Begins a round: every seat is active with an empty portfolio, and the BR-010 clock starts at
- * `now` (seats reset at each start, decision 38). Observers have no seat and are not passed in.
+ * Begins a round: every seat is active with an empty portfolio of `startCash` (the room's chosen
+ * capital, BR-003), and the BR-010 clock starts at `now` (seats reset at each start, decision 38).
+ * Observers have no seat and are not passed in.
  */
 export function startRound(
   seats: readonly Seat[],
   now: number,
   durationMin: number,
   seed: number,
+  startCash: number,
 ): { round: Round; seats: Seat[] } {
   const rng = createRng(seed)
   const market = createMarket(rng)
@@ -69,16 +65,14 @@ export function startRound(
     history: [market.price],
     lastNews: null,
   }
-  const fresh = seats.map(
-    (seat): Seat => ({
-      ...seat,
-      status: 'active',
-      portfolio: emptyPortfolio,
-      reachedEquityAt: now,
-      lastEquity: START_CASH,
-      disconnectedAt: null,
-    }),
-  )
+  const fresh = seats.map((seat): Seat => ({
+    ...seat,
+    status: 'active',
+    portfolio: newPortfolio(startCash),
+    reachedEquityAt: now,
+    lastEquity: startCash,
+    disconnectedAt: null,
+  }))
   return { round, seats: fresh }
 }
 
@@ -104,19 +98,14 @@ export function settleSeat(seat: Seat, price: number, now: number): Seat {
   return { ...seat, lastEquity: current, reachedEquityAt: now }
 }
 
-/**
- * One tick interval (decision 33): `speed` price steps, the halt counted down in wall-clock ms
- * (decision 39), then every seat settled at the true price. The shown price during a halt is
- * `shownPrice(market)`; equity always uses the true one (BR-015).
- */
+/** One tick interval (decision 33): `speed` price steps, then every seat settled at the price. */
 export function stepRound(
   round: Round,
   seats: readonly Seat[],
-  elapsedMs: number,
   now: number,
   speed: number,
 ): { round: Round; seats: Seat[]; newPrices: number[] } {
-  let market = tickHalt(round.market, elapsedMs)
+  let market = round.market
   const newsBefore = market.news
   const newPrices: number[] = []
   for (let i = 0; i < speed; i++) {

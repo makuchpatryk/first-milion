@@ -1,18 +1,31 @@
 <script setup lang="ts">
 import {
+  DEFAULT_GOAL,
   DEFAULT_ROUND_DURATION_MIN,
   DEFAULT_SPEED,
+  DEFAULT_START_CASH,
   ROOM_NAME_MAX,
   ROUND_DURATIONS_MIN,
   SPEEDS,
+  START_CASH_MAX,
+  START_CASH_MIN,
+  START_CASH_STEP,
 } from '@fm/shared/rules'
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import ChipGroup from '../components/ChipGroup.vue'
+import MoneyRange from '../components/MoneyRange.vue'
 import { useLobby } from '../composables/use-lobby'
 import { parseCreateForm } from '../room/create-form'
 import { closeKey, errorKey } from '../room/error-map'
+import {
+  bumpGoal,
+  GOAL_SLIDER_MAX,
+  GOAL_SLIDER_STEP,
+  goalSliderMin,
+  parseWholeNumber,
+} from '../room/goal'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -24,23 +37,33 @@ const fields = reactive({
   name: '',
   durationMin: DEFAULT_ROUND_DURATION_MIN,
   speed: DEFAULT_SPEED,
-  targetText: '',
+  startText: String(DEFAULT_START_CASH),
+  goalText: String(DEFAULT_GOAL),
 })
 
-// Errors show once the user has touched a field or tried to submit, not on an empty first view.
-const touched = reactive({ name: false, target: false })
+// Raising the start above the goal moves the goal one step above it (FR-004).
+watch(
+  () => fields.startText,
+  (text) => {
+    const start = parseWholeNumber(text)
+    if (start !== null) fields.goalText = bumpGoal(start, fields.goalText)
+  },
+)
+const goalMin = computed(() => goalSliderMin(parseWholeNumber(fields.startText)))
+
+// Errors show once the user has touched a field or tried to submit.
+const touched = reactive({ name: false, start: false, goal: false })
 const parsed = computed(() => parseCreateForm(fields))
 const errors = computed(() =>
-  parsed.value.ok ? { name: null, target: null } : parsed.value.errors,
+  parsed.value.ok ? { name: null, start: null, goal: null } : parsed.value.errors,
 )
 const submitted = ref(false)
 // One `room.create` per attempt: a second click waits for the server's answer (room.created or an error).
 const pending = ref(false)
 
 const showName = computed(() => (touched.name || submitted.value) && errors.value.name !== null)
-const showTarget = computed(
-  () => (touched.target || submitted.value) && errors.value.target !== null,
-)
+const showStart = computed(() => (touched.start || submitted.value) && errors.value.start !== null)
+const showGoal = computed(() => (touched.goal || submitted.value) && errors.value.goal !== null)
 
 function submit(): void {
   if (pending.value) return
@@ -112,24 +135,29 @@ watch(
         />
       </div>
 
-      <div class="field">
-        <label for="room-target">{{ t('create.target') }}</label>
-        <input
-          id="room-target"
-          v-model="fields.targetText"
-          class="input num"
-          type="text"
-          inputmode="numeric"
-          autocomplete="off"
-          :aria-invalid="showTarget"
-          :aria-describedby="showTarget ? 'room-target-error' : 'room-target-hint'"
-          @input="touched.target = true"
-        />
-        <p id="room-target-hint" class="notice">{{ t('create.targetHint') }}</p>
-        <p v-if="showTarget && errors.target" id="room-target-error" class="error" role="alert">
-          {{ t(errors.target) }}
-        </p>
-      </div>
+      <MoneyRange
+        id="room-start"
+        v-model="fields.startText"
+        :label="t('create.start')"
+        :min="START_CASH_MIN"
+        :max="START_CASH_MAX"
+        :step="START_CASH_STEP"
+        :hint="t('create.startHint')"
+        :error="showStart && errors.start ? t(errors.start) : null"
+        @input="touched.start = true"
+      />
+
+      <MoneyRange
+        id="room-goal"
+        v-model="fields.goalText"
+        :label="t('create.goal')"
+        :min="goalMin"
+        :max="GOAL_SLIDER_MAX"
+        :step="GOAL_SLIDER_STEP"
+        :hint="t('create.goalHint')"
+        :error="showGoal && errors.goal ? t(errors.goal) : null"
+        @input="touched.goal = true"
+      />
 
       <p v-if="status === 'closed' && closeCode !== null" class="error" role="alert">
         {{ t(closeKey(closeCode)) }}

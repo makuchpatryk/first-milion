@@ -23,7 +23,7 @@ Product name: **First Million** (previously the working title "Szybka Giełda").
 | Role / Persona | Goals | Pays / Uses | Permissions |
 |----------------|-------|-------------|-------------|
 | Player | Play solo or in a room, win a round | Uses, does not pay | Single play; create a room (becomes host); join rooms; change own nickname; delete own account |
-| Room host (player) | Configure and start a round | Uses | Sets name, duration, profit target, speed; starts a round; starts the next round |
+| Room host (player) | Configure and start a round | Uses | Sets name, duration, starting capital, goal, speed; starts a round; starts the next round |
 | Observer | Watch a round | Uses | Sees the chart and ranking; cannot trade |
 | Admin | Moderate | Uses | Closes any room; kicks a player from a room (no ban) |
 
@@ -49,7 +49,7 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 - **Exceptions:** none.
 
 ### BR-003: Game parameters (shared by single and multi)
-- **Rule:** Starting capital must be $10,000. Starting price must be $100. Minimum price must be $5. Order sizes must be chosen from {10, 50, 100, 250} units. The spread must be $0.06 per trade (half the spread added to the price on buys, subtracted on sells).
+- **Rule:** Starting capital must be chosen per round (single play: by the player; room: by the host): an integer from $1,000 to $100,000 in steps of $1,000, preselected $10,000 (decision 45). Every player of a room starts with the same capital. Starting price must be $100. Minimum price must be $5. Order sizes must be chosen from {10, 50, 100, 250} units. The spread must be $0.06 per trade (half the spread added to the price on buys, subtracted on sells).
 - **Applies to:** all modes.
 - **Exceptions:** none.
 
@@ -59,12 +59,12 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 - **Exceptions:** none.
 
 ### BR-005: Equity and bankruptcy
-- **Rule:** Equity = 10,000 + realized P&L + open (unrealized) P&L. When equity ≤ 0, the system must close the position at market price (including spread) and mark the player as bankrupt. In single play, a "Margin call" screen is shown with a restart option. In multiplayer, the player is eliminated (BR-012).
+- **Rule:** Equity = starting capital + realized P&L + open (unrealized) P&L. When equity ≤ 0, the system must close the position at market price (including spread) and mark the player as bankrupt. In single play, a "Margin call" screen is shown with a restart option. In multiplayer, the player is eliminated (BR-012).
 - **Applies to:** all modes.
 - **Exceptions:** none.
 
 ### BR-006: Single play
-- **Rule:** Single play must run only in the browser (local simulation from the shared `shared` package), with 1×/3×/8× speed and pause as in the prototype. Before the start the player must choose a round time {3, 5, 10} minutes and a profit target (the goal): an integer ≥ 20,000, required, no upper limit. The round ends per BR-009. Single play results must not be stored anywhere.
+- **Rule:** Single play must run only in the browser (local simulation from the shared `shared` package), with 1×/3×/8× speed and pause as in the prototype. Before the start the player must choose a round time {3, 5, 10} minutes, the starting capital (BR-003) and a goal (the target capital): an integer above the starting capital, required, no upper limit. The round ends per BR-009. Single play results must not be stored anywhere.
 - **Applies to:** Player.
 - **Exceptions:** none.
 
@@ -74,12 +74,12 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 - **Exceptions:** none.
 
 ### BR-008: Round parameters
-- **Rule:** When creating a room the host must choose: round duration {3, 5, 10} minutes (always mandatory, wall-clock time), speed {1×, 3×, 8×} fixed for the whole round, and a profit target (the goal) in dollars: required, an integer ≥ 20,000, with no upper limit. A room without a profit target is not allowed. Pause and speed changes during a round must be unavailable.
+- **Rule:** When creating a room the host must choose: round duration {3, 5, 10} minutes (always mandatory, wall-clock time), speed {1×, 3×, 8×} fixed for the whole round, the starting capital (BR-003) and a goal (the target capital) in dollars: required, an integer above the starting capital, with no upper limit. A room without a goal is not allowed. Pause and speed changes during a round must be unavailable.
 - **Applies to:** Host.
 - **Exceptions:** none.
 
 ### BR-009: Round end and winner
-- **Rule:** A round must end when (a) the round time elapses or (b) the first player reaches the profit target (total result = equity − 10,000 ≥ target). In case (b) that player is the winner. In case (a) the winner is the player with the highest equity. If several players reach the target on the same tick, the one with higher equity wins; equal equity = shared first place. The target is checked after every tick and after every order. In single play the round ends when the time elapses (pause stops the clock), when the player's total result reaches the target (the player wins), or at a margin call (BR-005); there is no ranking, the result screen shows the total result against the target.
+- **Rule:** A round must end when (a) the round time elapses or (b) the first player reaches the goal (equity ≥ goal). In case (b) that player is the winner. In case (a) the winner is the player with the highest equity. If several players reach the goal on the same tick, the one with higher equity wins; equal equity = shared first place. The goal is checked after every tick and after every order. In single play the round ends when the time elapses (pause stops the clock), when the player's equity reaches the goal (the player wins), or at a margin call (BR-005); there is no ranking, the result screen shows the equity against the goal.
 - **Applies to:** multiplayer.
 - **Exceptions:** if all players are eliminated, the round ends immediately.
 
@@ -109,7 +109,7 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 - **Exceptions:** none.
 
 ### BR-015: News
-- **Rule:** The system must draw news events in both modes. Interval to the next news: random 250–650 ticks (the first: 200–400 ticks). Type drawn with equal probability (20% each): SHOCK (random direction ±, size 1.2–3.2% immediate price change), FLASH_CRASH (sudden drop of 3–8%, recovering 70% of the drop over the next 20 ticks), VOL_SPIKE (volatility ×3 for 60 ticks, no direction), TRADING_HALT (5 s with no ability to place orders; displayed price frozen, simulation keeps running, after resume the price jumps to the current one), TREND (random direction, drift ±0.0007 per tick for 100 ticks, replaces the regime drift). In multiplayer the same news is sent to everyone.
+- **Rule:** The system must draw news events in both modes. Interval to the next news: random 250–650 ticks (the first: 200–400 ticks). Type drawn with equal probability (25% each): SHOCK (random direction ±, size 1.2–3.2% immediate price change), FLASH_CRASH (sudden drop of 3–8%, recovering 70% of the drop over the next 20 ticks), VOL_SPIKE (volatility ×3 for 60 ticks, no direction), TREND (random direction, drift ±0.0007 per tick for 100 ticks, replaces the regime drift). In multiplayer the same news is sent to everyone.
 - **Applies to:** system.
 - **Exceptions:** none.
 
@@ -167,7 +167,7 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 
 ### BP-003: Browsing and choosing rooms
 1. The player opens the room list (updated live).
-2. For each room they see: name, host, players x/4, round duration, profit target, speed, status (lobby / running).
+2. For each room they see: name, host, players x/4, round duration, starting capital, goal, speed, status (lobby / running).
 3. They pick a room: in "lobby" with a free slot they join as a player; in "running" or with full player slots they join as an observer (if < 4 observers).
 - **Exceptions:** the room disappeared or filled up during joining → message and list refresh.
 - **Related rules:** BR-011, BR-012, BR-014.
@@ -233,24 +233,24 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 - **Empty states:** N/A.
 
 ### UF-002: Single play
-1. Menu → "Single play". Setup screen: round time {3,5,10} min and a profit target (required, integer ≥ 20,000 $), then "Start".
-2. Game screen as in the prototype: chart, stats, size, speed, pause, Buy/Close/Sell, history of the last 8 trades, footer (trades, win rate, equity record), plus the time left and the progress to the target.
-3. The round ends at the target, at time up or at a margin call → result with "Play again" (same time and target) or "Change settings" (back to the setup screen).
-- **Error states:** target empty, not a whole number or below 20,000 → field error, the game does not start.
+1. Menu → "Single play". Setup screen: round time {3,5,10} min, starting capital (slider and number field, $1,000–$100,000 in steps of $1,000, default $10,000) and goal (slider and number field, required, integer above the starting capital, no upper limit, default $30,000), then "Start".
+2. Game screen as in the prototype: chart, stats, size, speed, pause, Buy/Close/Sell, history of the last 8 trades, footer (trades, win rate, equity record), plus the time left and the progress to the goal.
+3. The round ends at the goal, at time up or at a margin call → result with "Play again" (same time, capital and goal) or "Change settings" (back to the setup screen).
+- **Error states:** start outside the range or off the $1,000 grid; goal empty, not a whole number or not above the start → field error, the game does not start.
 - **Empty states:** history: "You haven't closed anything yet."
 
 ### UF-003: Room list and room creation
 1. Menu → "Rooms": live list + "Create room" button.
-2. Form: name (3–30), duration {3,5,10}, speed {1×,3×,8×}, profit target (required, integer ≥ 20,000 $).
+2. Form: name (3–30), duration {3,5,10}, speed {1×,3×,8×}, starting capital ($1,000–$100,000, step $1,000, default $10,000), goal (required, integer above the starting capital, no upper limit, default $30,000).
 3. After creation the user enters the lobby as host.
 - **Error states:** field validation; server error.
 - **Empty states:** "No open rooms. Create your own."
 
 ### UF-004: Lobby and round
 1. Lobby: name, parameters, list of players and observers (host marked). The host sees "Start".
-2. Round: chart, equity, position, buttons, countdown timer, profit target with progress, live ranking, news bar.
+2. Round: chart, equity, position, buttons, countdown timer, equity against the goal with progress, live ranking, news bar.
 3. Results: places, equity, winner; return to the lobby.
-- **Error states:** disconnection ("Reconnecting…" banner, 30 s countdown), `RATE_LIMITED`, `HALTED`, room closed by admin.
+- **Error states:** disconnection ("Reconnecting…" banner, 30 s countdown), `RATE_LIMITED`, room closed by admin.
 - **Empty states:** N/A.
 
 ### UF-005: Observer
@@ -293,24 +293,24 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 
 ### FR-004: Single play
 - **Implements:** BR-006, BR-009, BR-015
-- **Description:** The system must show a setup screen (round time {3,5,10} min, required profit target ≥ 20,000), then run the FR-003 engine in the browser every 80 ms with `speed` steps, with pause, B/S/C keys, a countdown of the round time and the progress to the target, and all UI elements from the prototype.
-- **Edge cases:** pausing during TRADING_HALT stops the countdown; pausing also stops the round time.
+- **Description:** The system must show a setup screen (round time {3,5,10} min, starting capital $1,000–$100,000, required goal above the starting capital), then run the FR-003 engine in the browser every 80 ms with `speed` steps, with pause, B/S/C keys, a countdown of the round time and the progress to the goal, and all UI elements from the prototype.
+- **Edge cases:** pausing stops the round time.
 - **Acceptance criteria:**
   - Given speed 8×, when 80 ms elapse, then 8 price steps execute.
-  - Given a margin call, when "Play again", then the state is the initial one with the same time and target.
-  - Given an empty target or one below 20,000, when "Start", then an error is shown and the game does not start.
+  - Given a margin call, when "Play again", then the state is the initial one with the same time, capital and goal.
+  - Given an empty goal, a goal not above the start, or a start off the $1,000 grid, when "Start", then an error is shown and the game does not start.
+  - Given a goal of 5,000,000 (above the slider range), when "Start", then the game starts.
   - Given the round time elapses, when the next interval runs, then the round ends and no order is accepted.
-  - Given a total result ≥ the target, when a tick or an order is processed, then the round ends as won.
+  - Given equity ≥ the goal, when a tick or an order is processed, then the round ends as won.
   - Given the tab is closed, when re-entering, then no saved results exist.
 
 ### FR-005: News
 - **Implements:** BR-015
-- **Description:** The system must draw and apply five news types (SHOCK, FLASH_CRASH, VOL_SPIKE, TRADING_HALT, TREND), show a message in the news bar (PL/EN, i18n keys, parameters passed from the server), and highlight it green/red by direction (neutral for VOL_SPIKE and TRADING_HALT). The news bar fades after 90 ticks.
+- **Description:** The system must draw and apply four news types (SHOCK, FLASH_CRASH, VOL_SPIKE, TREND), show a message in the news bar (PL/EN, i18n keys, parameters passed from the server), and highlight it green/red by direction (neutral for VOL_SPIKE). The news bar fades after 90 ticks.
 - **Edge cases:** overlapping news (a new news event replaces the previous effect; interval ≥ 250 ticks).
 - **Acceptance criteria:**
-  - Given TRADING_HALT, when active, then the Buy/Sell/Close buttons are disabled for 5 s and the server rejects orders with `HALTED`.
   - Given FLASH_CRASH, when it occurs, then the price drops 3–8% and after 20 ticks 70% of the drop is recovered.
-  - Given 10,000 draws, when checking the type distribution, then each type is within 18–22%.
+  - Given 10,000 draws, when checking the type distribution, then each type is within 23–27%.
 
 ### FR-006: Main menu
 - **Implements:** BR-001
@@ -329,7 +329,7 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 ### FR-008: Lobby (room list)
 - **Implements:** BP-003, BR-014
 - **Description:** The `Lobby` Durable Object must keep the room list in memory. Each `Room` must register on creation, send an update on every change (status, player/observer counts, host), and send a heartbeat. `Lobby` must remove rooms with no heartbeat and broadcast changes to clients subscribed to the list over WebSocket.
-- **Inputs / validation:** entry fields: `roomId`, `name`, `hostNick`, `players`, `maxPlayers=4`, `observers`, `durationMin`, `profitTarget`, `speed`, `status`.
+- **Inputs / validation:** entry fields: `roomId`, `name`, `hostNick`, `players`, `maxPlayers=4`, `observers`, `durationMin`, `startCash`, `goal`, `speed`, `status`.
 - **Edge cases:** `Lobby` restart — rooms re-register on the next heartbeat.
 - **Acceptance criteria:**
   - Given a new room, when created, then within ≤ 2 s it is visible on the list to all subscribers.
@@ -338,8 +338,8 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 ### FR-009: Room creation
 - **Implements:** BR-008, BR-013, BR-014
 - **Description:** The system must create a room (`Room` Durable Object) with the form parameters and set the creator as host.
-- **Inputs / validation:** name 3–30 characters; duration ∈ {3,5,10}; speed ∈ {1,3,8}; profit target: required, integer ≥ 20,000.
-- **Edge cases:** target empty → error; target 19,999 → error; target 1,000,000 → allowed.
+- **Inputs / validation:** name 3–30 characters; duration ∈ {3,5,10}; speed ∈ {1,3,8}; `startCash`: integer 1,000–100,000, multiple of 1,000; `goal`: required, integer above `startCash`.
+- **Edge cases:** goal empty → error; goal equal to or below the start → error; start 1,500 → error; goal 1,000,000 or 5,000,000,000 → allowed.
 - **Acceptance criteria:**
   - Given a valid form, when "Create", then the user is in the lobby as host.
   - Given target 19,999 or an empty target, when "Create", then a validation error is shown and no room is created.
@@ -354,7 +354,7 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 
 ### FR-011: Round start and progression
 - **Implements:** BR-007, BR-008, BR-009, BR-015, BP-002
-- **Description:** On the host's command (`start`, min. 1 player) `Room` must set each player's equity to $10,000 and the price to $100, run a tick loop every 80 ms with `speed` steps, and broadcast state (price, own positions, ranking, news, remaining time). Round time is measured by wall clock.
+- **Description:** On the host's command (`start`, min. 1 player) `Room` must set each player's equity to the room's starting capital and the price to $100, run a tick loop every 80 ms with `speed` steps, and broadcast state (price, own positions, ranking, news, remaining time). Round time is measured by wall clock.
 - **Edge cases:** `start` from a non-host → `FORBIDDEN`; `start` during a round → `INVALID_STATE`.
 - **Acceptance criteria:**
   - Given a lobby, when the host sends `start`, then the status is "running" and everyone receives the same price stream.
@@ -362,7 +362,7 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 
 ### FR-012: Orders in multiplayer
 - **Implements:** BR-003, BR-004, BR-007, BR-018
-- **Description:** The server must accept `order {side, qty}` and `close`, execute at the server price at the moment of receipt (+/− half the spread), and respond with a confirmation or an error (`RATE_LIMITED`, `HALTED`, `ELIMINATED`, `INVALID_STATE`, `INVALID_PAYLOAD`).
+- **Description:** The server must accept `order {side, qty}` and `close`, execute at the server price at the moment of receipt (+/− half the spread), and respond with a confirmation or an error (`RATE_LIMITED`, `ELIMINATED`, `INVALID_STATE`, `INVALID_PAYLOAD`).
 - **Inputs / validation:** `qty ∈ {10,50,100,250}`; messages validated against a schema; unknown fields rejected.
 - **Edge cases:** order from an observer or eliminated player → `FORBIDDEN`/`ELIMINATED`.
 - **Acceptance criteria:**
@@ -374,7 +374,7 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 - **Description:** The server must broadcast the ranking (nickname, equity, status) every tick, detect end conditions, and send the final result. After the result the room returns to "lobby".
 - **Edge cases:** all players eliminated; target reached by two players on the same tick.
 - **Acceptance criteria:**
-  - Given a $20,000 target and a player with total result ≥ 20,000, when tick, then the round ends and they are the winner.
+  - Given a $5,000 start, a $5,100 goal and a player with equity ≥ 5,100, when tick, then the round ends and they are the winner.
   - Given time elapses without the target being reached, when the end occurs, then the winner is the highest equity.
   - Given equal equity, when the end occurs, then the player who reached that value earlier wins.
 
@@ -446,7 +446,8 @@ There is no database (BR-020). The entities below exist only in memory.
 | name | string | yes | 3–30 characters | |
 | hostUid | string | yes | | |
 | durationMin | 3\|5\|10 | yes | | |
-| profitTarget | number | yes | integer ≥ 20,000 | |
+| startCash | number | yes | integer 1,000–100,000, multiple of 1,000 | capital every player starts with (BR-003) |
+| goal | number | yes | integer > startCash | target equity (BR-009) |
 | speed | 1\|3\|8 | yes | | |
 | status | `lobby`\|`running` | yes | | |
 | players | Player[] | yes | ≤ 4 | |
@@ -600,7 +601,7 @@ There is no database (BR-020). The entities below exist only in memory.
 | 17 | Login only by email + password, with verification, reset, min. 8 characters | Google, GitHub | User's choice |
 | 18 | Nickname: random default, changeable, in `displayName`, no filter, collisions with `#n` | Nickname from email | User's choice |
 | 19 | Trading rules and execution price as in single; server price at order receipt | Position limit; ±0.5% tolerance | User's choice |
-| 20 | News: 5 types at 20% each, in both modes | Rarer new ones; multiplayer only | User's choice (selected all 4 new ones, random) |
+| 20 | News: 5 types at 20% each, in both modes (superseded by #39: the trading halt was removed, so 4 types at 25% each) | Rarer new ones; multiplayer only | User's choice (selected all 4 new ones, random) |
 | 21 | Language PL + EN | PL only | User's choice |
 | 22 | Web mobile-first ≥ 360 px; latency ≤ 300 ms p95; WCAG 2.1 AA; privacy policy + account deletion | — | User's choice |
 | 23 | Room list: name, host, x/4, duration, target, speed, status | — | User's choice |
@@ -610,7 +611,7 @@ There is no database (BR-020). The entities below exist only in memory.
 | 27 | Stack: TypeScript, Vue 3 + Vite, Workers + Durable Objects, Firebase Auth, Pages, GitHub Actions, pnpm monorepo, Vitest + Playwright | NestJS/Colyseus; Better Auth; React/Svelte; Workers Static Assets | User's choice |
 | 28 | Single play in the browser with the shared `shared` package | On the server | User's choice |
 | 29 | Solo, no deadline; built from scratch (prototype as pattern); metric: stable 4-player round | — | User's choice |
-| 30 | Derived from answers (tunable constants in `shared/config.ts`): round time = wall clock; target computed on total result (equity − 10,000) including open P&L; same-tick target tie decided by equity; minimum 1 player to start; observer does not become a player in the same visit; player after disconnect timeout ranked like a bankrupt; kicked player may return; news parameters (70% recovery over 20 ticks, drift ±0.0007, ×3 for 60 ticks); default language from the browser; `Lobby`/`Room` heartbeat interval; `zod` for protocol schemas | — | Additions following from earlier choices |
+| 30 | Derived from answers (tunable constants in `shared/config.ts`): round time = wall clock; goal checked on equity including open P&L (decision 45); same-tick target tie decided by equity; minimum 1 player to start; observer does not become a player in the same visit; player after disconnect timeout ranked like a bankrupt; kicked player may return; news parameters (70% recovery over 20 ticks, drift ±0.0007, ×3 for 60 ticks); default language from the browser; `Lobby`/`Room` heartbeat interval; `zod` for protocol schemas | — | Additions following from earlier choices |
 | 31 | Product name: First Million. New look: dark theme (the only one in the MVP, no light theme), gold accent, Space Grotesk + JetBrains Mono fonts | Keeping the prototype's light/dark themes | User asked for a darker design; the specific palette was proposed by Claude |
 | 32 | Added section 23 with links to the prototypes (playable and clickable) as reference materials | — | User's request |
 | 33 | Tick drift: every interval runs a fixed `speed` number of price steps; no catch-up by wall time | Catch up steps by elapsed wall time | User's choice; same behaviour as the prototype, simplest, deterministic in tests |
@@ -619,12 +620,13 @@ There is no database (BR-020). The entities below exist only in memory.
 | 36 | All deployment (Pages, Worker, Firebase project setup) in M6; M1–M5 run locally | Deploy Pages at the end of M2 | User's choice; one deployment pass, no half-configured production environment |
 | 37 | No WebSocket hibernation for `Lobby` or `Room`: both stay alive in memory while a room exists, with a 30 s heartbeat (stale after 90 s). Duration budget (13,000 GB-s/day on the free plan) is checked in M6 | Hibernation for `Lobby` | User's choice after reading the Cloudflare docs: hibernation resets in-memory state, so the room list would empty after each eviction, and keeping it elsewhere breaks BR-020 |
 | 38 | An eliminated player (bankruptcy or disconnect timeout) keeps a watch-only seat: status `eliminated`, equity 0, shared last place, sees the stream. The seat resets to `active` at the next start. This is how BR-012 "stays as an observer" is implemented; it does not take an observer slot, so the BR-011 cap holds | Move the player to the observers list (BR-012 literal, breaks the cap of 4 or needs an exemption) | User's choice (M4 planning) |
-| 39 | TRADING_HALT counts down in wall-clock ms: 5 s at any speed. The elapsed time of one tick interval is capped at 250 ms (a stalled Durable Object cannot skip the halt) | Count the halt in game ticks (0.6 s on screen at 8×) | User's choice (M4 planning) |
+| 39 | Superseded by the user: the trading halt (TRADING_HALT news, `HALTED` error, halt countdown and its 250 ms tick cap) was removed. The former 5 s, later 2 s, halt no longer applies | Keep the halt (5 s, then 2 s) | User's choice; the user then asked to remove it |
 | 40 | BR-010 tie-break "reached that equity value earlier" = server time of the player's last change of equity value; computable on every tick | Time of the first reach of the final value (known only at the end) | Planning default, adopted (M4) |
 | 41 | M4 room rules: the order rate limit counts every schema-valid `order` and `close`, accepted or refused; `room.leave` in a running round is a dropped socket (30 s grace, so leaving cannot escape a loss); a disconnect in the lobby removes the seat at once; the host role passes when the host's socket drops, to the next connected member; a player who is gone when the round ends is dropped from the seats (the result keeps the row); a kick during a round removes the seat; an observer may be host (starting needs ≥ 1 seated player) | Count only accepted orders; grace on leave in the lobby; keep absent players seated | Planning defaults, adopted (M4) |
 | 42 | NFR-006 e2e round: 3 minutes at 8× by default, the full 10 minutes with `E2E_FULL_ROUND=1` (run once before a release). NFR-001 is measured in the page (order sent → `order.ok`), p95 ≤ 300 ms over 50 orders. NFR-005 counts the gzip size of all built JS chunks together (≤ 300 KB) | A 10-minute round on every review; server-side timing only; the initial chunk only | User's choice (M6 planning); the all-chunks sum is the stricter reading |
 | 43 | e2e runs against the Vite dev server, the Auth emulator and `wrangler dev` with the emulator flag given on the command line: a production build has no emulator hook (decision 35), so it cannot log in to the emulator. The production build is covered by `check-bundle` and `check-no-emulator`, and by Lighthouse | e2e on `vite preview`; real Firebase test accounts | Consequence of decision 35 (M6 implementation) |
 | 44 | The profit target (the "Goal" in the UI) is required everywhere, an integer ≥ 20,000, no upper limit: in room creation and in single play. Single play gets a setup screen with the round time and the target, and ends at the target, at time up or at a margin call (BR-006, BR-009). Single play offers the same times as rooms, {3, 5, 10} min; pause stops its clock. "Play again" keeps the time and target, "Change settings" returns to setup. Supersedes the optional target and the $100 minimum in decisions 7 and 10, and "no time limit" in BR-006 | Optional target kept for rooms; a default target; single play without time | User's choice; the time set and the pause rule are planning defaults |
+| 45 | The starting capital is chosen per round (single play: the player; room: the host): $1,000–$100,000 in steps of $1,000, default $10,000, on a slider with a number field. The goal becomes a target capital (equity): an integer above the starting capital, no upper limit and no fixed minimum, default $30,000; the round is won at equity ≥ goal. `profitTarget` is renamed `goal` and `startCash` is added to the room form, summary and view. Order sizes stay {10, 50, 100, 250} (balance note in CODE_QUALITY). Supersedes the fixed $10,000 in BR-003, the $20,000 minimum in decisions 7, 10 and 44, and the total-result target in decision 30 | Goal as profit; presets only; sizes scaled to the capital | User's choice; ranges and defaults are planning defaults |
 
 ## 21. Open Questions
 None.
@@ -634,9 +636,9 @@ None.
 |------|------------|
 | Tick | A single price simulation step (prototype: 80 ms × speed steps) |
 | Net position | A player's single position (long > 0, short < 0) after offsetting orders against each other |
-| Equity | 10,000 + realized P&L + open P&L |
-| Total result | Equity − 10,000 |
-| Profit target (goal) | Required total-result threshold, at least $20,000, that ends a round when reached. Shown as "Goal" in the UI; `profitTarget` in code |
+| Equity | Starting capital + realized P&L + open P&L |
+| Total result | Equity − starting capital |
+| Goal | Required target equity, above the starting capital, no upper limit; ends a round when reached. Shown as "Goal" in the UI; `goal` in code |
 | Host | The player managing a room and starting rounds |
 | Observer | A room participant without trading rights |
 | Lobby (state) | Room state before a round starts or after it ends |
@@ -645,7 +647,7 @@ None.
 ## 23. Materials & Prototypes
 | Material | Description | Link |
 |----------|-------------|------|
-| Playable prototype (single play) | Single-file HTML with the mechanics from BR-003–BR-006 and BR-015: five news types, trading halt, speed, pause, PL/EN, dark theme. Reference implementation for the `shared` package (FR-003, FR-004, FR-005) | https://claude.ai/artifact/J44oy8wvcAvoTnhoybnMKn |
+| Playable prototype (single play) | Single-file HTML with the mechanics from BR-003–BR-006 and BR-015: four news types, speed, pause, PL/EN, dark theme. Reference implementation for the `shared` package (FR-003, FR-004, FR-005) | https://claude.ai/artifact/J44oy8wvcAvoTnhoybnMKn |
 | Clickable prototype (design) | Seven mobile screens: login, menu, room list, room creation, lobby, round, results. Reference for UF-001–UF-004 and section 16 | https://claude.ai/artifact/FpMquwSRiKMjc4fMkmUxY1 |
 
 - The links are private until shared from the Share menu.

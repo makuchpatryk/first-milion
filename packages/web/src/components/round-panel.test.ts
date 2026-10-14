@@ -12,7 +12,8 @@ const view = (over: Partial<RoomView> = {}): RoomView => ({
   name: 'Alpha',
   hostNick: 'Ann',
   durationMin: 5,
-  profitTarget: 20_000,
+  startCash: 10_000,
+  goal: 20_000,
   speed: 3,
   status: 'running',
   players: [
@@ -106,20 +107,6 @@ describe('RoundPanel (UF-004 step 2, UF-005)', () => {
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 
-  it('FR-005: during a halt the buttons are disabled and the halt bar is announced', () => {
-    const wrapper = mountPanel({
-      view: view(),
-      state: roundState({ halt: { msLeft: 3_500 } }),
-      canTrade: false,
-    })
-    for (const button of tradeButtons(wrapper)) {
-      expect(button.attributes('disabled')).toBeDefined()
-    }
-    const halt = wrapper.find('.halt')
-    expect(halt.attributes('aria-live')).toBe('assertive')
-    expect(halt.text()).toContain(pl.single.haltBar)
-  })
-
   it('FR-014: an eliminated player keeps the ranking, with buttons disabled and a banner', () => {
     const wrapper = mountPanel({
       view: view(),
@@ -134,16 +121,48 @@ describe('RoundPanel (UF-004 step 2, UF-005)', () => {
     expect(wrapper.findAll('ol > li')).toHaveLength(2)
   })
 
-  it('BR-009: the goal shows a labelled progress bar with the share reached', () => {
+  it('BR-009: the goal shows a labelled progress bar from the start capital to the goal equity', () => {
     const wrapper = mountPanel({
-      view: view({ profitTarget: 20_000 }),
+      view: view({ startCash: 5_000, goal: 25_000 }),
       state: roundState({ you: me({ equity: 15_000 }) }),
       canTrade: true,
     })
     const bar = wrapper.find('[role="progressbar"]')
     expect(bar.attributes('aria-label')).toBe(pl.round.targetProgress)
-    expect(bar.attributes('aria-valuemax')).toBe('20000')
+    expect(bar.attributes('aria-valuemin')).toBe('5000')
+    expect(bar.attributes('aria-valuemax')).toBe('25000')
+    expect(bar.attributes('aria-valuenow')).toBe('15000')
+    expect(bar.find('.fill').attributes('style')).toContain('width: 50%')
+    expect(wrapper.text().replace(/\s/g, ' ')).toContain('15 000 / 25 000')
+  })
+
+  it('BR-009: equity below the start keeps the progress valid, at the start', () => {
+    const wrapper = mountPanel({
+      view: view({ startCash: 5_000, goal: 25_000 }),
+      state: roundState({ you: me({ equity: 3_000 }) }),
+      canTrade: true,
+    })
+    const bar = wrapper.find('[role="progressbar"]')
     expect(bar.attributes('aria-valuenow')).toBe('5000')
+    expect(bar.find('.fill').attributes('style')).toContain('width: 0%')
+  })
+
+  it('BR-005: the total result is measured from the room start capital', () => {
+    const wrapper = mountPanel({
+      view: view({ startCash: 5_000, goal: 25_000 }),
+      state: roundState({ you: me({ equity: 5_250 }) }),
+      canTrade: true,
+    })
+    expect(wrapper.text()).toContain('+250,00')
+  })
+
+  it('BR-009: an observer sees the progress at the start, not at their zero equity', () => {
+    const wrapper = mountPanel({
+      view: view({ startCash: 5_000, goal: 25_000, you: { role: 'observer', nick: 'Cy', isHost: false } }),
+      state: roundState({ you: me({ role: 'observer', equity: 0 }) }),
+      canTrade: false,
+    })
+    expect(wrapper.find('[role="progressbar"]').attributes('aria-valuenow')).toBe('5000')
   })
 
   it('FR-004 keys: B buys, S sells, C closes while trading is allowed', () => {
@@ -165,16 +184,6 @@ describe('RoundPanel (UF-004 step 2, UF-005)', () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', bubbles: true }))
     input.remove()
     expect(wrapper.emitted('order')).toBeUndefined()
-  })
-
-  it('FR-005: keys do nothing during a halt', () => {
-    const halted = mountPanel({
-      view: view(),
-      state: roundState({ halt: { msLeft: 1_000 } }),
-      canTrade: false,
-    })
-    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', bubbles: true }))
-    expect(halted.emitted('order')).toBeUndefined()
   })
 
   it('the size chips change the quantity that is sent', async () => {

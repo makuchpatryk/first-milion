@@ -1,7 +1,7 @@
 import { TICK_MS } from '@fm/shared/config'
-import { emptyPortfolio } from '@fm/shared/engine/portfolio'
+import { newPortfolio } from '@fm/shared/engine/portfolio'
 import { createRng } from '@fm/shared/rng'
-import { START_CASH, START_PRICE } from '@fm/shared/rules'
+import { DEFAULT_START_CASH, START_PRICE } from '@fm/shared/rules'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SINGLE_ROUND } from './loop'
 import { useSinglePlay } from './useSinglePlay'
@@ -22,17 +22,6 @@ function start(seed = SEED) {
     }
   }
   return { game, run }
-}
-
-/** Plays until a trading halt is running; the seed search keeps the test deterministic. */
-function startHalted() {
-  for (let seed = 1; seed <= 300; seed++) {
-    const { game, run } = start(seed)
-    for (let i = 0; i < 900 && !game.halted.value; i++) run(1)
-    if (game.halted.value) return { game, run }
-    game.dispose()
-  }
-  throw new Error('no seed produced a trading halt')
 }
 
 beforeEach(() => {
@@ -76,30 +65,6 @@ describe('useSinglePlay timing (FR-004)', () => {
     game.dispose()
   })
 
-  it('FR-004 edge: pausing during a trading halt freezes the countdown', () => {
-    const { game, run } = startHalted()
-    const left = game.sim.value.market.haltMsLeft
-
-    game.togglePause()
-    run(10)
-    expect(game.sim.value.market.haltMsLeft).toBe(left)
-
-    game.togglePause()
-    run(1)
-    expect(game.sim.value.market.haltMsLeft).toBeLessThan(left)
-    game.dispose()
-  })
-
-  it('BR-015: a stalled tab never advances the halt by more than 250 ms per interval', () => {
-    const { game } = startHalted()
-    const left = game.sim.value.market.haltMsLeft
-
-    clock += 10_000
-    vi.advanceTimersByTime(TICK_MS)
-    expect(left - game.sim.value.market.haltMsLeft).toBe(250)
-    game.dispose()
-  })
-
   it('FR-004: dispose stops the timer', () => {
     const { game, run } = start()
     run(1)
@@ -121,12 +86,12 @@ describe('useSinglePlay actions', () => {
 
     const sim = game.sim.value
     expect(sim.prices).toEqual([START_PRICE])
-    expect(sim.portfolio).toEqual(emptyPortfolio)
+    expect(sim.portfolio).toEqual(newPortfolio(DEFAULT_START_CASH))
     expect(sim.history).toEqual([])
-    expect(sim.peak).toBe(START_CASH)
+    expect(sim.peak).toBe(DEFAULT_START_CASH)
     expect(sim.end).toBeNull()
     expect(sim.timeLeftMs).toBe(DEFAULT_SINGLE_ROUND.durationMs)
-    expect(game.equity.value).toBe(START_CASH)
+    expect(game.equity.value).toBe(DEFAULT_START_CASH)
     game.dispose()
   })
 
@@ -143,28 +108,6 @@ describe('useSinglePlay actions', () => {
     game.dispose()
   })
 
-  it('FR-005 AC: buy, sell and close are no-ops during a trading halt', () => {
-    const { game } = startHalted()
-    const before = game.sim.value.portfolio
-
-    game.buy()
-    game.sell()
-    game.close()
-    expect(game.sim.value.portfolio).toBe(before)
-    game.dispose()
-  })
-
-  it('FR-005: the headline price stays at the frozen price during a halt', () => {
-    const { game, run } = startHalted()
-    const frozen = game.price.value
-    const length = game.sim.value.prices.length
-    run(5) // 400 ms of a 5 s halt: still halted, the true price keeps moving
-    expect(game.halted.value).toBe(true)
-    expect(game.sim.value.prices.length).toBeGreaterThan(length)
-    expect(game.price.value).toBe(frozen)
-    game.dispose()
-  })
-
   it('UF-002: the win rate is empty until a trade is closed', () => {
     const { game } = start()
     expect(game.winRate.value).toBeNull()
@@ -176,7 +119,8 @@ describe('useSinglePlay actions', () => {
 })
 
 describe('useSinglePlay setup and round (FR-004, BR-009)', () => {
-  const ROUND = { durationMs: 3 * 60_000, goal: 20_000 }
+  // A non-default capital, so a site that still assumes $10,000 fails (BR-003).
+  const ROUND = { durationMs: 3 * 60_000, startCash: 5_000, goal: 20_000 }
 
   it('nothing runs and no trade is booked before the game starts', () => {
     clock = 0
@@ -189,13 +133,14 @@ describe('useSinglePlay setup and round (FR-004, BR-009)', () => {
     game.dispose()
   })
 
-  it('start takes the chosen time and goal', () => {
+  it('start takes the chosen time, starting capital and goal', () => {
     clock = 0
     const game = useSinglePlay({ now: () => clock, rng: createRng(SEED) })
     game.start(ROUND)
     expect(game.started.value).toBe(true)
     expect(game.sim.value.round).toEqual(ROUND)
     expect(game.sim.value.timeLeftMs).toBe(ROUND.durationMs)
+    expect(game.equity.value).toBe(ROUND.startCash)
     game.dispose()
   })
 
@@ -216,7 +161,7 @@ describe('useSinglePlay setup and round (FR-004, BR-009)', () => {
   it('BR-009: the round ends as TIME when the time runs out', () => {
     clock = 0
     const game = useSinglePlay({ now: () => clock, rng: createRng(SEED) })
-    game.start({ durationMs: 800, goal: 20_000 })
+    game.start({ ...ROUND, durationMs: 800 })
     for (let i = 0; i < 20 && game.sim.value.end === null; i++) {
       clock += TICK_MS
       vi.advanceTimersByTime(TICK_MS)
@@ -229,7 +174,7 @@ describe('useSinglePlay setup and round (FR-004, BR-009)', () => {
   it('an ended round takes no more trades', () => {
     clock = 0
     const game = useSinglePlay({ now: () => clock, rng: createRng(SEED) })
-    game.start({ durationMs: 800, goal: 20_000 })
+    game.start({ ...ROUND, durationMs: 800 })
     for (let i = 0; i < 20 && game.sim.value.end === null; i++) {
       clock += TICK_MS
       vi.advanceTimersByTime(TICK_MS)
@@ -241,12 +186,14 @@ describe('useSinglePlay setup and round (FR-004, BR-009)', () => {
     game.dispose()
   })
 
-  it('restart plays again with the same time and goal', () => {
+  it('restart plays again with the same time, starting capital and goal', () => {
     const { game, run } = start()
     game.start(ROUND)
     run(5)
     game.restart()
     expect(game.sim.value.round).toEqual(ROUND)
+    expect(game.sim.value.portfolio.startCash).toBe(ROUND.startCash)
+    expect(game.equity.value).toBe(ROUND.startCash)
     expect(game.sim.value.timeLeftMs).toBe(ROUND.durationMs)
     expect(game.started.value).toBe(true)
     game.dispose()

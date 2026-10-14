@@ -37,7 +37,7 @@ Dependency rules:
 - **Engine** is pure: `rng` and elapsed ms passed in, never `Math.random()`/`Date.now()`. Tick = 80 ms, `speed` steps.
 - **Server authority**: orders are `{side, qty}` or `close`; fill at last tick's price ± half spread. Zod schemas are strict; unknown fields (e.g. `price`) → `INVALID_PAYLOAD`.
 - **Serialized**: a DO handles one event at a time; ticks and orders never interleave, no locks.
-- **Time**: round end is server wall clock (`roundEndsAt`); end checks after every tick and every order (BR-009). The shell's 80 ms interval only calls `RoomLogic.tick()`; the logic reads the injected clock, caps one interval's elapsed time at 250 ms (halt countdown, PRD §20 #39) and runs `speed` price steps.
+- **Time**: round end is server wall clock (`roundEndsAt`); end checks after every tick and every order (BR-009). The shell's 80 ms interval only calls `RoomLogic.tick()`; the logic reads the injected clock, runs `speed` price steps.
 - **Memory only**: ordinary WebSockets + in-memory timers in `Room` and `Lobby`; no hibernation, storage or alarms (guard test `worker/test/no-storage.test.ts`).
 - **Auth**: ID token in first `auth` message (never URL), within 5 s; RS256 via WebCrypto + cached JWKS, `email_verified`; `Origin` allowlist; admin UID checked on every admin action.
 - **Privacy**: broadcasts carry nickname and numbers only; no email, UID or token.
@@ -48,7 +48,7 @@ States: room `lobby → running → lobby`, deleted after 5 min empty or admin c
 
 Server replies with a code, never text or a thrown exception; `web/i18n` maps codes to PL/EN.
 
-`RATE_LIMITED | HALTED | ELIMINATED | FORBIDDEN | INVALID_STATE | INVALID_PAYLOAD | ROOM_FULL | ROOM_CLOSED | ROOM_NOT_FOUND`. Bad auth → close 4401 (kick 4403, admin room close 4410: `shared/protocol/close-codes.ts`). Bad `Origin` → 403.
+`RATE_LIMITED | ELIMINATED | FORBIDDEN | INVALID_STATE | INVALID_PAYLOAD | ROOM_FULL | ROOM_CLOSED | ROOM_NOT_FOUND`. Bad auth → close 4401 (kick 4403, admin room close 4410: `shared/protocol/close-codes.ts`). Bad `Origin` → 403.
 
 ## Testing
 

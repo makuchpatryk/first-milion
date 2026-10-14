@@ -35,7 +35,8 @@ describe('lobby list (FR-008)', () => {
       maxPlayers: 4,
       durationMin: 5,
       speed: 1,
-      profitTarget: 20_000,
+      startCash: 10_000,
+      goal: 30_000,
       status: 'lobby',
       hostNick: null,
     })
@@ -66,10 +67,10 @@ describe('room creation and joining (FR-009, FR-010)', () => {
     })
   })
 
-  it('FR-009 AC: a profit target of 50 is INVALID_PAYLOAD and creates no room', async () => {
+  it('FR-009 AC: a goal not above the start capital is INVALID_PAYLOAD and creates no room', async () => {
     const creator = await lobby('uid-creator')
     const before = (await creator.next('lobby.rooms')).rooms.length
-    creator.send({ type: 'room.create', form: { ...validForm, profitTarget: 50 } })
+    creator.send({ type: 'room.create', form: { ...validForm, goal: validForm.startCash } })
     expect(await creator.nextError()).toBe('INVALID_PAYLOAD')
     const observer = await lobby('uid-obs')
     expect((await observer.next('lobby.rooms')).rooms).toHaveLength(before)

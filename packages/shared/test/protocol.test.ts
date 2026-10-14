@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { MAX_FRAME_CHARS } from '../src/config'
 import { ERROR_CODES, parseClientMessage, serverMessageSchema } from '../src/protocol'
 
-const form = { name: 'Friday round', durationMin: 5, speed: 3, profitTarget: 20_000 }
+const form = { name: 'Friday round', durationMin: 5, speed: 3, startCash: 10_000, goal: 30_000 }
 
 describe('parseClientMessage', () => {
   it('accepts every client message type', () => {
@@ -59,8 +59,18 @@ describe('parseClientMessage', () => {
   })
 
   it('FR-009: a room.create with an invalid form is rejected', () => {
-    expect(parseClientMessage({ type: 'room.create', form: { ...form, profitTarget: 50 } }).ok).toBe(false)
-    expect(parseClientMessage({ type: 'room.create', form: { ...form, profitTarget: null } }).ok).toBe(false)
+    const bad = [{ goal: 5_000 }, { goal: 10_000 }, { goal: null }, { startCash: 1_500 }, { startCash: 200_000 }]
+    for (const patch of bad) {
+      expect(parseClientMessage({ type: 'room.create', form: { ...form, ...patch } }).ok).toBe(false)
+    }
+  })
+
+  it('FR-009: a room.create with a custom start and a goal beyond the slider range is accepted', () => {
+    const custom = { ...form, startCash: 5_000, goal: 2_500_000 }
+    expect(parseClientMessage({ type: 'room.create', form: custom })).toEqual({
+      ok: true,
+      msg: { type: 'room.create', form: custom },
+    })
   })
 
   it('BR-016: a room.join with an invalid nick is rejected', () => {
@@ -99,6 +109,50 @@ describe('serverMessageSchema', () => {
   })
 })
 
+describe('serverMessageSchema room messages carry the stakes (FR-004, FR-011)', () => {
+  const summary = {
+    id: 'a1b2',
+    name: 'Friday round',
+    hostNick: 'Jan',
+    players: 1,
+    observers: 0,
+    maxPlayers: 4,
+    durationMin: 5,
+    startCash: 5_000,
+    goal: 40_000,
+    speed: 3,
+    status: 'lobby',
+  }
+  const view = {
+    id: 'a1b2',
+    name: 'Friday round',
+    hostNick: 'Jan',
+    durationMin: 5,
+    startCash: 5_000,
+    goal: 40_000,
+    speed: 3,
+    status: 'lobby',
+    players: [],
+    observers: [],
+    lastRound: null,
+    you: { role: 'observer', nick: 'Ola', isHost: false },
+  }
+
+  it('lobby.rooms and room.state accept startCash and goal', () => {
+    expect(serverMessageSchema.safeParse({ type: 'lobby.rooms', rooms: [summary] }).success).toBe(true)
+    expect(serverMessageSchema.safeParse({ type: 'room.state', view }).success).toBe(true)
+  })
+
+  it('the old profitTarget field and a missing startCash or goal are rejected', () => {
+    const omit = (o: object, key: string) => Object.fromEntries(Object.entries(o).filter(([k]) => k !== key))
+    const noGoal = omit(summary, 'goal')
+    const noStart = omit(view, 'startCash')
+    expect(serverMessageSchema.safeParse({ type: 'lobby.rooms', rooms: [{ ...summary, profitTarget: 20_000 }] }).success).toBe(false)
+    expect(serverMessageSchema.safeParse({ type: 'lobby.rooms', rooms: [noGoal] }).success).toBe(false)
+    expect(serverMessageSchema.safeParse({ type: 'room.state', view: noStart }).success).toBe(false)
+  })
+})
+
 describe('serverMessageSchema round messages (FR-011..FR-015)', () => {
   const you = {
     role: 'player',
@@ -118,7 +172,6 @@ describe('serverMessageSchema round messages (FR-011..FR-015)', () => {
     type: 'room.tick',
     prices: [100, 100.2, 99.9],
     price: 99.9,
-    halt: null,
     news: null,
     endsInMs: 180_000,
     ranking,
@@ -147,18 +200,18 @@ describe('serverMessageSchema round messages (FR-011..FR-015)', () => {
     expect(serverMessageSchema.safeParse({ type: 'order.ok', fill: null, you }).success).toBe(true)
   })
 
-  it('FR-005 / BR-015: a tick carries a halt countdown and every news type with its parameters', () => {
+  it('FR-005 / BR-015: a tick carries every news type with its parameters', () => {
     const news = [
       { type: 'SHOCK', dir: -1, mag: 0.02, idx: 3 },
       { type: 'FLASH_CRASH', drop: 0.05 },
       { type: 'VOL_SPIKE' },
-      { type: 'TRADING_HALT' },
       { type: 'TREND', dir: 1 },
     ]
     for (const item of news) {
-      const msg = { ...tick, halt: { msLeft: 4_000 }, news: item }
+      const msg = { ...tick, news: item }
       expect(serverMessageSchema.safeParse(msg).success).toBe(true)
     }
+    expect(serverMessageSchema.safeParse({ ...tick, news: { type: 'TRADING_HALT' } }).success).toBe(false)
     expect(serverMessageSchema.safeParse({ ...tick, news: { type: 'SHOCK', dir: 2, mag: 1, idx: 0 } }).success).toBe(false)
     expect(serverMessageSchema.safeParse({ ...tick, news: { type: 'VOL_SPIKE', engine: {} } }).success).toBe(false)
   })

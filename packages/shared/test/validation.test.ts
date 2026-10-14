@@ -1,18 +1,33 @@
 import { describe, expect, it } from 'vitest'
 import { createRng } from '../src/rng'
-import { isValidNick, nickSchema, randomNick, roomFormSchema, suffixNick } from '../src/validation'
+import {
+  isValidNick,
+  nickSchema,
+  randomNick,
+  roomFormSchema,
+  stakesSchema,
+  suffixNick,
+} from '../src/validation'
 
-const validForm = { name: 'Friday round', durationMin: 5, speed: 3, profitTarget: 20_000 }
+const validForm = { name: 'Friday round', durationMin: 5, speed: 3, startCash: 10_000, goal: 30_000 }
 const parseForm = (patch: Record<string, unknown>) =>
   roomFormSchema.safeParse({ ...validForm, ...patch })
 
+const validStakes = { startCash: 10_000, goal: 30_000 }
+const parseStakes = (patch: Record<string, unknown>) =>
+  stakesSchema.safeParse({ ...validStakes, ...patch })
+
+/** Paths of the issues of a failed parse. */
+const failedPaths = (r: { success: boolean; error?: { issues: { path: PropertyKey[] }[] } }) =>
+  r.error?.issues.map((i) => i.path.join('.')) ?? []
+
 describe('roomFormSchema', () => {
-  it('BR-009: a valid form with a goal of 20,000 is accepted', () => {
+  it('BR-009: a valid form is accepted', () => {
     expect(roomFormSchema.safeParse(validForm).success).toBe(true)
   })
 
   it('BR-009: a null goal is rejected, the goal is required', () => {
-    expect(parseForm({ profitTarget: null }).success).toBe(false)
+    expect(parseForm({ goal: null }).success).toBe(false)
   })
 
   it('FR-009 AC: name of 2 characters is rejected, 3 and 30 are accepted, 31 is rejected', () => {
@@ -28,15 +43,36 @@ describe('roomFormSchema', () => {
     expect(parsed.success && parsed.data.name).toBe('abc')
   })
 
-  it('BR-009 AC: goal 19,999 and 100 are rejected, 20,000 and 1_000_000 are accepted', () => {
-    expect(parseForm({ profitTarget: 100 }).success).toBe(false)
-    expect(parseForm({ profitTarget: 19_999 }).success).toBe(false)
-    expect(parseForm({ profitTarget: 20_000 }).success).toBe(true)
-    expect(parseForm({ profitTarget: 1_000_000 }).success).toBe(true)
+  it('BR-009: the goal must be above the start; equal or below is rejected on the goal field', () => {
+    expect(failedPaths(parseForm({ startCash: 10_000, goal: 10_000 }))).toEqual(['goal'])
+    expect(failedPaths(parseForm({ startCash: 10_000, goal: 9_000 }))).toEqual(['goal'])
+    expect(parseForm({ startCash: 10_000, goal: 10_001 }).success).toBe(true)
   })
 
-  it('FR-009: a fractional target is rejected', () => {
-    expect(parseForm({ profitTarget: 150.5 }).success).toBe(false)
+  it('BR-009: the goal has no upper limit, also far above the slider range', () => {
+    expect(parseForm({ goal: 1_000_000 }).success).toBe(true)
+    expect(parseForm({ goal: 5_000_000_000 }).success).toBe(true)
+    expect(parseForm({ goal: Number.MAX_SAFE_INTEGER }).success).toBe(true)
+  })
+
+  it('BR-009: an unsafe integer, a non-finite or a non-positive goal is rejected', () => {
+    for (const goal of [2 ** 60, Infinity, NaN, 0, -5]) expect(parseForm({ goal }).success).toBe(false)
+  })
+
+  it('FR-009: a fractional goal is rejected', () => {
+    expect(parseForm({ goal: 30_000.5 }).success).toBe(false)
+  })
+
+  it('BR-003 AC: start 1,000 and 100,000 are accepted, 0, 500 and 101,000 are rejected', () => {
+    expect(parseForm({ startCash: 1_000, goal: 2_000 }).success).toBe(true)
+    expect(parseForm({ startCash: 100_000, goal: 200_000 }).success).toBe(true)
+    for (const startCash of [0, 500, 101_000]) expect(parseForm({ startCash }).success).toBe(false)
+  })
+
+  it('BR-003: a start off the 1,000 grid or fractional is rejected', () => {
+    for (const startCash of [1_500, 10_001, 9_999.5]) {
+      expect(failedPaths(parseForm({ startCash }))).toContain('startCash')
+    }
   })
 
   it('FR-009: duration and speed must come from the allowed sets', () => {
@@ -50,10 +86,30 @@ describe('roomFormSchema', () => {
     expect(parseForm({ price: 1 }).success).toBe(false)
   })
 
-  it('the profit target key is required', () => {
-    const withoutTarget: Record<string, unknown> = { ...validForm }
-    delete withoutTarget.profitTarget
-    expect(roomFormSchema.safeParse(withoutTarget).success).toBe(false)
+  it('the startCash and goal keys are required; the old profitTarget key is unknown', () => {
+    for (const key of ['startCash', 'goal']) {
+      const without: Record<string, unknown> = { ...validForm }
+      delete without[key]
+      expect(roomFormSchema.safeParse(without).success).toBe(false)
+    }
+    expect(parseForm({ profitTarget: 20_000 }).success).toBe(false)
+  })
+})
+
+describe('stakesSchema', () => {
+  it('FR-003 / FR-004: the defaults and a goal above the slider range are accepted', () => {
+    expect(stakesSchema.safeParse(validStakes).success).toBe(true)
+    expect(parseStakes({ goal: 3_000_000 }).success).toBe(true)
+  })
+
+  it('FR-004: goal <= start is a goal error, a bad start is a startCash error', () => {
+    expect(failedPaths(parseStakes({ goal: 10_000 }))).toEqual(['goal'])
+    expect(failedPaths(parseStakes({ startCash: 1_500 }))).toEqual(['startCash'])
+  })
+
+  it('FR-004: a fractional goal and an unknown key are rejected', () => {
+    expect(parseStakes({ goal: 30_000.5 }).success).toBe(false)
+    expect(parseStakes({ price: 1 }).success).toBe(false)
   })
 })
 

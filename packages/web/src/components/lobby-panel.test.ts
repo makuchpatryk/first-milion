@@ -11,7 +11,8 @@ const view = (over: Partial<RoomView> = {}): RoomView => ({
   name: 'Alpha',
   hostNick: 'Ann',
   durationMin: 5,
-  profitTarget: 500,
+  startCash: 5_000,
+  goal: 8_000,
   speed: 3,
   status: 'lobby',
   players: [
@@ -40,7 +41,10 @@ describe('LobbyPanel (UF-004 step 1)', () => {
     const text = wrapper.text()
     expect(text).toContain('5 min')
     expect(text).toContain('3×')
-    expect(text).toContain('500')
+    expect(text).toContain(pl.lobby.startCash)
+    expect(text).toContain(pl.rooms.startCash.replace('{n}', '5000'))
+    expect(text).toContain(pl.lobby.goal)
+    expect(text).toContain(pl.rooms.goal.replace('{n}', '8000'))
     expect(wrapper.findAll('li')[0]?.text()).toContain(pl.lobby.host)
     expect(wrapper.findAll('li')[0]?.text()).toContain(pl.lobby.you)
     expect(wrapper.findAll('li')[1]?.text()).not.toContain(pl.lobby.host)

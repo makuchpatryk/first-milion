@@ -1,20 +1,11 @@
 import { TICK_MS } from '@fm/shared/config'
-import { isTradingHalted, shownPrice } from '@fm/shared/engine/market'
-import { totalResult, unrealized } from '@fm/shared/engine/portfolio'
+import { equity, totalResult, unrealized } from '@fm/shared/engine/portfolio'
 import type { Rng } from '@fm/shared/rng'
 import { START_PRICE, type OrderQty, type Speed } from '@fm/shared/rules'
 import { computed, getCurrentScope, onScopeDispose, ref, shallowRef } from 'vue'
-import {
-  advanceSingle,
-  closeOrder,
-  createSingle,
-  placeOrder,
-  shownEquity,
-  shownPrices,
-  type SingleRound,
-} from './loop'
+import { advanceSingle, closeOrder, createSingle, placeOrder, type SingleRound } from './loop'
 
-/** A background tab throttles timers; one interval never advances the halt by more than this. */
+/** A background tab throttles timers; one interval never advances the round clock by more than this. */
 const MAX_ELAPSED_MS = 250
 
 const DEFAULT_QTY: OrderQty = 50
@@ -29,7 +20,7 @@ interface Options {
 
 /**
  * Single play (FR-004, BR-006): the 80 ms timer shell around the pure engine in `loop.ts`.
- * Nothing runs until `start` (the setup screen picks time and goal). Each game starts fresh;
+ * Nothing runs until `start` (the setup screen picks time, starting capital and goal). Each game starts fresh;
  * nothing is stored anywhere.
  */
 export function useSinglePlay(options: Options = {}) {
@@ -48,7 +39,7 @@ export function useSinglePlay(options: Options = {}) {
     const t = now()
     const elapsed = Math.min(t - last, MAX_ELAPSED_MS)
     last = t
-    // `last` still advances while paused, so resuming does not count the pause as halt or round time.
+    // `last` still advances while paused, so resuming does not count the pause as round time.
     if (!started.value || paused.value || sim.value.end !== null) return
     sim.value = advanceSingle(sim.value, elapsed, speed.value, rng)
   }
@@ -75,7 +66,7 @@ export function useSinglePlay(options: Options = {}) {
     if (trading()) sim.value = closeOrder(sim.value)
   }
 
-  /** Begins a game with the setup screen's time and goal. */
+  /** Begins a game with the setup screen's time, starting capital and goal. */
   function start(round: SingleRound): void {
     sim.value = createSingle(rng, round)
     last = now()
@@ -83,7 +74,7 @@ export function useSinglePlay(options: Options = {}) {
     started.value = true
   }
 
-  /** Play again with the same time and goal. */
+  /** Play again with the same time, starting capital and goal. */
   function restart(): void {
     start(sim.value.round)
   }
@@ -98,8 +89,7 @@ export function useSinglePlay(options: Options = {}) {
     paused.value = !paused.value
   }
 
-  const price = computed(() => shownPrice(sim.value.market))
-  const equity = computed(() => shownEquity(sim.value))
+  const price = computed(() => sim.value.market.price)
   const winRate = computed(() => {
     const { closedTrades, wins } = sim.value.portfolio
     return closedTrades === 0 ? null : Math.round((wins / closedTrades) * 100)
@@ -111,15 +101,14 @@ export function useSinglePlay(options: Options = {}) {
     qty,
     speed,
     paused,
-    prices: computed(() => shownPrices(sim.value)),
+    prices: computed(() => sim.value.prices),
     price,
     /** Change since the starting price, in percent. */
     change: computed(() => (price.value / START_PRICE - 1) * 100),
-    equity,
+    equity: computed(() => equity(sim.value.portfolio, price.value)),
     open: computed(() => unrealized(sim.value.portfolio, price.value)),
     total: computed(() => totalResult(sim.value.portfolio, price.value)),
     winRate,
-    halted: computed(() => isTradingHalted(sim.value.market)),
     buy,
     sell,
     close,

@@ -6,8 +6,8 @@ export function formatCountdown(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
-/** Share of the profit target reached, 0 to 1 (BR-009: the target counts total result). */
-export function targetProgress(total: number, target: number): number {
-  if (target <= 0) return 0
-  return Math.min(1, Math.max(0, total / target))
+/** Share of the way from the start capital to the goal equity, 0 to 1 (BR-009). */
+export function goalProgress(equity: number, startCash: number, goal: number): number {
+  if (goal <= startCash) return 0
+  return Math.min(1, Math.max(0, (equity - startCash) / (goal - startCash)))
 }

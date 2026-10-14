@@ -1,6 +1,13 @@
 // Fixed rule values (BR-003 and friends). Tunables live in config.ts (PRD §20 #30).
 
-export const START_CASH = 10_000
+/** Starting capital is chosen per round (BR-003): a whole multiple of the step within the range. */
+export const START_CASH_MIN = 1_000
+export const START_CASH_MAX = 100_000
+export const START_CASH_STEP = 1_000
+export const DEFAULT_START_CASH = 10_000
+/** Preselected goal (target equity, BR-009) of the setup forms. */
+export const DEFAULT_GOAL = 30_000
+
 export const START_PRICE = 100
 export const MIN_PRICE = 5
 export const SPREAD = 0.06
@@ -36,6 +43,3 @@ export const PASSWORD_MIN_LENGTH = 8
 
 export const ROOM_NAME_MIN = 3
 export const ROOM_NAME_MAX = 30
-
-/** Goal every room and single-play round needs (BR-009). */
-export const PROFIT_TARGET_MIN = 20_000
