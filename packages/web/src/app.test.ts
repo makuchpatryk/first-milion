@@ -44,21 +44,21 @@ describe('App shell', () => {
 })
 
 describe('App navigation', () => {
-  it('the logo, with its icon, links to /menu', async () => {
+  it('the logo, with its icon, links to the home screen', async () => {
     const { wrapper } = await mountWithApp(App)
 
     const logo = wrapper.find('header.bar a.logo')
-    expect(logo.attributes('href')).toBe('/menu')
+    expect(logo.attributes('href')).toBe('/')
     expect(logo.find('svg').attributes('aria-hidden')).toBe('true')
     expect(logo.text()).toBe(`${pl.app.brandFirst} ${pl.app.brandSecond}`)
   })
 
   it('a verified user has Settings in the bar next to the logo, no language chips', async () => {
     session.status = 'verified'
-    const { wrapper } = await mountWithApp(App, 'pl', '/menu')
+    const { wrapper } = await mountWithApp(App, 'pl', '/')
 
     const links = wrapper.findAll('header.bar a')
-    expect(links.map((a) => a.attributes('href'))).toEqual(['/menu', '/settings'])
+    expect(links.map((a) => a.attributes('href'))).toEqual(['/', '/settings'])
     expect(links[1]?.text()).toBe('')
     expect(links[1]?.attributes('aria-label')).toBe(pl.nav.settings)
     expect(wrapper.findAll('header.bar button')).toHaveLength(0)
@@ -69,14 +69,14 @@ describe('App navigation', () => {
     const { wrapper } = await mountWithApp(App, 'pl', '/rooms')
 
     const back = wrapper.find('nav.crumbs a.back')
-    expect(back.attributes('href')).toBe('/menu')
+    expect(back.attributes('href')).toBe('/')
     expect(back.text()).toBe(pl.nav.backToMenu)
     expect(wrapper.find('header.bar a.back').exists()).toBe(false)
   })
 
   it('there is no Back row on the menu', async () => {
     session.status = 'verified'
-    const { wrapper } = await mountWithApp(App, 'pl', '/menu')
+    const { wrapper } = await mountWithApp(App, 'pl', '/')
 
     expect(wrapper.find('nav.crumbs').exists()).toBe(false)
   })

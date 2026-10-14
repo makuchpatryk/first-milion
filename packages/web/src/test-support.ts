@@ -10,7 +10,6 @@ const PATHS = [
   '/',
   '/login',
   '/verify',
-  '/menu',
   '/single',
   '/settings',
   '/privacy',

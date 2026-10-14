@@ -17,7 +17,7 @@ test.describe('FR-001 login, verification, password rule', () => {
   test('FR-001: a verified account logs in, reaches the menu and can log out', async ({ page }) => {
     const account = await createAccount({ prefix: 'auth' })
     await signIn(page, account)
-    await expect(page).toHaveURL(/\/menu$/)
+    await expect(page).toHaveURL(/\/$/)
     await expect(page.getByText(account.nick, { exact: true }).first()).toBeVisible()
 
     await page.getByRole('link', { name: 'Settings' }).click()
