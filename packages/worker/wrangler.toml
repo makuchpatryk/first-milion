@@ -23,7 +23,7 @@ ALLOWED_ORIGINS = "http://localhost:5173"
 
 # Production (`wrangler deploy --env production`, spec 06). Wrangler does not inherit bindings,
 # migrations or vars into an environment, so each is stated again. Public values only:
-# `ADMIN_UIDS` is a secret (`wrangler secret put ADMIN_UIDS --env production`) and
+# `ADMIN_UIDS` is a secret set by `deploy.yml` from the `production` environment secret, and
 # `AUTH_EMULATOR` must never exist here (decision 35, NFR-004); `test/config.test.ts` guards both.
 # The two values below are the real Firebase project id and Pages domain (spelled with one `l`).
 [env.production]

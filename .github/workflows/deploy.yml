@@ -77,9 +77,14 @@ jobs:
         run: pnpm build
       - name: Bundle size and no emulator in the build (NFR-005, NFR-004)
         run: pnpm bundle:check
-      # `ADMIN_UIDS` is a Worker secret set once with `wrangler secret put --env production`.
       - name: Deploy the Worker
         run: pnpm --filter @fm/worker exec wrangler deploy --env production
+      # `ADMIN_UIDS` is a Worker secret, set from the `production` environment secret on every release
+      # (BR-017). After the deploy, because `secret put` needs the Worker to exist. Scoped to this step only.
+      - name: Set the admin UIDs on the Worker
+        env:
+          ADMIN_UIDS: ${{ secrets.ADMIN_UIDS }}
+        run: printf '%s' "$ADMIN_UIDS" | pnpm --filter @fm/worker exec wrangler secret put ADMIN_UIDS --env production
       - name: Deploy the web app to Pages
         run: pnpm --filter @fm/worker exec wrangler pages deploy ../web/dist --project-name first-milion --branch main
       # Records what was released. The push uses GITHUB_TOKEN, so it does not start another

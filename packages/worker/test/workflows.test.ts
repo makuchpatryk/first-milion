@@ -10,6 +10,7 @@ const step = z.object({
   name: z.string().optional(),
   run: z.string().optional(),
   uses: z.string().optional(),
+  env: z.record(z.string(), z.unknown()).optional(),
 })
 const job = z.object({
   needs: z.string().optional(),
@@ -115,11 +116,19 @@ describe('deploy.yml (PRD §20 #36)', () => {
     expect(env.CLOUDFLARE_ACCOUNT_ID).toBe('${{ secrets.CLOUDFLARE_ACCOUNT_ID }}')
   })
 
-  it('PRD §20 #35: no emulator variable and no admin UIDs in the deploy environment', () => {
+  it('PRD §20 #35: no emulator variable in the deploy environment', () => {
     const keys = Object.keys(job_?.env ?? {})
     expect(keys).not.toContain('VITE_AUTH_EMULATOR_URL')
     expect(keys).not.toContain('AUTH_EMULATOR')
-    expect(keys).not.toContain('ADMIN_UIDS')
+  })
+
+  it('BR-017: admin UIDs reach the Worker only as a secret, in one step, after the Worker deploy', () => {
+    const steps = job_?.steps ?? []
+    expect(Object.keys(job_?.env ?? {})).not.toContain('ADMIN_UIDS')
+    const setter = steps.findIndex((s) => s.run?.includes('secret put ADMIN_UIDS'))
+    expect(setter).toBeGreaterThan(-1)
+    expect(steps[setter]?.env?.ADMIN_UIDS).toBe('${{ secrets.ADMIN_UIDS }}')
+    expect(setter).toBeGreaterThan(steps.findIndex((s) => s.run?.includes('wrangler deploy')))
   })
 
   it('the public web config comes from environment variables', () => {
