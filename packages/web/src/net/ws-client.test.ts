@@ -284,12 +284,19 @@ describe('createSocket keepalive (decision 48)', () => {
     expect(t.sockets).toHaveLength(2)
   })
 
-  it('close() stops both timers', async () => {
+  it('close() stops the waiting ping', async () => {
     const t = setup()
     await t.becomeReady()
-    t.timerOf(PING_INTERVAL_MS)?.fn()
     t.handle.close()
     expect(t.timerOf(PING_INTERVAL_MS)?.cancelled).toBe(true)
+  })
+
+  it('close() stops a pong timeout that is waiting', async () => {
+    const t = setup()
+    await t.becomeReady()
+    // The ping timer has fired and is spent; only the pong timeout is live.
+    t.timerOf(PING_INTERVAL_MS)?.fn()
+    t.handle.close()
     expect(t.timerOf(PONG_TIMEOUT_MS)?.cancelled).toBe(true)
   })
 

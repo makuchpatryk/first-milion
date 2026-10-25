@@ -1,7 +1,7 @@
-import type { ClientMessage, MeRound, ServerMessage } from '@fm/shared/protocol'
+import type { ClientMessage, MeRound } from '@fm/shared/protocol'
 import { effectScope } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { SocketHandle, SocketStatus } from '../net/ws-client'
+import type { AppServerMessage, SocketHandle, SocketStatus } from '../net/ws-client'
 
 vi.mock('./socket-deps', () => ({ runtimeSocketDeps: () => ({}) }))
 
@@ -31,7 +31,7 @@ function fakeOpen<H extends LobbyHandlers | RoomHandlers>() {
       handlers = h
       return handle
     },
-    message: (msg: ServerMessage) => handlers?.onMessage(msg),
+    message: (msg: AppServerMessage) => handlers?.onMessage(msg),
     status: (s: SocketStatus, code?: number) => handlers?.onStatus(s, code),
   }
 }
@@ -48,7 +48,7 @@ const me = (over: Partial<MeRound> = {}): MeRound => ({
   ...over,
 })
 
-const tick = (you: MeRound = me()): ServerMessage => ({
+const tick = (you: MeRound = me()): AppServerMessage => ({
   type: 'room.tick',
   prices: [100],
   price: 100,

@@ -46,10 +46,12 @@ function leave(): void {
   void router.push('/rooms')
 }
 
-// After the grace the server has removed a lobby member, but only turned a round player into a
-// watcher (decision 46), so the "could not return" text differs.
+// After the grace the server removes a lobby member and an observer, but only turns a round
+// player into a watcher (decision 46), so the "could not return" text differs.
 const reconnectLostKey = computed(() =>
-  state.value.view?.status === 'running' ? 'round.reconnectLost' : 'lobby.reconnectLost',
+  state.value.view?.status === 'running' && state.value.view.you.role === 'player'
+    ? 'round.reconnectLost'
+    : 'lobby.reconnectLost',
 )
 
 // A kick, an admin close, a newer tab or a dead session: the socket is gone, so the only way on is out.

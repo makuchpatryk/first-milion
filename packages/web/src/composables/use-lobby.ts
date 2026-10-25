@@ -1,14 +1,13 @@
-import type { ServerMessage } from '@fm/shared/protocol'
 import type { RoomForm } from '@fm/shared/validation'
 import { getCurrentScope, onScopeDispose, ref, shallowRef } from 'vue'
 import { openLobbySocket } from '../net/lobby-socket'
 import { unreachableSocket } from '../net/unreachable'
-import type { SocketHandle, SocketStatus } from '../net/ws-client'
+import type { AppServerMessage, SocketHandle, SocketStatus } from '../net/ws-client'
 import { initialLobbyState, reduceLobby } from '../room/lobby-state'
 import { hasWorkerUrl, runtimeSocketDeps } from './socket-deps'
 
 export interface LobbyHandlers {
-  onMessage(msg: ServerMessage): void
+  onMessage(msg: AppServerMessage): void
   onStatus(status: SocketStatus, closeCode?: number): void
 }
 

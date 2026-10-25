@@ -230,6 +230,20 @@ describe('RoomView', () => {
     expect(wrapper.text()).not.toContain(pl.lobby.reconnectLost)
   })
 
+  it('decision 46: an observer in a running round is removed after the 30 s, so the banner says they left', async () => {
+    const room = fakeRoom({
+      view: view({ status: 'running', you: { role: 'observer', nick: 'Cy', isHost: false } }),
+      price: 100,
+      endsInMs: 30_000,
+    })
+    const { wrapper } = await mountRoom()
+    room.status.value = 'reconnecting'
+    room.reconnectLeftS.value = 0
+    await flushPromises()
+    expect(wrapper.text()).toContain(pl.lobby.reconnectLost)
+    expect(wrapper.text()).not.toContain(pl.round.reconnectLost)
+  })
+
   it('decision 46: once the 30 s are up in the lobby the banner says the user left the room', async () => {
     const room = fakeRoom()
     const { wrapper } = await mountRoom()

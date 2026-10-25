@@ -1,14 +1,13 @@
-import type { ServerMessage } from '@fm/shared/protocol'
 import { DISCONNECT_GRACE_MS, type OrderQty } from '@fm/shared/rules'
 import { computed, getCurrentScope, onScopeDispose, ref, shallowRef } from 'vue'
 import { openRoomSocket } from '../net/room-socket'
 import { unreachableSocket } from '../net/unreachable'
-import type { SocketHandle, SocketStatus } from '../net/ws-client'
+import type { AppServerMessage, SocketHandle, SocketStatus } from '../net/ws-client'
 import { canTrade, initialRoomState, reduceRoom } from '../room/room-state'
 import { hasWorkerUrl, runtimeSocketDeps } from './socket-deps'
 
 export interface RoomHandlers {
-  onMessage(msg: ServerMessage): void
+  onMessage(msg: AppServerMessage): void
   onStatus(status: SocketStatus, closeCode?: number): void
 }
 
