@@ -95,6 +95,12 @@ export const lastRoundSchema = z
   .strict()
 export type LastRound = z.infer<typeof lastRoundSchema>
 
+/** An observer has no round status; only whether their socket is away (decision 46). */
+export const observerViewSchema = z
+  .object({ nick: z.string(), status: z.enum(['active', 'disconnected']) })
+  .strict()
+export type ObserverView = z.infer<typeof observerViewSchema>
+
 /** Sent to one socket; `you` differs per socket. */
 export const roomViewSchema = z
   .object({
@@ -109,7 +115,7 @@ export const roomViewSchema = z
     /** Join order (FR-010, BR-013). */
     players: z.array(memberViewSchema),
     /** Join order. */
-    observers: z.array(z.object({ nick: z.string() }).strict()),
+    observers: z.array(observerViewSchema),
     lastRound: lastRoundSchema.nullable(),
     you: z
       .object({

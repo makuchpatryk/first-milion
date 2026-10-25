@@ -51,16 +51,37 @@ describe('token refresh on a live socket (FR-007 edge)', () => {
 })
 
 describe('one socket per user per room', () => {
-  it('a second socket of the same user cannot act in the room', async () => {
+  it('decision 47: a second socket of the same user replaces the first: the first gets 4409, the seat stays, the new socket gets room.state', async () => {
     const roomId = await createRoom(await lobby('uid-1'))
     const first = await roomSocket(roomId, 'uid-1')
     first.send({ type: 'room.join', roomId, nick: 'Jan' })
     await first.next('room.state')
 
     const second = await roomSocket(roomId, 'uid-1')
-    second.send({ type: 'room.leave' })
-    expect(await second.nextError()).toBe('INVALID_STATE')
+    expect(await first.closed()).toBe(CLOSE_CODES.REPLACED)
+
+    second.send({ type: 'room.join', roomId, nick: 'Jan' })
+    const state = await second.next('room.state')
+    expect(state.view.players).toEqual([{ nick: 'Jan', status: 'active' }])
+    expect(state.view.you).toMatchObject({ nick: 'Jan', isHost: true })
     expect(second.closeCode).toBeNull()
+  })
+})
+
+describe('keepalive (decision 48)', () => {
+  it('a ping on a Room socket gets a pong', async () => {
+    const roomId = await createRoom(await lobby('uid-1'))
+    const socket = await roomSocket(roomId, 'uid-1')
+    socket.send({ type: 'ping' })
+    await socket.next('pong')
+    expect(socket.closeCode).toBeNull()
+  })
+
+  it('a ping on the Lobby socket gets a pong', async () => {
+    const socket = await lobby('uid-1')
+    socket.send({ type: 'ping' })
+    await socket.next('pong')
+    expect(socket.closeCode).toBeNull()
   })
 })
 

@@ -69,6 +69,12 @@ const OBSERVER_ME: MeRound = {
   wins: 0,
 }
 
+/** An observer has no portfolio; like a seat it can be away for the grace (decision 46). */
+interface Observer extends Member {
+  /** Server time the socket went away; null while connected. */
+  disconnectedAt: number | null
+}
+
 /**
  * Room membership, lifecycle and the round (M3, M4). Plain TypeScript: clock, seed, timers and
  * sockets are injected (ARCHITECTURE A1). The Durable Object shell owns the 80 ms interval and
@@ -78,7 +84,7 @@ const OBSERVER_ME: MeRound = {
 export class RoomLogic {
   /** Players in join order, whatever their status: eliminated players keep their seat (decision 38). */
   private seats: Seat[] = []
-  private readonly observers: Member[] = []
+  private readonly observers: Observer[] = []
   private round: Round | null = null
   private lastRound: LastRound | null = null
   private hostUid: string | null
@@ -132,7 +138,10 @@ export class RoomLogic {
       speed: this.init.speed,
       status: this.round === null ? 'lobby' : 'running',
       players: this.seats.map((seat) => ({ nick: seat.nick, status: seat.status })),
-      observers: this.observers.map((member) => ({ nick: member.nick })),
+      observers: this.observers.map((observer) => ({
+        nick: observer.nick,
+        status: observer.disconnectedAt === null ? 'active' : 'disconnected',
+      })),
       lastRound: this.lastRound,
       you: {
         role: this.seat(uid) === null ? 'observer' : 'player',
@@ -144,10 +153,10 @@ export class RoomLogic {
 
   join(uid: string, nick: string): void {
     if (this.disposed) return this.fail(uid, 'ROOM_CLOSED')
-    const seat = this.seat(uid)
-    // A player whose socket dropped comes back to their seat, in the grace or after it (FR-015).
-    if (seat !== null && seat.disconnectedAt !== null) return this.restore(seat)
-    if (this.find(uid) !== null) return this.fail(uid, 'INVALID_STATE')
+    // A member already in the room comes back to their place (FR-015) or, with a socket still
+    // open on the server, takes over with a newer one (decision 47).
+    const present = this.find(uid)
+    if (present !== null) return this.resume(present)
     // The room is listed before its creator has connected; until they join, nobody else may
     // take the seat or the host role (BR-013, FR-009). A creator who never comes leaves the room
     // empty, and the empty-room timer deletes it (BR-014).
@@ -164,7 +173,7 @@ export class RoomLogic {
     const taken = [...this.seats, ...this.observers].map((member) => member.nick)
     const member = { uid, nick: uniqueNick(taken, nick) }
     if (role === 'player') this.seats.push(newSeat(member, this.init.startCash))
-    else this.observers.push(member)
+    else this.observers.push({ ...member, disconnectedAt: null })
     if (uid === this.init.hostUid) this.creatorJoined = true
     // The creator is host (BR-013). Once they have gone and the room is empty, the next joiner
     // takes the role, so a room never sits without a host.
@@ -175,17 +184,19 @@ export class RoomLogic {
   }
 
   /**
-   * A player leaving a running round is a dropped socket: the 30 s grace applies, so leaving
-   * cannot be used to escape a loss (decision 41). Anywhere else the member is removed.
+   * An explicit leave hands the host role over at once (BR-013). A player leaving a running round
+   * keeps the seat for the 30 s grace, so leaving cannot be used to escape a loss (decision 41).
+   * Anywhere else the member is removed.
    */
   leave(uid: string): void {
-    const seat = this.seat(uid)
-    if (this.round !== null && seat !== null) return this.disconnect(seat)
+    this.handOverHost(uid)
+    if (this.round !== null && this.seat(uid) !== null) return this.drop(uid)
     if (this.remove(uid) !== null) this.changed()
   }
 
+  /** A dropped socket is not a leave: the member and the host role wait out the grace (decision 46). */
   onSocketClosed(uid: string): void {
-    this.leave(uid)
+    this.drop(uid)
   }
 
   /** The host starts a round from the lobby (FR-011, BR-013). */
@@ -277,7 +288,7 @@ export class RoomLogic {
     return this.seats.find((seat) => seat.uid === uid) ?? null
   }
 
-  private find(uid: string): Member | null {
+  private find(uid: string): Seat | Observer | null {
     return [...this.seats, ...this.observers].find((member) => member.uid === uid) ?? null
   }
 
@@ -285,20 +296,30 @@ export class RoomLogic {
     return this.hostUid === null ? null : this.find(this.hostUid)
   }
 
+  private connectedSeats(): Seat[] {
+    return this.seats.filter((seat) => seat.disconnectedAt === null)
+  }
+
+  private connectedObservers(): Observer[] {
+    return this.observers.filter((observer) => observer.disconnectedAt === null)
+  }
+
   /** Everyone with a socket: they get the broadcasts. */
   private connected(): Member[] {
-    return [...this.seats.filter((seat) => seat.disconnectedAt === null), ...this.observers]
+    return [...this.connectedSeats(), ...this.connectedObservers()]
   }
 
   private replaceSeat(next: Seat): void {
     this.seats = this.seats.map((seat) => (seat.uid === next.uid ? next : seat))
   }
 
-  /** Hands the host role to the next connected member when the host goes (BR-013). */
+  /**
+   * Hands the host role to the next connected member when the host goes (BR-013). Absent members
+   * are skipped; with nobody connected the role waits for the first to return or join.
+   */
   private handOverHost(leavingUid: string): void {
     if (leavingUid !== this.hostUid) return
-    const online = this.seats.filter((seat) => seat.disconnectedAt === null)
-    this.hostUid = nextHost(online, this.observers, leavingUid)
+    this.hostUid = nextHost(this.connectedSeats(), this.connectedObservers(), leavingUid)
   }
 
   /** Removes a member, hands the host role over (BR-013) and arms the empty-room timer (BR-014). */
@@ -315,32 +336,57 @@ export class RoomLogic {
     return member
   }
 
-  /** The socket of a player in a running round is gone: keep the seat for the grace (BR-019). */
-  private disconnect(seat: Seat): void {
-    if (seat.disconnectedAt !== null) return
-    this.handOverHost(seat.uid)
-    const active = seat.status === 'active'
-    this.replaceSeat({
-      ...seat,
-      status: active ? 'disconnected' : seat.status,
-      disconnectedAt: this.deps.now(),
-    })
-    // An eliminated player has nothing left to lose; only the seat marker is kept.
-    if (active) this.armDisconnectTimer(seat.uid)
+  /**
+   * The socket of a member is gone (lobby or round, seat or observer): keep their place and the
+   * host role for the grace (BR-019, decision 46). One timer per absence, so a second drop of
+   * the same member is a no-op. An eliminated seat gets the timer too: it holds the host role.
+   */
+  private drop(uid: string): void {
+    const member = this.find(uid)
+    if (member === null || member.disconnectedAt !== null) return
+    this.setAway(uid, this.deps.now())
+    this.armDisconnectTimer(uid)
     this.changed()
   }
 
-  /** FR-015 AC: the same UID returns with position and equity as they were. */
-  private restore(seat: Seat): void {
-    this.clearDisconnectTimer(seat.uid)
-    this.replaceSeat({
-      ...seat,
-      status: seat.status === 'disconnected' ? 'active' : seat.status,
-      disconnectedAt: null,
-    })
-    if (this.hostMember() === null) this.hostUid = seat.uid
+  /**
+   * Marks a member away (`away` = the time) or back (`null`). A seat moves between `active` and
+   * `disconnected`; any other status (eliminated) is kept.
+   */
+  private setAway(uid: string, away: number | null): void {
+    const seat = this.seat(uid)
+    if (seat !== null) {
+      const [from, to] =
+        away === null ? (['disconnected', 'active'] as const) : (['active', 'disconnected'] as const)
+      this.replaceSeat({
+        ...seat,
+        status: seat.status === from ? to : seat.status,
+        disconnectedAt: away,
+      })
+      return
+    }
+    const index = this.observers.findIndex((observer) => observer.uid === uid)
+    const observer = this.observers[index]
+    if (observer !== undefined) this.observers[index] = { ...observer, disconnectedAt: away }
+  }
+
+  /**
+   * A `room.join` from a UID already in the room. Absent: they return, in the grace or after it
+   * (FR-015 AC: same seat, position and equity). Present: a newer socket took over, so only that
+   * UID is sent the state again; nothing changed for the others.
+   */
+  private resume(member: Seat | Observer): void {
+    const uid = member.uid
+    if (member.disconnectedAt === null) {
+      const view = this.viewFor(uid)
+      if (view !== null) this.deps.send(uid, { type: 'room.state', view })
+      return this.sendHistory(uid)
+    }
+    this.clearDisconnectTimer(uid)
+    this.setAway(uid, null)
+    if (this.hostMember() === null) this.hostUid = uid
     this.changed()
-    this.sendHistory(seat.uid)
+    this.sendHistory(uid)
   }
 
   private armDisconnectTimer(uid: string): void {
@@ -348,7 +394,7 @@ export class RoomLogic {
       // A restore cancels the timer; the handle check guards a timer that already fired.
       if (this.disconnectTimers.get(uid) !== handle) return
       this.disconnectTimers.delete(uid)
-      this.eliminateDisconnected(uid)
+      this.expire(uid)
     }, DISCONNECT_GRACE_MS)
     this.disconnectTimers.set(uid, handle)
   }
@@ -360,13 +406,23 @@ export class RoomLogic {
     this.disconnectTimers.delete(uid)
   }
 
-  /** The 30 s are up: close the position at market, rank like a bankrupt player (BR-019). */
-  private eliminateDisconnected(uid: string): void {
+  /**
+   * The 30 s are up; the phase is read now, not when the member dropped. A seat in a running
+   * round closes at market and ranks like a bankrupt player (BR-019); it stays until the round
+   * ends. Anyone else (lobby, observer) is removed. Either way the host role moves on (BR-013).
+   */
+  private expire(uid: string): void {
     const seat = this.seat(uid)
-    if (this.round === null || seat === null || seat.status !== 'disconnected') return
-    this.replaceSeat(eliminateSeat(seat, this.round.market.price))
-    this.changed()
-    this.checkEnd(this.deps.now())
+    if (this.round !== null && seat !== null) {
+      if (seat.status === 'disconnected') {
+        this.replaceSeat(eliminateSeat(seat, this.round.market.price))
+      }
+      this.handOverHost(uid)
+      this.changed()
+      this.checkEnd(this.deps.now())
+      return
+    }
+    if (this.remove(uid) !== null) this.changed()
   }
 
   /** Gate shared by `order` and `close`: membership, rate limit, role, state (FR-012). */
@@ -440,14 +496,16 @@ export class RoomLogic {
     const ranking = rankSeats(this.seats, round.market.price)
     this.lastRound = { reason, winners, ranking }
     this.round = null
-    for (const handle of this.disconnectTimers.values()) this.deps.cancel(handle)
-    this.disconnectTimers.clear()
     this.rateLimits.clear()
     for (const member of this.connected()) {
       this.deps.send(member.uid, { type: 'round.end', reason, winners, ranking })
     }
-    // Players whose socket is gone have no lobby to return to; the ranking above still lists them.
-    this.seats = this.seats.filter((seat) => seat.disconnectedAt === null)
+    // Grace timers keep running (decision 46). A seat still in its grace stays in the lobby as
+    // `disconnected`; one whose grace ran out in the round has no lobby to return to and goes
+    // (decision 41). The ranking above still lists both.
+    this.seats = this.seats
+      .filter((seat) => seat.disconnectedAt === null || this.disconnectTimers.has(seat.uid))
+      .map((seat): Seat => (seat.disconnectedAt === null ? seat : { ...seat, status: 'disconnected' }))
     if (this.seats.length + this.observers.length === 0) this.armEmptyTimer()
     this.changed()
   }

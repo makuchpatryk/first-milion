@@ -40,7 +40,6 @@ describe('startRound', () => {
       status: 'eliminated',
       portfolio: { ...emptyPortfolio, startCash: 10_000, realized: -10_000, closedTrades: 3 },
       reachedEquityAt: 5,
-      disconnectedAt: 77,
     })
     const { round, seats } = startRound([old, seat('b')], 1_000, 5, SEED, START)
     expect(seats).toHaveLength(2)
@@ -55,6 +54,18 @@ describe('startRound', () => {
     }
     expect(round.market.price).toBe(START_PRICE)
     expect(round.history).toEqual([START_PRICE])
+  })
+
+  it('decision 46: an absent seat is carried into the round as disconnected, with its disconnectedAt', () => {
+    const away = seat('a', { status: 'eliminated', disconnectedAt: 77 })
+    const { seats } = startRound([away, seat('b')], 1_000, 5, SEED, START)
+    expect(seats[0]).toMatchObject({
+      status: 'disconnected',
+      disconnectedAt: 77,
+      portfolio: emptyPortfolio,
+      lastEquity: START,
+    })
+    expect(seats[1]).toMatchObject({ status: 'active', disconnectedAt: null })
   })
 
   it('BR-008: the round ends after its duration in wall-clock time, whatever the speed', () => {

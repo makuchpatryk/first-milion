@@ -1,5 +1,5 @@
 import { CLOSE_CODES, type RoomSummary, type ServerMessage } from '@fm/shared/protocol'
-import { EMPTY_ROOM_TTL_MS } from '@fm/shared/rules'
+import { DISCONNECT_GRACE_MS, EMPTY_ROOM_TTL_MS } from '@fm/shared/rules'
 import { describe, expect, it } from 'vitest'
 import { RoomLogic } from '../../src/room/room-logic'
 import { FakeClock } from '../fake-clock'
@@ -95,7 +95,10 @@ describe('RoomLogic join', () => {
     const { room, lastView } = setup()
     fill(room, 6)
     expect(lastView('uid-1')?.players.map((p) => p.nick)).toEqual(['Nick1', 'Nick2', 'Nick3', 'Nick4'])
-    expect(lastView('uid-1')?.observers).toEqual([{ nick: 'Nick5' }, { nick: 'Nick6' }])
+    expect(lastView('uid-1')?.observers).toEqual([
+      { nick: 'Nick5', status: 'active' },
+      { nick: 'Nick6', status: 'active' },
+    ])
   })
 
   it('FR-002 AC: a taken nickname gets #2, then #3', () => {
@@ -114,12 +117,17 @@ describe('RoomLogic join', () => {
     expect(lastView('uid-2')?.you.nick).toBe('Trader-1234567#2')
   })
 
-  it('a uid already in the room is refused with INVALID_STATE', () => {
-    const { room, errorsTo } = setup()
-    room.join('uid-1', 'Jan')
-    room.join('uid-1', 'Other')
-    expect(errorsTo('uid-1')).toEqual(['INVALID_STATE'])
-    expect(room.summary().players).toBe(1)
+  it('decision 47: a join from a uid already present re-sends room.state to that uid only, no error, no new seat', () => {
+    const { room, sent, errorsTo, lastView } = setup()
+    fill(room, 2)
+    const before = sent.length
+    room.join('uid-2', 'Other')
+    const after = sent.slice(before)
+    expect(after).toHaveLength(1)
+    expect(after[0]).toMatchObject({ uid: 'uid-2', msg: { type: 'room.state' } })
+    expect(errorsTo('uid-2')).toEqual([])
+    expect(lastView('uid-2')?.you.nick).toBe('Nick2')
+    expect(room.summary().players).toBe(2)
   })
 
   it('every join broadcasts room.state to all members and publishes a summary', () => {
@@ -211,11 +219,116 @@ describe('RoomLogic host', () => {
     expect(lastView('uid-7')?.you.isHost).toBe(true)
   })
 
-  it('M3: a closed socket counts as a leave', () => {
-    const { room } = setup()
+  it('BR-013: an explicit room.leave by the host hands the role over at once', () => {
+    const { room, lastView } = setup()
+    fill(room, 3)
+    room.onSocketClosed('uid-2')
+    room.leave('uid-1')
+    // The absent player is skipped: the role goes to the first connected one.
+    expect(lastView('uid-3')?.you.isHost).toBe(true)
+    expect(room.summary().hostNick).toBe('Nick3')
+  })
+})
+
+describe('RoomLogic socket drop in the lobby (decision 46)', () => {
+  it('BR-013, decision 46: a host whose socket drops keeps the role and the seat during the grace', () => {
+    const { clock, room, lastView } = setup()
+    fill(room, 3)
+    room.onSocketClosed('uid-1')
+    clock.advance(DISCONNECT_GRACE_MS - 1)
+    expect(room.summary()).toMatchObject({ players: 3, hostNick: 'Nick1' })
+    expect(lastView('uid-2')?.players[0]).toEqual({ nick: 'Nick1', status: 'disconnected' })
+    expect(lastView('uid-2')?.you.isHost).toBe(false)
+  })
+
+  it('FR-015, decision 46: the host returning within 30 s has the same seat index and is host', () => {
+    const { clock, room, lastView } = setup()
+    fill(room, 3)
+    room.onSocketClosed('uid-1')
+    clock.advance(DISCONNECT_GRACE_MS - 1_000)
+    room.join('uid-1', 'Nick1')
+    expect(lastView('uid-1')?.players).toEqual([
+      { nick: 'Nick1', status: 'active' },
+      { nick: 'Nick2', status: 'active' },
+      { nick: 'Nick3', status: 'active' },
+    ])
+    expect(lastView('uid-1')?.you.isHost).toBe(true)
+    expect(clock.pendingCount).toBe(0)
+    clock.advance(DISCONNECT_GRACE_MS)
+    expect(room.summary().players).toBe(3)
+  })
+
+  it('decision 46: after 30 s the absent host is removed and the next connected player is host', () => {
+    const { clock, room, lastView } = setup()
+    fill(room, 3)
+    room.onSocketClosed('uid-1')
+    clock.advance(DISCONNECT_GRACE_MS)
+    expect(room.summary()).toMatchObject({ players: 2, hostNick: 'Nick2' })
+    expect(lastView('uid-2')?.you.isHost).toBe(true)
+  })
+
+  it('BR-013, decision 46: the role skips an absent member; with nobody connected it waits for the first to return or join', () => {
+    const { clock, room, lastView } = setup()
+    fill(room, 2)
+    room.onSocketClosed('uid-1')
+    clock.advance(10_000)
+    room.onSocketClosed('uid-2')
+    clock.advance(DISCONNECT_GRACE_MS - 10_000)
+    // uid-1 expired while uid-2 was away: nobody to hand over to.
+    expect(room.summary()).toMatchObject({ players: 1, hostNick: null })
+    room.join('uid-2', 'Nick2')
+    expect(lastView('uid-2')?.you.isHost).toBe(true)
+  })
+
+  it('decision 46: an observer whose socket drops keeps the slot as disconnected and is removed at expiry', () => {
+    const { clock, room, lastView } = setup()
+    fill(room, 5)
+    room.onSocketClosed('uid-5')
+    expect(lastView('uid-1')?.observers).toEqual([{ nick: 'Nick5', status: 'disconnected' }])
+    expect(room.summary().observers).toBe(1)
+    clock.advance(DISCONNECT_GRACE_MS)
+    expect(room.summary().observers).toBe(0)
+    expect(lastView('uid-1')?.observers).toEqual([])
+  })
+
+  it('decision 46: an observer host keeps the role during the grace', () => {
+    const { clock, room, lastView } = setup()
+    fill(room, 6)
+    for (const n of [4, 3, 2, 1]) room.leave(`uid-${n}`)
+    room.onSocketClosed('uid-5')
+    clock.advance(DISCONNECT_GRACE_MS - 1)
+    expect(room.summary().hostNick).toBe('Nick5')
+    clock.advance(1)
+    expect(room.summary().hostNick).toBe('Nick6')
+    expect(lastView('uid-6')?.you.isHost).toBe(true)
+  })
+
+  it('decision 46: a second close for the same uid arms one timer', () => {
+    const { clock, room } = setup()
+    room.join('uid-1', 'Jan')
+    room.onSocketClosed('uid-1')
+    room.onSocketClosed('uid-1')
+    expect(clock.pendingCount).toBe(1)
+  })
+
+  it('decision 46: a close for an unknown uid changes nothing', () => {
+    const { clock, room, published } = setup()
+    room.join('uid-1', 'Jan')
+    const before = published.length
+    room.onSocketClosed('ghost')
+    expect(published).toHaveLength(before)
+    expect(clock.pendingCount).toBe(0)
+  })
+
+  it('decision 46: dispose cancels the grace timers', () => {
+    const { clock, room, published } = setup()
     fill(room, 2)
     room.onSocketClosed('uid-2')
-    expect(room.summary().players).toBe(1)
+    room.dispose()
+    expect(clock.pendingCount).toBe(0)
+    const before = published.length
+    clock.advance(DISCONNECT_GRACE_MS * 2)
+    expect(published).toHaveLength(before)
   })
 })
 

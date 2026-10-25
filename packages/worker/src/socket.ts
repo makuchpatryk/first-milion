@@ -11,8 +11,8 @@ export interface Connection {
   close(code: number): void
 }
 
-/** A message after auth; `auth` itself (token refresh) is consumed by the gate. */
-export type PostAuthMessage = Exclude<ClientMessage, { type: 'auth' }>
+/** A message after auth; `auth` (token refresh) is consumed by the gate, `ping` is answered here. */
+export type PostAuthMessage = Exclude<ClientMessage, { type: 'auth' | 'ping' }>
 
 export interface SocketHandlers {
   /** Right after the upgrade, before auth. */
@@ -97,6 +97,12 @@ export function createSocketAcceptor(env: Env): SocketAcceptor {
       }
       if (parsed.msg.type === 'auth') {
         void gate.handle(parsed.msg)
+        return
+      }
+      // Keepalive (decision 48): answered once here for both DOs, so it never reaches the rules or
+      // the BR-018 rate limit.
+      if (parsed.msg.type === 'ping') {
+        conn.send({ type: 'pong' })
         return
       }
       handlers.onMessage(session, conn, parsed.msg)

@@ -21,6 +21,7 @@ const SAMPLES = {
   'room.start': { type: 'room.start' },
   order: { type: 'order', side: 'BUY', qty: 50 },
   close: { type: 'close' },
+  ping: { type: 'ping' },
   'admin.kick': { type: 'admin.kick', nick: 'Jan' },
   'admin.closeRoom': { type: 'admin.closeRoom', roomId: 'a1b2' },
 } as const satisfies { [T in ClientMessage['type']]: Extract<ClientMessage, { type: T }> }
@@ -48,7 +49,7 @@ describe('client schemas are strict (NFR-004)', () => {
 
   it.each(schemaTypes)('%s: sent bare, only the payload-free types pass', (type) => {
     const bare = parseClientMessage({ type }).ok
-    expect(bare).toBe(['room.leave', 'room.start', 'close'].includes(type))
+    expect(bare).toBe(['room.leave', 'room.start', 'close', 'ping'].includes(type))
   })
 
   it('an unknown message type is rejected', () => {

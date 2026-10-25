@@ -30,6 +30,9 @@ export const HISTORY_MAX = 2_400
 // Worker: auth deadline (FR-007) and Lobby/Room heartbeat (FR-008).
 export const AUTH_TIMEOUT_MS = 5_000
 export const HEARTBEAT_MS = 30_000
+// Client keepalive (PRD §20 #48): a ping every interval, no pong within the timeout drops the socket.
+export const PING_INTERVAL_MS = 25_000
+export const PONG_TIMEOUT_MS = 10_000
 // A room silent for 3 heartbeats is stale (FR-008).
 export const STALE_AFTER_MS = 3 * HEARTBEAT_MS
 export const LOBBY_SWEEP_MS = 30_000

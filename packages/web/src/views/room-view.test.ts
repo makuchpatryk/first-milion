@@ -206,13 +206,49 @@ describe('RoomView', () => {
     expect(banner.text()).toContain('22 s')
   })
 
-  it('FR-015: once the 30 s are up the banner says the seat is lost', async () => {
-    const room = fakeRoom()
+  it('FR-015: once the 30 s are up in a running round the banner says the seat is lost', async () => {
+    const room = fakeRoom({
+      view: view({ status: 'running' }),
+      price: 100,
+      endsInMs: 30_000,
+      you: {
+        role: 'player',
+        status: 'active',
+        units: 0,
+        avg: 0,
+        realized: 0,
+        equity: 10_000,
+        closedTrades: 0,
+        wins: 0,
+      },
+    })
     const { wrapper } = await mountRoom()
     room.status.value = 'reconnecting'
     room.reconnectLeftS.value = 0
     await flushPromises()
     expect(wrapper.text()).toContain(pl.round.reconnectLost)
+    expect(wrapper.text()).not.toContain(pl.lobby.reconnectLost)
+  })
+
+  it('decision 46: once the 30 s are up in the lobby the banner says the user left the room', async () => {
+    const room = fakeRoom()
+    const { wrapper } = await mountRoom()
+    room.status.value = 'reconnecting'
+    room.reconnectLeftS.value = 0
+    await flushPromises()
+    expect(wrapper.text()).toContain(pl.lobby.reconnectLost)
+    expect(wrapper.text()).not.toContain(pl.round.reconnectLost)
+  })
+
+  it('decision 47: a newer tab (4409) shows the "opened elsewhere" message and goes back to the list', async () => {
+    const room = fakeRoom()
+    const { wrapper, router } = await mountRoom()
+    room.closeCode.value = 4409
+    await flushPromises()
+    expect(wrapper.find('dialog').text()).toContain(pl.close.replaced)
+    await buttonByText(wrapper, pl.round.backToRooms).trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/rooms')
   })
 
   it('BR-017: a kick (4403) shows its message in a dialog and goes back to the list', async () => {

@@ -35,6 +35,10 @@ describe('error map (FR-019)', () => {
     expect(hasText(en, key), `en ${key}`).toBe(true)
   })
 
+  it('decision 47: close 4409 maps to close.replaced', () => {
+    expect(closeKey(CLOSE_CODES.REPLACED)).toBe('close.replaced')
+  })
+
   it('an unknown close code is a network loss, with text', () => {
     expect(closeKey(1006)).toBe('close.network')
     expect(hasText(pl, 'close.network')).toBe(true)

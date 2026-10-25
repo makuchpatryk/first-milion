@@ -46,7 +46,13 @@ function leave(): void {
   void router.push('/rooms')
 }
 
-// A kick, an admin close or a dead session: the socket is gone, so the only way on is out.
+// After the grace the server has removed a lobby member, but only turned a round player into a
+// watcher (decision 46), so the "could not return" text differs.
+const reconnectLostKey = computed(() =>
+  state.value.view?.status === 'running' ? 'round.reconnectLost' : 'lobby.reconnectLost',
+)
+
+// A kick, an admin close, a newer tab or a dead session: the socket is gone, so the only way on is out.
 // Auth failure (4401) sends the user to the menu, which the guard routes by session status.
 function leaveClosed(): void {
   void router.replace(closeCode.value === 4401 ? '/' : '/rooms')
@@ -63,7 +69,7 @@ function leaveClosed(): void {
     <p v-if="status === 'reconnecting'" class="banner" role="status">
       {{
         reconnectLeftS === 0
-          ? t('round.reconnectLost')
+          ? t(reconnectLostKey)
           : t('round.reconnecting', { s: reconnectLeftS ?? 0 })
       }}
     </p>

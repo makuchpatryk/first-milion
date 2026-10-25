@@ -50,5 +50,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   /** Followed by a close with `CLOSE_CODES.KICKED`. */
   z.object({ type: z.literal('kicked') }).strict(),
   z.object({ type: z.literal('error'), code: z.enum(ERROR_CODES) }).strict(),
+  /** Answer to `ping` (decision 48). */
+  z.object({ type: z.literal('pong') }).strict(),
 ])
 export type ServerMessage = z.infer<typeof serverMessageSchema>

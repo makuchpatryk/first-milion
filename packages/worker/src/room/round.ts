@@ -46,7 +46,9 @@ const MS_PER_MIN = 60_000
 /**
  * Begins a round: every seat is active with an empty portfolio of `startCash` (the room's chosen
  * capital, BR-003), and the BR-010 clock starts at `now` (seats reset at each start, decision 38).
- * Observers have no seat and are not passed in.
+ * A seat whose socket is away (lobby grace still running) is carried in as `disconnected` with
+ * its `disconnectedAt`; its grace timer decides whether it plays (decision 46). Observers have no
+ * seat and are not passed in.
  */
 export function startRound(
   seats: readonly Seat[],
@@ -67,11 +69,10 @@ export function startRound(
   }
   const fresh = seats.map((seat): Seat => ({
     ...seat,
-    status: 'active',
+    status: seat.disconnectedAt === null ? 'active' : 'disconnected',
     portfolio: newPortfolio(startCash),
     reachedEquityAt: now,
     lastEquity: startCash,
-    disconnectedAt: null,
   }))
   return { round, seats: fresh }
 }

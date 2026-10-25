@@ -27,6 +27,8 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
     })
     .strict(),
   z.object({ type: z.literal('close') }).strict(),
+  /** Keepalive; carries no data and is answered by the socket plumbing, not the rules (decision 48). */
+  z.object({ type: z.literal('ping') }).strict(),
   z.object({ type: z.literal('admin.kick'), nick: nickSchema }).strict(),
   z.object({ type: z.literal('admin.closeRoom'), roomId: roomIdSchema }).strict(),
 ])

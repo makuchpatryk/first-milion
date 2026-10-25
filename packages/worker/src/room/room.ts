@@ -27,7 +27,7 @@ export class Room implements DurableObject {
   private logic: RoomLogic | null = null
   private heartbeat: ReturnType<typeof setInterval> | null = null
   private ticker: ReturnType<typeof setInterval> | null = null
-  /** The one socket that speaks for a user in this room. */
+  /** The one socket that speaks for a user in this room: the newest one (decision 47). */
   private readonly sockets = new Map<string, Connection>()
   private readonly acceptor: SocketAcceptor
   /** Lobby updates in the order they were made. */
@@ -100,12 +100,16 @@ export class Room implements DurableObject {
         conn.close(NORMAL_CLOSURE)
       },
       onAuthed: (session, conn) => {
-        if (!this.sockets.has(session.uid)) this.sockets.set(session.uid, conn)
+        const previous = this.sockets.get(session.uid)
+        this.sockets.set(session.uid, conn)
+        // Newest wins (decision 47): a reconnect is never locked out by a socket the server still
+        // thinks is open. `onClose` ignores the replaced socket, so its close is not a leave.
+        if (previous !== undefined && previous !== conn) previous.close(CLOSE_CODES.REPLACED)
       },
       onMessage: (session, conn, msg) => {
         const logic = this.logic
         if (logic === null) return
-        // A second tab of the same user must not act for the first one (one socket per user).
+        // A replaced socket may still deliver frames until its close (decision 47); it must not act.
         if (this.sockets.get(session.uid) !== conn) {
           conn.send({ type: 'error', code: 'INVALID_STATE' })
           return
