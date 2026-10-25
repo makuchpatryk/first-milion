@@ -87,7 +87,7 @@ describe('room and lobby sockets', () => {
     const handle = openRoomSocket('r1', 'Ann', t.deps)
     await t.authOk()
     t.last().onclose?.({ code: 1006 })
-    t.timers[0]?.()
+    t.timers.at(-1)?.() // the backoff timer; timers[0] is the keepalive ping
     await t.authOk()
     expect(t.sockets).toHaveLength(2)
     expect(joins(t.sockets[0] as FakeSocket)).toHaveLength(1)

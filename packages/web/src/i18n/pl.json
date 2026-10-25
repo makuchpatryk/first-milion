@@ -199,6 +199,7 @@
     "waitHost": "Czekamy, aż gospodarz rozpocznie rundę.",
     "needPlayer": "Do startu potrzebny jest co najmniej jeden gracz.",
     "leave": "Wyjdź z pokoju",
+    "reconnectLost": "Nie udało się wrócić na czas. Opuściłeś pokój.",
     "lastRound": "Ostatnia runda"
   },
   "round": {
@@ -252,6 +253,7 @@
     "authFailed": "Sesja wygasła. Zaloguj się ponownie.",
     "kicked": "Administrator usunął Cię z pokoju.",
     "roomClosed": "Administrator zamknął pokój.",
+    "replaced": "Pokój otwarto w innej karcie lub oknie, dlatego to okno zostało rozłączone.",
     "network": "Utracono połączenie z serwerem."
   },
   "news": {

@@ -14,6 +14,7 @@ describe('parseClientMessage', () => {
       { type: 'room.start' },
       { type: 'order', side: 'BUY', qty: 50 },
       { type: 'close' },
+      { type: 'ping' },
       { type: 'admin.kick', nick: 'Jan' },
       { type: 'admin.closeRoom', roomId: 'a1b2' },
     ]
@@ -103,6 +104,12 @@ describe('serverMessageSchema', () => {
     expect(ERROR_CODES).toContain('ROOM_NOT_FOUND')
   })
 
+  it('decision 48: pong is valid and carries nothing; ping takes no field either', () => {
+    expect(serverMessageSchema.safeParse({ type: 'pong' }).success).toBe(true)
+    expect(serverMessageSchema.safeParse({ type: 'pong', at: 1 }).success).toBe(false)
+    expect(parseClientMessage({ type: 'ping', at: 1 })).toEqual({ ok: false })
+  })
+
   it('ARCH Privacy: auth.ok carries a boolean admin flag and nothing else', () => {
     expect(serverMessageSchema.safeParse({ type: 'auth.ok', admin: true }).success).toBe(true)
     expect(serverMessageSchema.safeParse({ type: 'auth.ok', admin: true, uid: 'u1' }).success).toBe(false)
@@ -141,6 +148,20 @@ describe('serverMessageSchema room messages carry the stakes (FR-004, FR-011)', 
   it('lobby.rooms and room.state accept startCash and goal', () => {
     expect(serverMessageSchema.safeParse({ type: 'lobby.rooms', rooms: [summary] }).success).toBe(true)
     expect(serverMessageSchema.safeParse({ type: 'room.state', view }).success).toBe(true)
+  })
+
+  it('decision 46: an observer carries active or disconnected, never eliminated', () => {
+    const withObserver = (status: string) => ({
+      type: 'room.state',
+      view: { ...view, observers: [{ nick: 'Kuba', status }] },
+    })
+    expect(serverMessageSchema.safeParse(withObserver('active')).success).toBe(true)
+    expect(serverMessageSchema.safeParse(withObserver('disconnected')).success).toBe(true)
+    expect(serverMessageSchema.safeParse(withObserver('eliminated')).success).toBe(false)
+    expect(
+      serverMessageSchema.safeParse({ type: 'room.state', view: { ...view, observers: [{ nick: 'Kuba' }] } })
+        .success,
+    ).toBe(false)
   })
 
   it('the old profitTarget field and a missing startCash or goal are rejected', () => {

@@ -1,6 +1,6 @@
 import { TICK_MS } from '@fm/shared/config'
 import type { RankRow } from '@fm/shared/protocol'
-import { DEFAULT_START_CASH } from '@fm/shared/rules'
+import { DEFAULT_START_CASH, DISCONNECT_GRACE_MS } from '@fm/shared/rules'
 import { describe, expect, it } from 'vitest'
 import {
   ADMIN,
@@ -327,17 +327,20 @@ describe('four-player round (M4 DoD, FR-011..FR-015)', () => {
 })
 
 describe('timers and cleanup (CODE_QUALITY: cleanup)', () => {
-  it('no timer is left after the round ends, a pending disconnect timer included', () => {
+  it('decision 46: a grace timer outlives the round, then fires once and leaves no timer behind', () => {
     const h = started(3, { seed: 1 })
     h.tick(ROUND_TICKS - 100) // 8 s before the end
     h.room.onSocketClosed('uid-3') // its 30 s timer would fire after the round
     expect(h.clock.pendingCount).toBe(1)
     h.runToEnd(200)
     expect(h.room.running).toBe(false)
-    expect(h.clock.pendingCount).toBe(0)
-    // The player who dropped is not in the lobby; their place stays in the result.
-    expect(h.room.summary().players).toBe(2)
+    expect(h.clock.pendingCount).toBe(1)
+    // The player is still in the lobby as away; their place stays in the result.
+    expect(h.room.summary().players).toBe(3)
     expect(roundEnd(h)?.ranking.map((row) => row.nick)).toContain('Nick3')
+    h.clock.advance(DISCONNECT_GRACE_MS)
+    expect(h.clock.pendingCount).toBe(0)
+    expect(h.room.summary().players).toBe(2)
   })
 
   it('no timer is left after dispose', () => {

@@ -199,6 +199,7 @@
     "waitHost": "Waiting for the host to start the round.",
     "needPlayer": "At least one player is needed to start.",
     "leave": "Leave room",
+    "reconnectLost": "Could not return in time. You left the room.",
     "lastRound": "Last round"
   },
   "round": {
@@ -252,6 +253,7 @@
     "authFailed": "Your session expired. Log in again.",
     "kicked": "An administrator removed you from the room.",
     "roomClosed": "An administrator closed the room.",
+    "replaced": "This room was opened in another tab or window, so this one was disconnected.",
     "network": "Connection to the server was lost."
   },
   "news": {

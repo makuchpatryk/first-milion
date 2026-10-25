@@ -80,4 +80,11 @@ describe('nextHost', () => {
     expect(nextHost(members(1), [], 'p1')).toBeNull()
     expect(nextHost([], [], 'p1')).toBeNull()
   })
+
+  it('decision 46: given connected members only, the first connected player, else the first connected observer, else null', () => {
+    const connectedPlayers = members(3).filter((member) => member.uid !== 'p2')
+    expect(nextHost(connectedPlayers, members(2, 'o'), 'p1')).toBe('p3')
+    expect(nextHost([], members(2, 'o'), 'p1')).toBe('o1')
+    expect(nextHost([], [], 'p1')).toBeNull()
+  })
 })

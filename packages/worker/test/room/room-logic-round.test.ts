@@ -2,7 +2,12 @@ import { TICK_MS } from '@fm/shared/config'
 import { CLOSE_CODES } from '@fm/shared/protocol'
 import { DISCONNECT_GRACE_MS, EMPTY_ROOM_TTL_MS, SPREAD } from '@fm/shared/rules'
 import { describe, expect, it } from 'vitest'
-import { ADMIN, createHarness, joinPlayers, type Harness } from '../support/test-client'
+import { ADMIN, createHarness, joinPlayers, leverage, type Harness } from '../support/test-client'
+
+/** Ticks in the 30 s grace (BR-019). */
+const GRACE_TICKS = DISCONNECT_GRACE_MS / TICK_MS
+/** Ticks in the harness's default 3 minute round. */
+const ROUND_TICKS = (3 * 60_000) / TICK_MS
 
 /** A started round of `players` players, seed 1. */
 function running(players = 3, options: Parameters<typeof createHarness>[0] = {}) {
@@ -295,21 +300,116 @@ describe('RoomLogic disconnect and return (BR-019, FR-015)', () => {
     expect(h.room.viewFor('uid-1')?.players[1]).toEqual({ nick: 'Nick2', status: 'eliminated' })
   })
 
-  it('BR-013: a host who drops mid-round hands the role to the next connected player; the round continues', () => {
+  it('BR-013, decision 46: a host who drops mid-round keeps the role through the grace and hands it over at expiry; the round continues', () => {
     const h = running(3)
     h.room.onSocketClosed('uid-1')
+    h.tick(GRACE_TICKS - 2)
+    expect(h.room.summary().hostNick).toBe('Nick1')
+    expect(h.room.viewFor('uid-2')?.you.isHost).toBe(false)
+    h.tick(4)
     expect(h.room.viewFor('uid-2')?.you.isHost).toBe(true)
+    expect(h.room.summary().hostNick).toBe('Nick2')
     expect(h.room.running).toBe(true)
     h.room.join('uid-1', 'Nick1')
     expect(h.room.viewFor('uid-1')?.you.isHost).toBe(false)
   })
 
-  it('BR-012: an observer who leaves mid-round is removed at once, no grace', () => {
+  it('BR-013, decision 46: a host who returns within the grace is still host', () => {
+    const h = running(3)
+    h.room.onSocketClosed('uid-1')
+    h.tick(GRACE_TICKS / 2)
+    h.room.join('uid-1', 'Nick1')
+    h.tick(GRACE_TICKS)
+    expect(h.room.viewFor('uid-1')?.you.isHost).toBe(true)
+    expect(h.room.viewFor('uid-2')?.you.isHost).toBe(false)
+  })
+
+  it('decision 41, 46: the host explicit leave mid-round hands the role over at once; the seat keeps its grace', () => {
+    const h = running(3)
+    h.room.leave('uid-1')
+    expect(h.room.viewFor('uid-2')?.you.isHost).toBe(true)
+    expect(h.room.viewFor('uid-2')?.players[0]).toEqual({ nick: 'Nick1', status: 'disconnected' })
+    h.tick(GRACE_TICKS + 1)
+    expect(h.room.viewFor('uid-2')?.players[0]).toEqual({ nick: 'Nick1', status: 'eliminated' })
+    expect(h.room.viewFor('uid-2')?.you.isHost).toBe(true)
+  })
+
+  it('decision 46: an observer whose socket drops mid-round keeps the slot; an explicit leave removes it at once', () => {
     const h = createHarness()
-    joinPlayers(h, 5)
+    joinPlayers(h, 6)
     h.room.start('uid-1')
     h.room.onSocketClosed('uid-5')
+    expect(h.room.summary()).toMatchObject({ players: 4, observers: 2 })
+    expect(h.room.viewFor('uid-1')?.observers[0]).toEqual({ nick: 'Nick5', status: 'disconnected' })
+    h.room.leave('uid-6')
+    expect(h.room.summary().observers).toBe(1)
+    h.tick(GRACE_TICKS + 1)
     expect(h.room.summary()).toMatchObject({ players: 4, observers: 0 })
+  })
+
+  it('decision 46: a seat in lobby grace is carried into the round as disconnected; returning in time plays', () => {
+    const h = createHarness()
+    joinPlayers(h, 3)
+    h.room.onSocketClosed('uid-2')
+    h.room.start('uid-1')
+    expect(h.room.viewFor('uid-1')?.players.map((p) => p.status)).toEqual(['active', 'disconnected', 'active'])
+    h.tick(10)
+    h.room.join('uid-2', 'Nick2')
+    expect(h.room.viewFor('uid-2')?.players.map((p) => p.status)).toEqual(['active', 'active', 'active'])
+    h.tick(GRACE_TICKS)
+    expect(lastTick(h, 'uid-2')?.you.status).toBe('active')
+    expect(lastTick(h, 'uid-1')?.ranking.find((r) => r.nick === 'Nick2')?.status).toBe('active')
+  })
+
+  it('decision 46, BR-019: a carried seat that does not return is eliminated at expiry', () => {
+    const h = createHarness()
+    joinPlayers(h, 3)
+    h.room.onSocketClosed('uid-2')
+    h.room.start('uid-1')
+    h.tick(GRACE_TICKS + 1)
+    expect(lastTick(h, 'uid-1')?.ranking.find((r) => r.nick === 'Nick2')).toMatchObject({
+      status: 'eliminated',
+      equity: 0,
+    })
+    expect(h.room.running).toBe(true)
+  })
+
+  it('decision 46: a seat in grace when the round ends stays in the lobby as disconnected and is removed at expiry, the host role then moves', () => {
+    const h = running(3)
+    h.tick(ROUND_TICKS - 100) // 8 s before the end
+    h.room.onSocketClosed('uid-1')
+    h.runToEnd(200)
+    expect(h.room.running).toBe(false)
+    expect(h.room.viewFor('uid-2')?.players[0]).toEqual({ nick: 'Nick1', status: 'disconnected' })
+    expect(h.room.summary()).toMatchObject({ players: 3, hostNick: 'Nick1', status: 'lobby' })
+    h.clock.advance(DISCONNECT_GRACE_MS)
+    expect(h.room.summary()).toMatchObject({ players: 2, hostNick: 'Nick2' })
+    expect(h.room.viewFor('uid-2')?.you.isHost).toBe(true)
+  })
+
+  it('decision 41: a seat whose grace expired during the round is dropped at round end', () => {
+    const h = running(3)
+    h.room.onSocketClosed('uid-3')
+    h.tick(GRACE_TICKS + 1)
+    expect(h.room.summary().players).toBe(3)
+    h.runToEnd(ROUND_TICKS)
+    expect(h.room.summary().players).toBe(2)
+    expect(h.room.viewFor('uid-1')?.lastRound?.ranking.map((row) => row.nick)).toContain('Nick3')
+  })
+
+  it('BR-019, decision 46: an eliminated player who drops keeps the host role for the grace, then hands it over', () => {
+    const h = createHarness({ seed: 2 }) // seed 2: the long side is wiped out first
+    joinPlayers(h, 2)
+    h.room.start('uid-1')
+    h.tick(2)
+    leverage(h, 'uid-1', 'BUY', 100)
+    expect(h.room.viewFor('uid-2')?.players[0]).toEqual({ nick: 'Nick1', status: 'eliminated' })
+    h.room.onSocketClosed('uid-1')
+    h.tick(GRACE_TICKS - 2)
+    expect(h.room.summary().hostNick).toBe('Nick1')
+    h.tick(4)
+    expect(h.room.summary().hostNick).toBe('Nick2')
+    expect(h.room.viewFor('uid-2')?.players[0]).toEqual({ nick: 'Nick1', status: 'eliminated' })
   })
 
   it('BR-014: when everyone is gone the grace runs out, the round ends, and the empty room is deleted after 5 min', () => {

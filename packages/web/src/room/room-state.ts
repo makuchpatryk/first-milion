@@ -7,8 +7,8 @@ import type {
   NewsView,
   RankRow,
   RoomView,
-  ServerMessage,
 } from '@fm/shared/protocol'
+import type { AppServerMessage } from '../net/ws-client'
 
 export interface RoomState {
   /** From `auth.ok`; kick is offered only to admins, the server checks again (FR-017). */
@@ -67,7 +67,7 @@ function appendPrices(history: readonly number[], prices: readonly number[]) {
 
 function applyTick(
   state: RoomState,
-  msg: Extract<ServerMessage, { type: 'room.tick' }>,
+  msg: Extract<AppServerMessage, { type: 'room.tick' }>,
 ): RoomState {
   const { history } = appendPrices(state.history, msg.prices)
   return {
@@ -87,7 +87,7 @@ function applyTick(
  * Room socket messages to UI state. Pure and DOM-free, so every screen rule below is tested
  * without a socket. The server is the only source of price, ranking and result (BR-007).
  */
-export function reduceRoom(state: RoomState, msg: ServerMessage): RoomState {
+export function reduceRoom(state: RoomState, msg: AppServerMessage): RoomState {
   switch (msg.type) {
     case 'room.state': {
       const startsRound = msg.view.status === 'running' && state.view?.status === 'lobby'

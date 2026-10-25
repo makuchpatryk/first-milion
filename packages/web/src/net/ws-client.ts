@@ -1,3 +1,4 @@
+import { PING_INTERVAL_MS, PONG_TIMEOUT_MS } from '@fm/shared/config'
 import { CLOSE_CODES, serverMessageSchema } from '@fm/shared/protocol'
 import type { ClientMessage, ServerMessage } from '@fm/shared/protocol'
 
@@ -8,6 +9,9 @@ const BACKOFF_CAP_MS = 8_000
 const NORMAL_CLOSURE = 1000
 
 export type SocketStatus = 'connecting' | 'ready' | 'reconnecting' | 'closed'
+
+/** What the screens see: `pong` is the client's own keepalive and is consumed here (decision 48). */
+export type AppServerMessage = Exclude<ServerMessage, { type: 'pong' }>
 
 /** The slice of `WebSocket` the client uses; a fake implements it in tests. */
 export interface WebSocketLike {
@@ -32,7 +36,7 @@ export interface SocketOptions {
   /** Firebase ID token; `forceRefresh` after a 4401 close. */
   getToken(forceRefresh: boolean): Promise<string>
   /** Already zod-parsed. */
-  onMessage(msg: ServerMessage): void
+  onMessage(msg: AppServerMessage): void
   /** `ready` fires once per connection, on the first `auth.ok`; a refresh's `auth.ok` is not one. */
   onStatus(status: SocketStatus, closeCode?: number): void
   schedule(fn: () => void, ms: number): unknown
@@ -59,8 +63,10 @@ function platformSocket(url: string): WebSocketLike {
 
 /**
  * Typed game socket (FR-007, FR-015). Sends `auth` first on every connection, parses every
- * incoming frame with the shared schema, reconnects with backoff, and stops on a kick or an
- * admin room close. Server frames are `unknown` until parsed (CODE_QUALITY boundaries).
+ * incoming frame with the shared schema, reconnects with backoff, and stops on a kick, an
+ * admin room close or a newer socket of the same user. A ping every `PING_INTERVAL_MS` that gets
+ * no pong within `PONG_TIMEOUT_MS` drops the socket and reconnects (decision 48). Server frames
+ * are `unknown` until parsed (CODE_QUALITY boundaries).
  */
 export function createSocket(options: SocketOptions): SocketHandle {
   const open = options.openSocket ?? platformSocket
@@ -73,6 +79,48 @@ export function createSocket(options: SocketOptions): SocketHandle {
   let refreshedAfter4401 = false
   let forceNextToken = false
   let everConnected = false
+  // Keepalive: the next ping is waiting, or a sent ping is waiting for its pong. Never both.
+  let pingTimer: unknown = null
+  let pongTimer: unknown = null
+
+  function stopKeepalive(): void {
+    if (pingTimer !== null) options.cancel(pingTimer)
+    if (pongTimer !== null) options.cancel(pongTimer)
+    pingTimer = null
+    pongTimer = null
+  }
+
+  function armPing(socket: WebSocketLike): void {
+    pingTimer = options.schedule(() => {
+      pingTimer = null
+      if (socket !== ws || !ready) return
+      socket.send(JSON.stringify({ type: 'ping' } satisfies ClientMessage))
+      pongTimer = options.schedule(() => {
+        pongTimer = null
+        dropDeadSocket(socket)
+      }, PONG_TIMEOUT_MS)
+    }, PING_INTERVAL_MS)
+  }
+
+  function handlePong(socket: WebSocketLike): void {
+    if (pongTimer === null) return
+    options.cancel(pongTimer)
+    pongTimer = null
+    armPing(socket)
+  }
+
+  /**
+   * No pong: detach first, because a half-open socket's `close` event can take minutes. Its late
+   * `onclose` is then ignored by the `socket === ws` guard.
+   */
+  function dropDeadSocket(socket: WebSocketLike): void {
+    if (socket !== ws) return
+    ws = null
+    ready = false
+    stopKeepalive()
+    socket.close()
+    reconnectLater()
+  }
 
   function sendAuth(socket: WebSocketLike, force: boolean): void {
     options.getToken(force).then(
@@ -97,10 +145,15 @@ export function createSocket(options: SocketOptions): SocketHandle {
       return
     }
     const msg = parsed.data
+    if (msg.type === 'pong') {
+      if (ws !== null) handlePong(ws)
+      return
+    }
     if (msg.type === 'auth.ok' && !ready) {
       ready = true
       attempt = 0
       refreshedAfter4401 = false
+      if (ws !== null) armPing(ws)
       options.onStatus('ready')
     }
     options.onMessage(msg)
@@ -116,8 +169,14 @@ export function createSocket(options: SocketOptions): SocketHandle {
   function handleClose(code: number): void {
     ready = false
     ws = null
+    stopKeepalive()
     if (disposed) return
-    if (code === CLOSE_CODES.KICKED || code === CLOSE_CODES.ROOM_CLOSED) {
+    // Terminal: the user was removed, the room is gone, or a newer socket of theirs took over.
+    if (
+      code === CLOSE_CODES.KICKED ||
+      code === CLOSE_CODES.ROOM_CLOSED ||
+      code === CLOSE_CODES.REPLACED
+    ) {
       disposed = true
       options.onStatus('closed', code)
       return
@@ -139,6 +198,7 @@ export function createSocket(options: SocketOptions): SocketHandle {
 
   function connect(): void {
     retry = null
+    stopKeepalive()
     if (disposed) return
     if (!everConnected) options.onStatus('connecting')
     everConnected = true
@@ -166,6 +226,7 @@ export function createSocket(options: SocketOptions): SocketHandle {
       disposed = true
       if (retry !== null) options.cancel(retry)
       retry = null
+      stopKeepalive()
       const socket = ws
       ws = null
       ready = false

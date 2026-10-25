@@ -92,6 +92,7 @@ function confirmKick(): void {
             <b>{{ observer.nick }}</b>
             <span v-if="observer.nick === view.hostNick" class="note">{{ t('lobby.host') }}</span>
             <span v-if="isMe(observer.nick)" class="note">({{ t('lobby.you') }})</span>
+            <span class="note">· {{ t(`lobby.status.${observer.status}`) }}</span>
           </span>
           <button
             v-if="isAdmin && !isMe(observer.nick)"

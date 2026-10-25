@@ -6,5 +6,7 @@ export const CLOSE_CODES = {
   KICKED: 4403,
   /** Admin closed the room (BR-017). */
   ROOM_CLOSED: 4410,
+  /** A newer socket of the same user took over the room; terminal for the old one (decision 47). */
+  REPLACED: 4409,
 } as const
 export type CloseCode = (typeof CLOSE_CODES)[keyof typeof CLOSE_CODES]

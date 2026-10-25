@@ -19,7 +19,7 @@ const view = (over: Partial<RoomView> = {}): RoomView => ({
     { nick: 'Ann', status: 'active' },
     { nick: 'Bob', status: 'active' },
   ],
-  observers: [{ nick: 'Cy' }],
+  observers: [{ nick: 'Cy', status: 'active' }],
   lastRound: null,
   you: { role: 'player', nick: 'Ann', isHost: true },
   ...over,
@@ -49,6 +49,13 @@ describe('LobbyPanel (UF-004 step 1)', () => {
     expect(wrapper.findAll('li')[0]?.text()).toContain(pl.lobby.you)
     expect(wrapper.findAll('li')[1]?.text()).not.toContain(pl.lobby.host)
     expect(text).toContain('Cy')
+  })
+
+  it('decision 46: an observer whose socket is away is listed as disconnected', () => {
+    const wrapper = mountPanel(view({ observers: [{ nick: 'Cy', status: 'disconnected' }] }))
+    const observer = wrapper.findAll('li').find((li) => li.text().includes('Cy'))
+    expect(observer?.text()).toContain(pl.lobby.status.disconnected)
+    expect(wrapper.findAll('li')[0]?.text()).toContain(pl.lobby.status.active)
   })
 
   it('FR-011: the host can start when at least one player is seated', async () => {

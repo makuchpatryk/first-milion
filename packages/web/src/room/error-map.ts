@@ -40,6 +40,8 @@ export function closeKey(code: number): string {
       return 'close.kicked'
     case CLOSE_CODES.ROOM_CLOSED:
       return 'close.roomClosed'
+    case CLOSE_CODES.REPLACED:
+      return 'close.replaced'
     default:
       return 'close.network'
   }

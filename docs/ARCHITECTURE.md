@@ -1,6 +1,6 @@
 # First Million — Architecture
 
-**Based on:** [PRD v1.2](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** M1 done (`shared` engine); M2 done (`web`: auth, router, i18n, single play; Pages deploy in M6); M3 done (`worker`: auth gate, `Lobby`, `Room` lifecycle, protocol); M4 done in code (`worker`: round engine in `Room`); M5 done in code (`web`: multiplayer screens, socket client, admin UI); M6 checks written (`e2e/`, bundle and config checks, CI and deploy workflows), heavy runs and the release pending
+**Based on:** [PRD v1.3](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** M1 done (`shared` engine); M2 done (`web`: auth, router, i18n, single play; Pages deploy in M6); M3 done (`worker`: auth gate, `Lobby`, `Room` lifecycle, protocol); M4 done in code (`worker`: round engine in `Room`); M5 done in code (`web`: multiplayer screens, socket client, admin UI); M6 checks written (`e2e/`, bundle and config checks, CI and deploy workflows), heavy runs and the release pending
 
 ## Drivers
 
@@ -41,14 +41,16 @@ Dependency rules:
 - **Memory only**: ordinary WebSockets + in-memory timers in `Room` and `Lobby`; no hibernation, storage or alarms (guard test `worker/test/no-storage.test.ts`).
 - **Auth**: ID token in first `auth` message (never URL), within 5 s; RS256 via WebCrypto + cached JWKS, `email_verified`; `Origin` allowlist; admin UID checked on every admin action.
 - **Privacy**: broadcasts carry nickname and numbers only; no email, UID or token.
+- **One socket per user per room, newest wins** (PRD §20 #47): `Room.onAuthed` maps the UID to the new socket and closes the old one with 4409; `onClose` ignores a socket that is not the mapped one, so a replaced socket is not a leave.
+- **Client keepalive** (PRD §20 #48): `ping`/`pong` is answered in `worker/socket.ts` for both DOs and never reaches `RoomLogic` or the rate limit; `web/net/ws-client.ts` pings every 25 s and reconnects when no `pong` comes within 10 s. No server-side idle reaping.
 
-States: room `lobby → running → lobby`, deleted after 5 min empty or admin close. Player `active → disconnected (≤ 30 s) → active | eliminated`; `active → eliminated` at equity ≤ 0; an eliminated player keeps a watch-only seat until the next start (PRD §20 #38).
+States: room `lobby → running → lobby`, deleted after 5 min empty or admin close. Player `active → disconnected (≤ 30 s) → active | eliminated`; `active → eliminated` at equity ≤ 0; an eliminated player keeps a watch-only seat until the next start (PRD §20 #38). In the lobby, seats and observers can be `disconnected` too (30 s grace, then removed); the host role moves at grace expiry or on an explicit leave, to the next connected member (PRD §20 #46).
 
 ## Errors
 
 Server replies with a code, never text or a thrown exception; `web/i18n` maps codes to PL/EN.
 
-`RATE_LIMITED | ELIMINATED | FORBIDDEN | INVALID_STATE | INVALID_PAYLOAD | ROOM_FULL | ROOM_CLOSED | ROOM_NOT_FOUND`. Bad auth → close 4401 (kick 4403, admin room close 4410: `shared/protocol/close-codes.ts`). Bad `Origin` → 403.
+`RATE_LIMITED | ELIMINATED | FORBIDDEN | INVALID_STATE | INVALID_PAYLOAD | ROOM_FULL | ROOM_CLOSED | ROOM_NOT_FOUND`. Bad auth → close 4401 (kick 4403, replaced by a newer socket of the same user 4409, admin room close 4410: `shared/protocol/close-codes.ts`). Bad `Origin` → 403.
 
 ## Testing
 

@@ -1,6 +1,6 @@
 # First Million — PRD
 
-**Version:** 1.2 | **Date:** 2026-10-11 | **Status:** Ready for implementation
+**Version:** 1.3 | **Date:** 2026-10-25 | **Status:** Ready for implementation
 
 Product name: **First Million** (previously the working title "Szybka Giełda"). Reference for simulation rules: the existing prototype `Szybka Giełda.html` (single play, plain JS). The product is built from scratch; the prototype serves as a pattern for rules, while the look is new (section 16). Values marked as "tunable" in the Decisions Log are constants in `shared/config.ts`.
 
@@ -99,7 +99,7 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 - **Exceptions:** none.
 
 ### BR-013: Host
-- **Rule:** The room creator is the host. Only the host can start a round (minimum 1 player in the room) and start the next one after returning to the lobby. When the host leaves, the host role must pass to the next player (by join order); a running round continues. When there are no players but there are observers, the earliest-joined observer receives the host role.
+- **Rule:** The room creator is the host. Only the host can start a round (minimum 1 player in the room) and start the next one after returning to the lobby. The host role must pass to the next connected player (by join order) when the host leaves explicitly (at once, in the lobby and in a round) or when the host's socket stays away for the 30 s of BR-019; a running round continues. A host whose socket drops keeps the role during those 30 s and is still host when returning in time. When no player is connected but an observer is, the earliest-joined connected observer receives the host role. With nobody connected the role waits for the first member to return or join (decision 46).
 - **Applies to:** Host.
 - **Exceptions:** none.
 
@@ -129,7 +129,7 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 - **Exceptions:** none.
 
 ### BR-019: Disconnection
-- **Rule:** A player disconnected during a round keeps their position and equity on the server for 30 seconds (the simulation continues; the position is subject to price changes). Returning within 30 s restores play. After 30 s the player is eliminated as in BR-012 (position closed at market price, ranked after active players).
+- **Rule:** A member (player or observer) whose socket drops, in the lobby or in a round, keeps their place on the server for 30 seconds. A player in a round also keeps position and equity (the simulation continues; the position is subject to price changes). Returning within 30 s restores the place and play. After 30 s a player in a round is eliminated as in BR-012 (position closed at market price, ranked after active players) and keeps a watch-only seat; in the lobby, and for an observer, the member is removed. An explicit leave removes the member at once in the lobby; in a round the player's seat still gets the 30 s (decision 41). A newer socket of the same user replaces the older one (decision 47).
 - **Applies to:** multiplayer.
 - **Exceptions:** none.
 
@@ -250,7 +250,7 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 1. Lobby: name, parameters, list of players and observers (host marked). The host sees "Start".
 2. Round: chart, equity, position, buttons, countdown timer, equity against the goal with progress, live ranking, news bar.
 3. Results: places, equity, winner; return to the lobby.
-- **Error states:** disconnection ("Reconnecting…" banner, 30 s countdown), `RATE_LIMITED`, room closed by admin.
+- **Error states:** disconnection ("Reconnecting…" banner, 30 s countdown, in the lobby too; when it runs out the text says the user left the room in the lobby, and that the seat is lost in a round), the room opened in another tab (the older tab shows a message and goes back to the list), `RATE_LIMITED`, room closed by admin.
 - **Empty states:** N/A.
 
 ### UF-005: Observer
@@ -386,16 +386,20 @@ The admin is defined by a list of account UIDs in server configuration (`ADMIN_U
 
 ### FR-015: Disconnection and return
 - **Implements:** BR-019
-- **Description:** The system must keep the player's state for 30 s after disconnection, resume it after a new `auth` + `join` to the same room, and eliminate the player after 30 s.
+- **Description:** The system must keep the member's place for 30 s after a socket drop (lobby or round, player or observer), resume it after a new `auth` + `join` to the same room, and after 30 s eliminate a player in a round and remove anyone else. A second socket of the same user replaces the first, which is closed with code 4409; the client treats 4409 as terminal. The client sends a `ping` every 25 s and reconnects when no `pong` arrives within 10 s (decision 48).
 - **Acceptance criteria:**
   - Given a 10 s disconnection, when returning, then position and equity are unchanged apart from price movement.
   - Given a 31 s disconnection, when returning, then the player is an observer.
+  - Given a lobby disconnection of 10 s, when returning, then the member has the same place in the join order.
+  - Given a second socket of the same user joins the room, when it sends `room.join`, then it receives `room.state`, the first socket is closed with 4409 and no leave happens.
 
 ### FR-016: Host and leaving a room
 - **Implements:** BR-013, BR-014
 - **Description:** When the host leaves, the role must pass per BR-013. An empty room must be deleted after 5 min and deregistered from `Lobby`.
 - **Acceptance criteria:**
   - Given the host leaves, when other players remain, then the next player is host and the round continues.
+  - Given the host's socket drops in the lobby or in a round, when they return within 30 s, then they are still host and nobody else was.
+  - Given the host's socket stays away for 30 s, when the time elapses, then the next connected player is host.
   - Given a room empty for 5 min, when the time elapses, then the room disappears from the list.
 
 ### FR-017: Admin controls in the UI
@@ -466,7 +470,7 @@ There is no database (BR-020). The entities below exist only in memory.
 | disconnectedAt | timestamp\|null | no | 30 s | set while the socket is gone, also after elimination (the player may return and watch) |
 | reachedEquityAt | timestamp | yes | for BR-010 | server time of the last change of equity value (decision 40) |
 
-- **Note:** an eliminated player stays in `players` as a watch-only seat until the next start (decision 38); the observer list is for people who joined as observers.
+- **Note:** an eliminated player stays in `players` as a watch-only seat until the next start (decision 38); the observer list is for people who joined as observers. An observer carries `uid`, `nick` and `disconnectedAt` (the same 30 s grace, decision 46) and is shown as `active` or `disconnected`.
 
 - **Relations:** Room 1—N Player, Room 1—N Observer; Lobby 1—N room entries.
 - **Retention / deletion:** removed from memory when leaving the room or when the room is deleted.
@@ -622,11 +626,14 @@ There is no database (BR-020). The entities below exist only in memory.
 | 38 | An eliminated player (bankruptcy or disconnect timeout) keeps a watch-only seat: status `eliminated`, equity 0, shared last place, sees the stream. The seat resets to `active` at the next start. This is how BR-012 "stays as an observer" is implemented; it does not take an observer slot, so the BR-011 cap holds | Move the player to the observers list (BR-012 literal, breaks the cap of 4 or needs an exemption) | User's choice (M4 planning) |
 | 39 | Superseded by the user: the trading halt (TRADING_HALT news, `HALTED` error, halt countdown and its 250 ms tick cap) was removed. The former 5 s, later 2 s, halt no longer applies | Keep the halt (5 s, then 2 s) | User's choice; the user then asked to remove it |
 | 40 | BR-010 tie-break "reached that equity value earlier" = server time of the player's last change of equity value; computable on every tick | Time of the first reach of the final value (known only at the end) | Planning default, adopted (M4) |
-| 41 | M4 room rules: the order rate limit counts every schema-valid `order` and `close`, accepted or refused; `room.leave` in a running round is a dropped socket (30 s grace, so leaving cannot escape a loss); a disconnect in the lobby removes the seat at once; the host role passes when the host's socket drops, to the next connected member; a player who is gone when the round ends is dropped from the seats (the result keeps the row); a kick during a round removes the seat; an observer may be host (starting needs ≥ 1 seated player) | Count only accepted orders; grace on leave in the lobby; keep absent players seated | Planning defaults, adopted (M4) |
+| 41 | (Partly superseded by #46 and #47: the lobby disconnect, the host handover timing and the "next connected member" wording.) M4 room rules: the order rate limit counts every schema-valid `order` and `close`, accepted or refused; `room.leave` in a running round is a dropped socket (30 s grace, so leaving cannot escape a loss); a disconnect in the lobby removes the seat at once; the host role passes when the host's socket drops, to the next connected member; a player who is gone when the round ends is dropped from the seats (the result keeps the row); a kick during a round removes the seat; an observer may be host (starting needs ≥ 1 seated player) | Count only accepted orders; grace on leave in the lobby; keep absent players seated | Planning defaults, adopted (M4) |
 | 42 | NFR-006 e2e round: 3 minutes at 8× by default, the full 10 minutes with `E2E_FULL_ROUND=1` (run once before a release). NFR-001 is measured in the page (order sent → `order.ok`), p95 ≤ 300 ms over 50 orders. NFR-005 counts the gzip size of all built JS chunks together (≤ 300 KB) | A 10-minute round on every review; server-side timing only; the initial chunk only | User's choice (M6 planning); the all-chunks sum is the stricter reading |
 | 43 | e2e runs against the Vite dev server, the Auth emulator and `wrangler dev` with the emulator flag given on the command line: a production build has no emulator hook (decision 35), so it cannot log in to the emulator. The production build is covered by `check-bundle` and `check-no-emulator`, and by Lighthouse | e2e on `vite preview`; real Firebase test accounts | Consequence of decision 35 (M6 implementation) |
 | 44 | The profit target (the "Goal" in the UI) is required everywhere, an integer ≥ 20,000, no upper limit: in room creation and in single play. Single play gets a setup screen with the round time and the target, and ends at the target, at time up or at a margin call (BR-006, BR-009). Single play offers the same times as rooms, {3, 5, 10} min; pause stops its clock. "Play again" keeps the time and target, "Change settings" returns to setup. Supersedes the optional target and the $100 minimum in decisions 7 and 10, and "no time limit" in BR-006 | Optional target kept for rooms; a default target; single play without time | User's choice; the time set and the pause rule are planning defaults |
 | 45 | The starting capital is chosen per round (single play: the player; room: the host): $1,000–$100,000 in steps of $1,000, default $10,000, on a slider with a number field. The goal becomes a target capital (equity): an integer above the starting capital, no upper limit and no fixed minimum, default $30,000; the round is won at equity ≥ goal. `profitTarget` is renamed `goal` and `startCash` is added to the room form, summary and view. Order sizes stay {10, 50, 100, 250} (balance note in CODE_QUALITY). Supersedes the fixed $10,000 in BR-003, the $20,000 minimum in decisions 7, 10 and 44, and the total-result target in decision 30 | Goal as profit; presets only; sizes scaled to the capital | User's choice; ranges and defaults are planning defaults |
+| 46 | Every socket drop, in the lobby or in a round, seat or observer, gets the 30 s grace (BR-019) with one in-memory timer per absence. The host keeps the role during the grace; it moves at expiry or on an explicit `room.leave` (at once, lobby and round). The successor is the next connected player by join order, else the earliest connected observer, else nobody until a member returns or joins. At expiry the phase is read: a seat in a round is eliminated and kept until the round ends, anyone else is removed. A seat in grace at round start is carried in as `disconnected` and plays if it returns; a seat in grace at round end stays in the lobby as `disconnected`; a seat whose grace ran out during the round is dropped at round end. Observers get a `status` (`active` or `disconnected`) in the room view. Supersedes "a disconnect in the lobby removes the seat at once" in #41 | Remove at once in the lobby and give the role back to a returning host; hand the role over at once in a round; hand it over at round end | Issue #14, planning decision |
+| 47 | One socket per user per room, the newest wins: a new authenticated socket of a UID replaces the mapped one, which is closed with `4409 REPLACED` and is not a leave. The client treats 4409 as terminal (message in PL and EN, back to the list). A `room.join` from a UID already in the room re-sends `room.state` to that UID only. The `Lobby` socket has no per-UID map and is not replaced | First socket wins (a fast reconnect is locked out until the old socket dies); newest wins with a plain close (two tabs fight for the socket) | Issue #14, planning decision |
+| 48 | Client keepalive: a `ping` every 25 s once ready, answered by `pong` in the shared socket acceptor (`worker/socket.ts`) on both the Room and the Lobby socket, so it never reaches `RoomLogic` or the BR-018 limit. No `pong` within 10 s: the client drops the socket and reconnects. Constants `PING_INTERVAL_MS`, `PONG_TIMEOUT_MS` in `shared/config.ts`. No server-side idle reaping: a host whose radio dies without a TCP close stays "connected" on the server until their client reconnects (newest wins) or the runtime closes the socket. Cost: about 3,456 pings per socket per day, about 173 billable Durable Object requests at 20:1; with 100 sockets about 17,300 a day, to be re-checked with ARCHITECTURE open item 1 | Server pings with idle reaping; hibernation auto-response (excluded by #37); no keepalive | Issue #14, planning decision |
 
 ## 21. Open Questions
 None.

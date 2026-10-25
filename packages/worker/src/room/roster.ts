@@ -36,7 +36,11 @@ export function uniqueNick(taken: readonly string[], base: string): string {
   }
 }
 
-/** Host handover when `leavingUid` goes (BR-013): next player by join order, else the earliest observer. */
+/**
+ * Host handover when `leavingUid` goes (BR-013): next player by join order, else the earliest
+ * observer, else `null`. Callers pass connected members only, so the role never lands on someone
+ * whose socket is away (decision 46).
+ */
 export function nextHost(
   players: readonly Member[],
   observers: readonly Member[],

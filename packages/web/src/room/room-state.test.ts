@@ -1,7 +1,8 @@
 import { HISTORY_MAX, NEWS_FADE_TICKS } from '@fm/shared/config'
-import type { MeRound, RoomView, ServerMessage } from '@fm/shared/protocol'
+import type { MeRound, RoomView } from '@fm/shared/protocol'
 import { describe, expect, it } from 'vitest'
 import { newsTone } from '../components/newsTone'
+import type { AppServerMessage } from '../net/ws-client'
 import { canTrade, initialRoomState, reduceRoom, type RoomState } from './room-state'
 
 const view = (over: Partial<RoomView> = {}): RoomView => ({
@@ -32,9 +33,9 @@ const me = (over: Partial<MeRound> = {}): MeRound => ({
   ...over,
 })
 
-type Tick = Extract<ServerMessage, { type: 'room.tick' }>
+type Tick = Extract<AppServerMessage, { type: 'room.tick' }>
 
-const tick = (over: Partial<Tick> = {}): ServerMessage => ({
+const tick = (over: Partial<Tick> = {}): AppServerMessage => ({
   type: 'room.tick',
   prices: [100, 101, 102],
   price: 102,
@@ -45,7 +46,7 @@ const tick = (over: Partial<Tick> = {}): ServerMessage => ({
   ...over,
 })
 
-const run = (msgs: ServerMessage[], from: RoomState = initialRoomState): RoomState =>
+const run = (msgs: AppServerMessage[], from: RoomState = initialRoomState): RoomState =>
   msgs.reduce(reduceRoom, from)
 
 describe('reduceRoom', () => {
@@ -118,7 +119,7 @@ describe('reduceRoom', () => {
   })
 
   it('BR-014: round.end keeps the result and stops the countdown', () => {
-    const end: ServerMessage = {
+    const end: AppServerMessage = {
       type: 'round.end',
       reason: 'TIME',
       winners: ['Ann'],
