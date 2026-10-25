@@ -9,6 +9,9 @@ interface ImportMetaEnv {
   readonly VITE_AUTH_EMULATOR_URL?: string
 }
 
+/** Release version from the root `package.json`, replaced at build time (`vite.config.ts`). */
+declare const __APP_VERSION__: string
+
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }

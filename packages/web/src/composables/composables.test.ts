@@ -5,6 +5,7 @@ import type { AppServerMessage, SocketHandle, SocketStatus } from '../net/ws-cli
 
 vi.mock('./socket-deps', () => ({ runtimeSocketDeps: () => ({}) }))
 
+import { isAdmin } from '../auth/admin'
 import { useLobby, type LobbyHandlers } from './use-lobby'
 import { useRoom, type RoomHandlers } from './use-room'
 
@@ -69,6 +70,16 @@ describe('useLobby', () => {
     t.message({ type: 'auth.ok', admin: true })
     t.message({ type: 'lobby.rooms', rooms: [] })
     expect(lobby.state.value.isAdmin).toBe(true)
+    lobby.dispose()
+  })
+
+  it('auth.ok publishes the admin flag app-wide (version footer)', () => {
+    const t = fakeOpen<LobbyHandlers>()
+    const lobby = useLobby(t.open)
+    t.message({ type: 'auth.ok', admin: true })
+    expect(isAdmin.value).toBe(true)
+    t.message({ type: 'auth.ok', admin: false })
+    expect(isAdmin.value).toBe(false)
     lobby.dispose()
   })
 

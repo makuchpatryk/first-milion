@@ -4,12 +4,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('firebase/auth', () => ({ onAuthStateChanged: vi.fn() }))
 vi.mock('./auth/firebase', () => ({ auth: { currentUser: null } }))
 
+import { nextTick } from 'vue'
 import App from './App.vue'
+import { setAdmin } from './auth/admin'
 import { session } from './auth/session'
 import pl from './i18n/pl.json'
 import { buttonByText, mountWithApp } from './test-support'
+import { APP_VERSION } from './version'
 
 beforeEach(() => {
+  setAdmin(false)
   document.documentElement.lang = 'pl'
   localStorage.clear()
   session.status = 'loading'
@@ -88,5 +92,20 @@ describe('App navigation', () => {
     expect(wrapper.find('nav.crumbs a.back').attributes('href')).toBe('/login')
     expect(wrapper.find('header.bar a[href="/settings"]').exists()).toBe(false)
     expect(buttonByText(wrapper, 'PL').exists()).toBe(true)
+  })
+})
+
+describe('App version footer', () => {
+  it('shows the release version at the bottom to an admin only', async () => {
+    const { wrapper } = await mountWithApp(App)
+    expect(wrapper.find('footer.version').exists()).toBe(false)
+
+    setAdmin(true)
+    await nextTick()
+    expect(wrapper.find('footer.version').text()).toBe(`v${APP_VERSION}`)
+
+    setAdmin(false)
+    await nextTick()
+    expect(wrapper.find('footer.version').exists()).toBe(false)
   })
 })

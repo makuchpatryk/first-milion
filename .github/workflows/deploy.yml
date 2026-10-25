@@ -48,6 +48,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 20
+    # Only to push the version commit to `main` (last step).
+    permissions:
+      contents: write
     env:
       # Repository secrets or environment secrets: the Cloudflare token needs Workers Scripts:Edit
       # and Cloudflare Pages:Edit.
@@ -66,6 +69,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The root `package.json` version is the release version; the web build reads it and shows it
+      # to admins. It is committed to `main` after the deploy succeeds (last step).
+      - name: Set the version from the tag
+        run: npm pkg set version="${GITHUB_REF_NAME#v}"
       - name: Build the web app
         run: pnpm build
       - name: Bundle size and no emulator in the build (NFR-005, NFR-004)
@@ -75,3 +82,20 @@ jobs:
         run: pnpm --filter @fm/worker exec wrangler deploy --env production
       - name: Deploy the web app to Pages
         run: pnpm --filter @fm/worker exec wrangler pages deploy ../web/dist --project-name first-milion --branch main
+      # Records what was released. The push uses GITHUB_TOKEN, so it does not start another
+      # workflow. A branch rule on `main` must let `github-actions[bot]` push (bypass list).
+      - name: Commit the version to main
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          git checkout -- package.json
+          git fetch origin main
+          git checkout -B main origin/main
+          npm pkg set version="$VERSION"
+          if git diff --quiet -- package.json; then
+            echo "main already has version $VERSION"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(release): v$VERSION" -- package.json
+          git push origin main

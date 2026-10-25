@@ -1,6 +1,7 @@
 import { onAuthStateChanged, onIdTokenChanged, type User } from 'firebase/auth'
 import { reactive } from 'vue'
 import { notifyTokenChanged } from '../net/token-refresh'
+import { setAdmin } from './admin'
 import { auth } from './firebase'
 
 export type SessionStatus = 'loading' | 'out' | 'unverified' | 'verified'
@@ -46,6 +47,7 @@ function toSessionUser(user: User): SessionUser {
 /** Single place that turns an SDK user into session state (BP-001: out -> unverified -> verified). */
 export function setSessionFromUser(user: User | null): void {
   if (user === null) {
+    setAdmin(false)
     session.status = 'out'
     session.user = null
     return

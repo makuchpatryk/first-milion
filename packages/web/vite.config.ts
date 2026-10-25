@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import vue from '@vitejs/plugin-vue'
 import { loadEnv } from 'vite'
 import { defineConfig } from 'vitest/config'
@@ -9,8 +11,14 @@ export default defineConfig(({ mode }) => {
     throw new Error('VITE_FIREBASE_API_KEY is not set (see packages/web/.env.example)')
   }
 
+  // The deploy sets the root version to the tag before it builds (`.github/workflows/deploy.yml`).
+  const { version } = JSON.parse(
+    readFileSync(join(import.meta.dirname, '../../package.json'), 'utf8'),
+  ) as { version?: string }
+
   return {
     plugins: [vue()],
+    define: { __APP_VERSION__: JSON.stringify(version ?? '0.0.0') },
     build: {
       // NFR-005, NFR-004: no source maps in the shipped files; modern syntax only (no transpiling
       // of what every supported browser runs).

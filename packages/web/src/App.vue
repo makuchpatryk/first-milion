@@ -2,11 +2,13 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { isAdmin } from './auth/admin'
 import { session } from './auth/session'
 import ChipGroup from './components/ChipGroup.vue'
 import { useLocale } from './i18n'
 import { LOCALES } from './i18n/locale'
 import { backFor } from './router/back'
+import { APP_VERSION } from './version'
 
 const { t } = useI18n()
 const { locale, setLocale } = useLocale()
@@ -63,6 +65,7 @@ const verified = computed(() => session.status === 'verified')
     <main id="main" tabindex="-1">
       <RouterView />
     </main>
+    <footer v-if="isAdmin" class="version">v{{ APP_VERSION }}</footer>
   </div>
 </template>
 
@@ -179,6 +182,12 @@ const verified = computed(() => session.status === 'verified')
 
 main:focus {
   outline: none;
+}
+
+.version {
+  color: var(--muted);
+  font: 500 12px var(--font-data);
+  text-align: center;
 }
 
 /* Visible only when focused by keyboard, then jumps past the header controls (WCAG 2.4.1). */

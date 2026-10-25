@@ -1,5 +1,6 @@
 import type { RoomForm } from '@fm/shared/validation'
 import { getCurrentScope, onScopeDispose, ref, shallowRef } from 'vue'
+import { setAdmin } from '../auth/admin'
 import { openLobbySocket } from '../net/lobby-socket'
 import { unreachableSocket } from '../net/unreachable'
 import type { AppServerMessage, SocketHandle, SocketStatus } from '../net/ws-client'
@@ -30,6 +31,7 @@ export function useLobby(open: OpenLobby = openRuntimeLobby) {
 
   const socket = open({
     onMessage: (msg) => {
+      if (msg.type === 'auth.ok') setAdmin(msg.admin)
       state.value = reduceLobby(state.value, msg)
     },
     onStatus: (next, code) => {

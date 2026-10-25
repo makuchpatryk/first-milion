@@ -1,5 +1,6 @@
 import { DISCONNECT_GRACE_MS, type OrderQty } from '@fm/shared/rules'
 import { computed, getCurrentScope, onScopeDispose, ref, shallowRef } from 'vue'
+import { setAdmin } from '../auth/admin'
 import { openRoomSocket } from '../net/room-socket'
 import { unreachableSocket } from '../net/unreachable'
 import type { AppServerMessage, SocketHandle, SocketStatus } from '../net/ws-client'
@@ -67,6 +68,7 @@ export function useRoom(roomId: string, nick: string, options: RoomOptions = {})
 
   const socket = open({
     onMessage: (msg) => {
+      if (msg.type === 'auth.ok') setAdmin(msg.admin)
       state.value = reduceRoom(state.value, msg)
     },
     onStatus,
