@@ -28,7 +28,7 @@ import {
   type Speed,
 } from '@fm/shared/rules'
 import type { Handle, Timers } from '../timers'
-import { OrderRateLimit } from './rate-limit'
+import { SlidingWindowLimit } from '../rate-limit'
 import { rankSeats, reachedGoal, shownEquity, winnersAtTarget, winnersAtTime } from './ranking'
 import { assignRole, nextHost, uniqueNick, type Member } from './roster'
 import { eliminateSeat, settleSeat, startRound, stepRound, type Round, type Seat } from './round'
@@ -90,7 +90,7 @@ export class RoomLogic {
   private hostUid: string | null
   private emptyTimer: Handle | null = null
   private readonly disconnectTimers = new Map<string, Handle>()
-  private readonly rateLimits = new Map<string, OrderRateLimit>()
+  private readonly rateLimits = new Map<string, SlidingWindowLimit>()
   private disposed = false
   private creatorJoined = false
 
@@ -439,10 +439,10 @@ export class RoomLogic {
     return { seat, round }
   }
 
-  private rateLimitFor(uid: string): OrderRateLimit {
+  private rateLimitFor(uid: string): SlidingWindowLimit {
     let limit = this.rateLimits.get(uid)
     if (limit === undefined) {
-      limit = new OrderRateLimit(ORDER_RATE_PER_SEC, ORDER_RATE_WINDOW_MS)
+      limit = new SlidingWindowLimit(ORDER_RATE_PER_SEC, ORDER_RATE_WINDOW_MS)
       this.rateLimits.set(uid, limit)
     }
     return limit

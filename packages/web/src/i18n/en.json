@@ -240,7 +240,7 @@
     "kickBody": "{nick} will lose their place in the room. They can come back."
   },
   "error": {
-    "rateLimited": "Too many orders at once. Slow down for a moment.",
+    "rateLimited": "Too many requests at once. Slow down for a moment.",
     "eliminated": "You are eliminated. You can only watch.",
     "forbidden": "You are not allowed to do that.",
     "invalidState": "That action is not possible right now.",
@@ -253,7 +253,7 @@
     "authFailed": "Your session expired. Log in again.",
     "kicked": "An administrator removed you from the room.",
     "roomClosed": "An administrator closed the room.",
-    "replaced": "This room was opened in another tab or window, so this one was disconnected.",
+    "replaced": "The game was opened in another tab or window, so this one was disconnected.",
     "network": "Connection to the server was lost."
   },
   "news": {

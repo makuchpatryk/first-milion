@@ -1,9 +1,11 @@
 import { env } from 'cloudflare:workers'
 import { CLOSE_CODES } from '@fm/shared/protocol'
 import { MAX_FRAME_CHARS } from '@fm/shared/config'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { INTERNAL_ORIGIN, INTERNAL_PATHS } from '../../src/internal'
-import { TestSocket, createRoom, emulatorToken, validForm } from './helpers'
+import { TestSocket, closeAllRooms, createRoom, emulatorToken, validForm } from './helpers'
+
+afterEach(closeAllRooms)
 
 const lobby = (uid: string) => TestSocket.authed('/ws/lobby', uid)
 const roomSocket = (roomId: string, uid: string) => TestSocket.authed(`/ws/room/${roomId}`, uid)

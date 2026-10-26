@@ -1,10 +1,10 @@
 import { ORDER_RATE_PER_SEC, ORDER_RATE_WINDOW_MS } from '@fm/shared/rules'
 import { describe, expect, it } from 'vitest'
-import { OrderRateLimit } from '../../src/room/rate-limit'
+import { SlidingWindowLimit } from '../src/rate-limit'
 
-const limiter = () => new OrderRateLimit(ORDER_RATE_PER_SEC, ORDER_RATE_WINDOW_MS)
+const limiter = () => new SlidingWindowLimit(ORDER_RATE_PER_SEC, ORDER_RATE_WINDOW_MS)
 
-describe('OrderRateLimit (BR-018)', () => {
+describe('SlidingWindowLimit (BR-018)', () => {
   it('FR-012 AC: 10 attempts within 1 000 ms pass, the 11th is refused', () => {
     const limit = limiter()
     const results = Array.from({ length: 11 }, (_, i) => limit.attempt(i * 50))
@@ -26,6 +26,13 @@ describe('OrderRateLimit (BR-018)', () => {
     const limit = limiter()
     for (let t = 0; t < 2_000; t += 50) limit.attempt(t) // 40 attempts, 20 per second
     expect(limit.attempt(2_000)).toBe(false)
+  })
+
+  it('PRD §20 #49: a long flood is refused until one full window passes without attempts', () => {
+    const limit = limiter()
+    for (let i = 0; i < 1_000; i++) limit.attempt(i) // 1 000 attempts in 1 s
+    expect(limit.attempt(1_000)).toBe(false)
+    expect(limit.attempt(1_000 + ORDER_RATE_WINDOW_MS + 1)).toBe(true)
   })
 
   it('a steady 5 per second never trips the limit', () => {

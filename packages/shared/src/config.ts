@@ -42,5 +42,16 @@ export const JWKS_FALLBACK_TTL_MS = 3_600_000
 // up to 4,096 characters plus its envelope.
 export const MAX_FRAME_CHARS = 8_192
 
+// Abuse limits (security audit H1-H3, PRD §20 #49). Cost tunables for the free plan (NFR-002),
+// planning defaults until measured (ARCHITECTURE Open items 1).
+// Live rooms one host may own, and live rooms in total; both count rooms still being created.
+export const MAX_ROOMS_PER_HOST = 3
+export const MAX_ROOMS = 20
+// Frames per second one authenticated socket may send, whatever their type. Above it a frame gets
+// `RATE_LIMITED` and is dropped; the socket stays open (decision 41).
+export const FRAME_BUDGET_PER_SEC = 50
+// Sockets one Durable Object holds before their `auth`; the next upgrade is refused with 503.
+export const MAX_PENDING_SOCKETS = 100
+
 // Shock headlines are chosen by index; the texts themselves are i18n keys.
 export const SHOCK_TEXT_COUNT = 4

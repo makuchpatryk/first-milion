@@ -154,3 +154,16 @@ export async function createRoom(lobby: TestSocket): Promise<string> {
   lobby.send({ type: 'room.create', form: validForm })
   return (await lobby.next('room.created')).roomId
 }
+
+/**
+ * Closes every listed room as the admin. The Lobby may keep its rooms from one test to the next, and
+ * a host owns at most `MAX_ROOMS_PER_HOST` of them (PRD §20 #49), so a file that creates many rooms
+ * under one UID calls this after each test.
+ */
+export async function closeAllRooms(): Promise<void> {
+  const admin = await TestSocket.authed('/ws/lobby', ADMIN_UID)
+  const { rooms } = await admin.next('lobby.rooms')
+  for (const room of rooms) admin.send({ type: 'admin.closeRoom', roomId: room.id })
+  if (rooms.length > 0) await admin.nextWhere('lobby.rooms', (msg) => msg.rooms.length === 0, 5_000)
+  admin.close()
+}

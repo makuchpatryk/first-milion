@@ -240,7 +240,7 @@
     "kickBody": "{nick} straci miejsce w pokoju. Będzie mógł wrócić."
   },
   "error": {
-    "rateLimited": "Za dużo zleceń naraz. Zwolnij na chwilę.",
+    "rateLimited": "Za dużo żądań naraz. Zwolnij na chwilę.",
     "eliminated": "Jesteś wyeliminowany. Możesz tylko obserwować.",
     "forbidden": "Nie masz uprawnień do tej akcji.",
     "invalidState": "Tej akcji nie można teraz wykonać.",
@@ -253,7 +253,7 @@
     "authFailed": "Sesja wygasła. Zaloguj się ponownie.",
     "kicked": "Administrator usunął Cię z pokoju.",
     "roomClosed": "Administrator zamknął pokój.",
-    "replaced": "Pokój otwarto w innej karcie lub oknie, dlatego to okno zostało rozłączone.",
+    "replaced": "Grę otwarto w innej karcie lub oknie, dlatego to okno zostało rozłączone.",
     "network": "Utracono połączenie z serwerem."
   },
   "news": {
