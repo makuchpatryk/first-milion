@@ -1,5 +1,6 @@
 import type { Env } from './env'
 import { WS_PATH, lobbyStub } from './internal'
+import { ME_PATH, handleMe } from './me'
 import { isAllowedOrigin } from './origin'
 
 export { Lobby } from './lobby/lobby'
@@ -26,6 +27,7 @@ function resolveStub(pathname: string, env: Env): DurableObjectStub | null {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
+    if (url.pathname === ME_PATH) return handleMe(request, env)
     const stub = request.method === 'GET' ? resolveStub(url.pathname, env) : null
     if (stub === null) return notFound()
     if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {

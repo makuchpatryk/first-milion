@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('firebase/auth', () => ({ onAuthStateChanged: vi.fn() }))
 vi.mock('./auth/firebase', () => ({ auth: { currentUser: null } }))
+const syncAdmin = vi.hoisted(() => vi.fn(() => Promise.resolve()))
+vi.mock('./auth/admin-sync', () => ({ syncAdmin }))
 
 import { nextTick } from 'vue'
 import App from './App.vue'
@@ -18,6 +20,7 @@ beforeEach(() => {
   localStorage.clear()
   session.status = 'loading'
   session.user = null
+  syncAdmin.mockClear()
 })
 
 describe('App shell', () => {
@@ -96,14 +99,39 @@ describe('App navigation', () => {
 })
 
 describe('App version footer', () => {
-  it('shows the release version at the bottom to an admin only', async () => {
+  it('BR-017: asks the Worker for the admin flag once the user is verified, not before', async () => {
+    await mountWithApp(App)
+    expect(syncAdmin).not.toHaveBeenCalled()
+
+    session.status = 'unverified'
+    session.user = { uid: 'u1', nick: 'Ala', email: 'ala@example.com' }
+    await nextTick()
+    expect(syncAdmin).not.toHaveBeenCalled()
+
+    session.status = 'verified'
+    await nextTick()
+    expect(syncAdmin).toHaveBeenCalled()
+  })
+
+  it('shows the release version at the bottom to a signed-in admin only', async () => {
     const { wrapper } = await mountWithApp(App)
+    expect(wrapper.find('footer.version').exists()).toBe(false)
+
+    session.status = 'verified'
+    session.user = { uid: 'u1', nick: 'Ala', email: 'ala@example.com' }
+    await nextTick()
     expect(wrapper.find('footer.version').exists()).toBe(false)
 
     setAdmin(true)
     await nextTick()
     expect(wrapper.find('footer.version').text()).toBe(`v${APP_VERSION}`)
 
+    session.status = 'unverified'
+    await nextTick()
+    expect(wrapper.find('footer.version').text()).toBe(`v${APP_VERSION}`)
+
+    session.status = 'out'
+    session.user = null
     setAdmin(false)
     await nextTick()
     expect(wrapper.find('footer.version').exists()).toBe(false)

@@ -1,7 +1,6 @@
 import { parseClientMessage, type ClientMessage, type ServerMessage } from '@fm/shared/protocol'
 import { AuthGate, type Session } from './auth/auth-gate'
-import { fetchFirebaseJwks } from './auth/jwks'
-import { createTokenVerifier } from './auth/verify-token'
+import { createVerifier } from './auth/verifier'
 import { parseEnv, type Env } from './env'
 import { runtimeTimers } from './timers'
 
@@ -44,12 +43,7 @@ export const NORMAL_CLOSURE = 1000
  */
 export function createSocketAcceptor(env: Env): SocketAcceptor {
   const config = parseEnv(env)
-  const verify = createTokenVerifier({
-    projectId: config.projectId,
-    emulator: config.emulator,
-    fetchJwks: fetchFirebaseJwks,
-    now: () => Date.now(),
-  })
+  const verify = createVerifier(config)
   const isAdmin = (uid: string) => config.adminUids.has(uid)
 
   function accept(handlers: SocketHandlers): Response {

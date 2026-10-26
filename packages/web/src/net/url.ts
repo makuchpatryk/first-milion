@@ -22,3 +22,5 @@ export function socketUrl(base: string, path: string): string {
 export const lobbyPath = (): string => '/ws/lobby'
 
 export const roomPath = (roomId: string): string => `/ws/room/${encodeURIComponent(roomId)}`
+
+export const mePath = (): string => '/api/me'

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { isAdmin } from './auth/admin'
+import { syncAdmin } from './auth/admin-sync'
 import { session } from './auth/session'
 import ChipGroup from './components/ChipGroup.vue'
 import { useLocale } from './i18n'
@@ -18,6 +19,16 @@ const back = computed(() => backFor(route.path, session.status))
 // Settings (which hold the language) exist only for a verified user; everyone else switches the
 // language in the bar.
 const verified = computed(() => session.status === 'verified')
+// The release version shows on every page, for admins who are signed in.
+const signedIn = computed(() => session.user !== null)
+// No game socket on most pages, so ask the Worker once the user is verified (BR-017).
+watch(
+  () => (session.status === 'verified' ? session.user?.uid : undefined),
+  (uid) => {
+    if (uid !== undefined) void syncAdmin()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -65,7 +76,7 @@ const verified = computed(() => session.status === 'verified')
     <main id="main" tabindex="-1">
       <RouterView />
     </main>
-    <footer v-if="isAdmin" class="version">v{{ APP_VERSION }}</footer>
+    <footer v-if="isAdmin && signedIn" class="version">v{{ APP_VERSION }}</footer>
   </div>
 </template>
 
