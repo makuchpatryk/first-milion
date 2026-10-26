@@ -130,3 +130,22 @@ describe('the token travels in the first message only (FR-007, NFR-004)', () => 
     expect(offenders).toEqual([])
   })
 })
+
+describe('the abuse limits cannot be bypassed (PRD §20 #49)', () => {
+  const SRC = join(import.meta.dirname, '..', 'src')
+  const stripComments = (code: string) =>
+    code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+
+  it('only socket.ts creates a WebSocket, so every Durable Object has the pending cap and the frame budget', () => {
+    const offenders = readdirSync(SRC, { recursive: true, encoding: 'utf8' })
+      .filter((file) => file.endsWith('.ts') && file !== 'socket.ts')
+      .filter((file) => /\bWebSocketPair\b/.test(stripComments(readFileSync(join(SRC, file), 'utf8'))))
+    expect(offenders).toEqual([])
+  })
+
+  it('socket.ts applies both limits', () => {
+    const code = stripComments(readFileSync(join(SRC, 'socket.ts'), 'utf8'))
+    expect(code).toMatch(/\bMAX_PENDING_SOCKETS\b/)
+    expect(code).toMatch(/\bFRAME_BUDGET_PER_SEC\b/)
+  })
+})

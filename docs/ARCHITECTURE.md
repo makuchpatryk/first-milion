@@ -1,6 +1,6 @@
 # First Million — Architecture
 
-**Based on:** [PRD v1.3](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** M1 done (`shared` engine); M2 done (`web`: auth, router, i18n, single play; Pages deploy in M6); M3 done (`worker`: auth gate, `Lobby`, `Room` lifecycle, protocol); M4 done in code (`worker`: round engine in `Room`); M5 done in code (`web`: multiplayer screens, socket client, admin UI); M6 checks written (`e2e/`, bundle and config checks, CI and deploy workflows), heavy runs and the release pending
+**Based on:** [PRD v1.4](PRD.md) | **Code rules:** [CODE_QUALITY.md](CODE_QUALITY.md) | **Status:** M1 done (`shared` engine); M2 done (`web`: auth, router, i18n, single play; Pages deploy in M6); M3 done (`worker`: auth gate, `Lobby`, `Room` lifecycle, protocol); M4 done in code (`worker`: round engine in `Room`); M5 done in code (`web`: multiplayer screens, socket client, admin UI); M6 checks written (`e2e/`, bundle and config checks, CI and deploy workflows), heavy runs and the release pending
 
 ## Drivers
 
@@ -15,8 +15,8 @@
 
 ```
 packages/shared   pure TS: rules.ts (BR-003 values), config.ts (tunables), engine/, protocol/ (zod), validation.ts
-packages/worker   index.ts (Origin, routing, WS upgrade), env.ts, origin.ts, socket.ts (shared WS plumbing of both DO shells), internal.ts (Lobby↔Room request bodies), timers.ts,
-                  auth/ (verify-token.ts, jwks.ts, auth-gate.ts), lobby/ (lobby.ts DO shell + lobby-logic.ts), room/ (room.ts DO shell + room-logic.ts + roster.ts + round.ts, ranking.ts, rate-limit.ts)
+packages/worker   index.ts (Origin, routing, WS upgrade), env.ts, origin.ts, socket.ts (shared WS plumbing of both DO shells), rate-limit.ts (sliding window, PRD §20 #49), internal.ts (Lobby↔Room request bodies), timers.ts,
+                  auth/ (verify-token.ts, jwks.ts, auth-gate.ts), lobby/ (lobby.ts DO shell + lobby-logic.ts), room/ (room.ts DO shell + room-logic.ts + roster.ts + round.ts, ranking.ts)
 packages/web      Vue 3 (src/): auth/ (Firebase), net/ (the only WebSocket code: url.ts, ws-client.ts typed socket with backoff reconnect and token re-auth, lobby-socket.ts, room-socket.ts, token-refresh.ts),
                   room/ (pure state: lobby-state.ts reduceLobby + joinPolicy, room-state.ts reduceRoom + canTrade, error-map.ts, create-form.ts, countdown.ts), composables/ (use-lobby.ts, use-room.ts: socket → reducer → shallowRef),
                   router/, single/, views/ (Rooms, CreateRoom, Room), components/ (Canvas chart, LobbyPanel, RoundPanel, ResultsDialog, ModalDialog), i18n/, styles/
@@ -41,7 +41,8 @@ Dependency rules:
 - **Memory only**: ordinary WebSockets + in-memory timers in `Room` and `Lobby`; no hibernation, storage or alarms (guard test `worker/test/no-storage.test.ts`).
 - **Auth**: ID token in first `auth` message (never URL), within 5 s; RS256 via WebCrypto + cached JWKS, `email_verified`; `Origin` allowlist; admin UID checked on every admin action.
 - **Privacy**: broadcasts carry nickname and numbers only; no email, UID or token.
-- **One socket per user per room, newest wins** (PRD §20 #47): `Room.onAuthed` maps the UID to the new socket and closes the old one with 4409; `onClose` ignores a socket that is not the mapped one, so a replaced socket is not a leave.
+- **One socket per user per room, newest wins** (PRD §20 #47): `Room.onAuthed` maps the UID to the new socket and closes the old one with 4409; `onClose` ignores a socket that is not the mapped one, so a replaced socket is not a leave. The `Lobby` does the same for its list socket (PRD §20 #49).
+- **Abuse limits** (PRD §20 #49), memory only, tunables in `shared/config.ts`: `LobbyLogic.reserve` caps rooms per host and in total before a Room is initialised (`RATE_LIMITED`, socket kept); `worker/socket.ts` gives every authenticated socket a frame budget (`RATE_LIMITED`, socket kept, decision 41) and refuses an upgrade with 503 when a Durable Object already holds `MAX_PENDING_SOCKETS` sockets without `auth`. Only `socket.ts` creates sockets (guard in `worker/test/security.test.ts`). The window class is `worker/rate-limit.ts`, shared by the order limit and the frame budget.
 - **Client keepalive** (PRD §20 #48): `ping`/`pong` is answered in `worker/socket.ts` for both DOs and never reaches `RoomLogic` or the rate limit; `web/net/ws-client.ts` pings every 25 s and reconnects when no `pong` comes within 10 s. No server-side idle reaping.
 
 States: room `lobby → running → lobby`, deleted after 5 min empty or admin close. Player `active → disconnected (≤ 30 s) → active | eliminated`; `active → eliminated` at equity ≤ 0; an eliminated player keeps a watch-only seat until the next start (PRD §20 #38). In the lobby, seats and observers can be `disconnected` too (30 s grace, then removed); the host role moves at grace expiry or on an explicit leave, to the next connected member (PRD §20 #46).
@@ -75,7 +76,7 @@ Server replies with a code, never text or a thrown exception; `web/i18n` maps co
 
 ## Open items
 
-1. Free-plan cost of per-tick broadcasts (12.5 msg/s per socket). Not measurable before a real deployment; measured in the release step (accounts later, PRD §20 #36). Plan: after one day with 4 rooms × 4 players, read the Cloudflare dashboard for (a) Durable Object duration, free limit 13,000 GB-s/day (a Durable Object alive for a day at 128 MB is about 11,000 GB-s, so the `Lobby` and the rooms must be evicted when nobody is connected), (b) Durable Object requests (incoming WebSocket messages count at 20:1; outgoing ticks are not billed requests), (c) Worker requests. Re-check the current free-plan numbers first. If duration is the problem, in order: shorter `EMPTY_ROOM_TTL_MS`, a limit of rooms per host, hibernation for a `Room` in the lobby state (its own design). Record the measured values here.
+1. Free-plan cost of per-tick broadcasts (12.5 msg/s per socket). Not measurable before a real deployment; measured in the release step (accounts later, PRD §20 #36). Plan: after one day with 4 rooms × 4 players, read the Cloudflare dashboard for (a) Durable Object duration, free limit 13,000 GB-s/day (a Durable Object alive for a day at 128 MB is about 11,000 GB-s, so the `Lobby` and the rooms must be evicted when nobody is connected), (b) Durable Object requests (incoming WebSocket messages count at 20:1; outgoing ticks are not billed requests), (c) Worker requests. Re-check the current free-plan numbers first. If duration is the problem, in order: shorter `EMPTY_ROOM_TTL_MS`, lower `MAX_ROOMS_PER_HOST` / `MAX_ROOMS` (the caps exist since PRD §20 #49: 3 per host, 20 in total, planning defaults), hibernation for a `Room` in the lobby state (its own design). Frames over the frame budget still arrive and are billed as incoming messages: the budget bounds processing and `register` fan-out, not billing; only a disconnect stops billing, and decision 41 excludes it. Record the measured values here.
 2. ~~Tick drift~~ Resolved: fixed `speed` steps per interval (PRD §20 #33).
 3. ~~Money rounding rule~~ Resolved: raw float in the engine, `Intl` in the UI (PRD §20 #34).
 4. ~~Firebase in dev/e2e~~ Resolved: Auth emulator (PRD §20 #35).

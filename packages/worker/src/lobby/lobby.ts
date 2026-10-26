@@ -1,4 +1,4 @@
-import { roomSummarySchema } from '@fm/shared/protocol'
+import { CLOSE_CODES, roomSummarySchema } from '@fm/shared/protocol'
 import type { RoomForm } from '@fm/shared/validation'
 import type { Env } from '../env'
 import { INTERNAL_PATHS, WS_PATH, deregisterBodySchema, postJson } from '../internal'
@@ -13,7 +13,8 @@ import { LobbyLogic } from './lobby-logic'
  */
 export class Lobby implements DurableObject {
   private readonly logic: LobbyLogic
-  private readonly subscribers = new Set<Connection>()
+  /** The one socket that listens for a user: the newest one (decision 47, PRD §20 #49). */
+  private readonly subscribers = new Map<string, Connection>()
   private readonly acceptor: SocketAcceptor
 
   constructor(
@@ -25,7 +26,7 @@ export class Lobby implements DurableObject {
       ...runtimeTimers,
       now: () => Date.now(),
       broadcast: (rooms) => {
-        for (const conn of this.subscribers) conn.send({ type: 'lobby.rooms', rooms })
+        for (const conn of this.subscribers.values()) conn.send({ type: 'lobby.rooms', rooms })
       },
     })
   }
@@ -59,8 +60,12 @@ export class Lobby implements DurableObject {
 
   private handleSocket(): Response {
     return this.acceptor.accept({
-      onAuthed: (_session, conn) => {
-        this.subscribers.add(conn)
+      onAuthed: (session, conn) => {
+        const previous = this.subscribers.get(session.uid)
+        this.subscribers.set(session.uid, conn)
+        // Newest wins, as in a Room: one user cannot hold many lobby sockets. `onClose` ignores
+        // the replaced socket.
+        if (previous !== undefined && previous !== conn) previous.close(CLOSE_CODES.REPLACED)
         conn.send({ type: 'lobby.rooms', rooms: this.logic.list() })
       },
       onMessage: (session, conn, msg) => {
@@ -84,24 +89,37 @@ export class Lobby implements DurableObject {
             assertNever(msg)
         }
       },
-      onClose: (_session, conn) => {
-        this.subscribers.delete(conn)
+      onClose: (session, conn) => {
+        if (session !== null && this.subscribers.get(session.uid) === conn) {
+          this.subscribers.delete(session.uid)
+        }
       },
     })
   }
 
   /** FR-009: the Lobby mints the id and initialises the Room before answering. */
   private async createRoom(hostUid: string, form: RoomForm, conn: Connection): Promise<void> {
+    const id = this.env.ROOM.newUniqueId()
+    const roomId = id.toString()
+    // PRD §20 #49: the slot is taken before the first `await`, so two creates sent together cannot
+    // both pass the cap. A refusal does not close the socket (decision 41).
+    if (!this.logic.reserve(roomId, hostUid)) {
+      conn.send({ type: 'error', code: 'RATE_LIMITED' })
+      return
+    }
     try {
-      const id = this.env.ROOM.newUniqueId()
-      const roomId = id.toString()
       const response = await this.env.ROOM.get(id).fetch(
         postJson(INTERNAL_PATHS.init, { id: roomId, form, hostUid }),
       )
-      conn.send(response.ok ? { type: 'room.created', roomId } : { type: 'error', code: 'INVALID_STATE' })
+      if (response.ok) {
+        conn.send({ type: 'room.created', roomId })
+        return
+      }
     } catch {
-      conn.send({ type: 'error', code: 'INVALID_STATE' })
+      // Handled below, like a refused init.
     }
+    this.logic.release(roomId)
+    conn.send({ type: 'error', code: 'INVALID_STATE' })
   }
 
   /** FR-017: admin only; the Room checks the UID again and deregisters itself. */

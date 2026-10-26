@@ -1,7 +1,9 @@
 import { env } from 'cloudflare:workers'
 import { CLOSE_CODES } from '@fm/shared/protocol'
-import { describe, expect, it } from 'vitest'
-import { TestSocket, createRoom, validForm } from './helpers'
+import { afterEach, describe, expect, it } from 'vitest'
+import { TestSocket, closeAllRooms, createRoom, validForm } from './helpers'
+
+afterEach(closeAllRooms)
 
 const lobby = (uid: string) => TestSocket.authed('/ws/lobby', uid)
 const roomSocket = (roomId: string, uid: string) => TestSocket.authed(`/ws/room/${roomId}`, uid)

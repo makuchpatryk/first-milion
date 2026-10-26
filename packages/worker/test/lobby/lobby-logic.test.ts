@@ -1,4 +1,10 @@
-import { HEARTBEAT_MS, LOBBY_SWEEP_MS, STALE_AFTER_MS } from '@fm/shared/config'
+import {
+  HEARTBEAT_MS,
+  LOBBY_SWEEP_MS,
+  MAX_ROOMS,
+  MAX_ROOMS_PER_HOST,
+  STALE_AFTER_MS,
+} from '@fm/shared/config'
 import type { RoomSummary } from '@fm/shared/protocol'
 import { describe, expect, it } from 'vitest'
 import { LobbyLogic } from '../../src/lobby/lobby-logic'
@@ -139,5 +145,82 @@ describe('LobbyLogic', () => {
     lobby.register(summary('a'))
     expect(lobby.has('a')).toBe(true)
     expect(clock.pendingCount).toBe(1)
+  })
+})
+
+describe('LobbyLogic room caps (PRD §20 #49)', () => {
+  const reserveMany = (lobby: LobbyLogic, host: string, count: number, prefix = host) =>
+    Array.from({ length: count }, (_, i) => lobby.reserve(`${prefix}-${i}`, host))
+
+  it('NFR-002: a host gets MAX_ROOMS_PER_HOST rooms, the next is refused, another host is not affected', () => {
+    const { lobby } = setup()
+    expect(reserveMany(lobby, 'host-a', MAX_ROOMS_PER_HOST)).toEqual(
+      Array(MAX_ROOMS_PER_HOST).fill(true),
+    )
+    expect(lobby.reserve('host-a-extra', 'host-a')).toBe(false)
+    expect(lobby.reserve('host-b-0', 'host-b')).toBe(true)
+  })
+
+  it('NFR-002: at MAX_ROOMS rooms in total every host is refused', () => {
+    const { lobby } = setup()
+    for (let i = 0; i < MAX_ROOMS; i++) expect(lobby.reserve(`room-${i}`, `host-${i}`)).toBe(true)
+    expect(lobby.reserve('one-too-many', 'fresh-host')).toBe(false)
+  })
+
+  it('NFR-002: rooms listed without an owner count toward the total', () => {
+    const { lobby } = setup()
+    for (let i = 0; i < MAX_ROOMS; i++) lobby.register(summary(`listed-${i}`))
+    expect(lobby.reserve('one-too-many', 'fresh-host')).toBe(false)
+  })
+
+  it('release gives the slot back, as when the Room could not be initialised', () => {
+    const { lobby } = setup()
+    reserveMany(lobby, 'host-a', MAX_ROOMS_PER_HOST)
+    lobby.release('host-a-0')
+    expect(lobby.reserve('host-a-new', 'host-a')).toBe(true)
+  })
+
+  it('a room that deregisters frees its host slot', () => {
+    const { lobby } = setup()
+    reserveMany(lobby, 'host-a', MAX_ROOMS_PER_HOST)
+    lobby.register(summary('host-a-0'))
+    lobby.remove('host-a-0')
+    expect(lobby.reserve('host-a-new', 'host-a')).toBe(true)
+  })
+
+  it('a reservation is released by the sweep when its Room never registered, not before', () => {
+    const { clock, lobby } = setup()
+    reserveMany(lobby, 'host-a', MAX_ROOMS_PER_HOST)
+    clock.advance(STALE_AFTER_MS)
+    expect(lobby.reserve('host-a-new', 'host-a')).toBe(false) // exactly 90 s is not over the limit
+    clock.advance(LOBBY_SWEEP_MS)
+    expect(lobby.reserve('host-a-new', 'host-a')).toBe(true)
+  })
+
+  it('a heartbeating room keeps its owner through the sweeps', () => {
+    const { clock, lobby } = setup()
+    reserveMany(lobby, 'host-a', MAX_ROOMS_PER_HOST)
+    for (let i = 0; i < 10; i++) {
+      clock.advance(HEARTBEAT_MS)
+      for (let r = 0; r < MAX_ROOMS_PER_HOST; r++) lobby.register(summary(`host-a-${r}`))
+    }
+    expect(lobby.reserve('host-a-new', 'host-a')).toBe(false)
+  })
+
+  it('a swept stale room frees its host slot', () => {
+    const { clock, lobby } = setup()
+    reserveMany(lobby, 'host-a', MAX_ROOMS_PER_HOST)
+    for (let r = 0; r < MAX_ROOMS_PER_HOST; r++) lobby.register(summary(`host-a-${r}`))
+    clock.advance(STALE_AFTER_MS + LOBBY_SWEEP_MS)
+    expect(lobby.reserve('host-a-new', 'host-a')).toBe(true)
+  })
+
+  it('ARCH: a reservation arms the sweep timer, and releasing the last one stops it', () => {
+    const { clock, lobby } = setup()
+    expect(clock.pendingCount).toBe(0)
+    lobby.reserve('a', 'host-a')
+    expect(clock.pendingCount).toBe(1)
+    lobby.release('a')
+    expect(clock.pendingCount).toBe(0)
   })
 })
